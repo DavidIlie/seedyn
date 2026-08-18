@@ -14,7 +14,9 @@ concurrency:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    # Keep untrusted fork code off the private runner; first-party work uses the
+    # same x64 autoscaling runner as the other DavidApps projects.
+    runs-on: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork && 'ubuntu-24.04' || 'davidapps-ubuntu' }}
     timeout-minutes: 35
     services:
       postgres:

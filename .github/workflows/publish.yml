@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   image:
-    runs-on: ubuntu-latest
+    runs-on: davidapps-ubuntu
     timeout-minutes: 35
     env:
       IMAGE: ghcr.io/davidilie/seedyn
