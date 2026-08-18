@@ -59,6 +59,7 @@ jobs:
       MINIO_BUCKET: seedyn-ci
       SEEDYN_DEV_AUTH: true
       SEEDYN_DEV_AUTH_EMAIL: david@davidilie.com
+      E2E_REUSE_EXISTING_SERVER: true
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4

@@ -4,6 +4,8 @@ import { defineConfig, devices } from "@playwright/test";
 const { loadEnvConfig } = nextEnv;
 loadEnvConfig(process.cwd());
 const production = process.env.E2E_PRODUCTION === "true";
+const reuseDevelopmentServer =
+  process.env.E2E_REUSE_EXISTING_SERVER === "true" || !process.env.CI;
 const port = production ? 3101 : 3000;
 
 export default defineConfig({
@@ -36,7 +38,7 @@ export default defineConfig({
   webServer: {
     command: production ? "pnpm build && pnpm start:standalone" : "pnpm dev",
     url: `http://seedyn.localhost:${port}/api/healthz`,
-    reuseExistingServer: production ? false : !process.env.CI,
+    reuseExistingServer: production ? false : reuseDevelopmentServer,
     timeout: 120_000,
   },
 });
