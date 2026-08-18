@@ -15,6 +15,7 @@
     "db:seed": "NODE_ENV=${NODE_ENV:-development} NODE_OPTIONS=--conditions=react-server tsx scripts/run-with-next-env.ts prisma/seed.ts",
     "db:studio": "NODE_ENV=${NODE_ENV:-development} node scripts/run-command-with-next-env.mjs prisma studio",
     "dev": "node scripts/dev.mjs",
+    "docs:generate": "fumadocs-mdx",
     "format:check": "prettier --check . --cache",
     "format:write": "prettier --write . --cache",
     "lint": "oxlint --type-aware --deny-warnings --report-unused-disable-directives .",
@@ -31,7 +32,7 @@
     "test:e2e:production": "E2E_PRODUCTION=true SEEDYN_BUILD_INSTANT_TESTING=true PORT=3101 APP_URL=http://seedyn.localhost:3101 CDN_URL=http://i.localhost:3101 APP_HOSTS=seedyn.localhost,localhost MEDIA_HOSTS=i.localhost AUTH_SECRET=seedyn-e2e-production-auth-secret AUTH_DAVIDAPPS_ID=seedyn-e2e-client AUTH_DAVIDAPPS_SECRET=seedyn-e2e-client-secret SEEDYN_DEV_AUTH=false TRUSTED_PROXY_HOPS=1 playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:integration": "NODE_ENV=development NODE_OPTIONS=--conditions=react-server tsx scripts/run-with-next-env.ts scripts/integration-smoke.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "pnpm docs:generate && tsc --noEmit"
   },
   "dependencies": {
     "@auth/prisma-adapter": "2.11.3",
