@@ -56,11 +56,11 @@ Date: **2026-08-18**
   formatting, static checks, integration, development/production browser tests,
   and a container build. A separate least-privilege workflow publishes immutable
   `master-<sha>-<timestamp>` and `latest` images to GHCR for Flux automation.
-- The prepared home-cluster commit `d9a4a229b2cafddc06a51d47fe8bdcb15d08597f`
-  (parent `bf1f99fbe71ab3d17bd079db49c50c1a290653d4`) adds one `default`
-  namespace workload for both hosts, existing PostgreSQL/Dragonfly/central
-  MinIO integration, migrations, probes, SOPS, Gatus, Homepage, and Flux image
-  automation. It is intentionally local, unpushed, and unapplied.
+- The prepared local `codex/seedyn-deploy` home-cluster branch adds one
+  `default` namespace workload for both hosts, existing
+  PostgreSQL/Dragonfly/central MinIO integration, migrations, probes, SOPS,
+  Gatus, Homepage, and Flux image automation. It is intentionally unpushed and
+  unapplied; the redacted handoff receipt carries its exact commit and parent.
 
 ## Local acceptance evidence
 
