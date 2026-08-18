@@ -91,6 +91,22 @@ jobs:
           pnpm db:migrate
           pnpm db:seed
 
+      - name: Start development server
+        run: |
+          nohup pnpm dev > "$RUNNER_TEMP/seedyn-dev.log" 2>&1 &
+          for attempt in {1..60}; do
+            if curl --fail --silent --max-time 2 \
+              --header 'Host: seedyn.localhost:3000' \
+              http://127.0.0.1:3000/api/healthz >/dev/null; then
+              exit 0
+            fi
+            if [ "$attempt" = 60 ]; then
+              tail -n 200 "$RUNNER_TEMP/seedyn-dev.log"
+              exit 1
+            fi
+            sleep 1
+          done
+
       - run: pnpm format:check
       - run: pnpm check
       - run: pnpm test:integration
