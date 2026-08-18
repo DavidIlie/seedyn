@@ -31,12 +31,10 @@ export const NAV_DESTINATIONS = [
 
 export function PrimaryNav({
   segment,
-  signOut,
   disclosureRef,
 }: {
   /** `null` before the current route is known, and on routes with no entry. */
   segment: string | null;
-  signOut: React.ReactNode;
   disclosureRef?: React.Ref<HTMLDetailsElement>;
 }) {
   return (
@@ -69,7 +67,8 @@ export function PrimaryNav({
       <details ref={disclosureRef} className="relative lg:hidden">
         <summary className="border-border bg-panel flex h-11 cursor-pointer list-none items-center gap-2 rounded-lg border px-3 text-sm [&::-webkit-details-marker]:hidden">
           <NavGlyph name="library" />
-          Browse
+          <span className="hidden min-[360px]:inline">Browse</span>
+          <span className="sr-only min-[360px]:hidden">Browse</span>
         </summary>
         <nav
           aria-label="Primary"
@@ -96,7 +95,6 @@ export function PrimaryNav({
                 </li>
               );
             })}
-            <li className="border-border mt-1 border-t pt-1">{signOut}</li>
           </ul>
         </nav>
       </details>

@@ -1,7 +1,10 @@
 import { connection } from "next/server";
 
 import { UploadAction } from "~/components/upload/upload-action";
+import { getOptionalUser } from "~/server/auth";
 
+import { AccountMenu } from "./account-menu";
+import { AccountMenuPlaceholder } from "./account-menu-placeholder";
 import { CurrentRouteNav } from "./current-route-nav";
 import { SignOutForm } from "./sign-out-form";
 
@@ -12,12 +15,20 @@ import { SignOutForm } from "./sign-out-form";
  */
 export async function ActionBearingHeader() {
   await connection();
+  const user = await getOptionalUser();
 
   return (
     <>
-      <CurrentRouteNav signOut={<SignOutForm />} />
+      <CurrentRouteNav />
       <UploadAction className="lg:ml-auto" />
-      <SignOutForm className="hidden lg:block" />
+      {user ? (
+        <AccountMenu
+          identity={{ name: user.name ?? null, email: user.email ?? null }}
+          signOut={<SignOutForm />}
+        />
+      ) : (
+        <AccountMenuPlaceholder />
+      )}
     </>
   );
 }

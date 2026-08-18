@@ -47,7 +47,7 @@ export function SeedynLogo({
       className={`group inline-flex items-center gap-2 ${className}`}
     >
       <SeedynMark className="text-accent size-7 shrink-0 transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] group-active:scale-[0.96] motion-reduce:transform-none" />
-      <span className="font-display hidden text-[15px] font-semibold tracking-[-0.025em] min-[360px]:inline">
+      <span className="font-display hidden text-[15px] font-semibold tracking-[-0.025em] min-[480px]:inline lg:inline">
         Seedyn
       </span>
     </Link>

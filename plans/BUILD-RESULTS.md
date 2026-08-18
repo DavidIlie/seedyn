@@ -30,8 +30,9 @@ Date: **2026-08-18**
 - The application now has its own “Blue Port” identity: a custom object-to-link
   mark, Onest/Geologica/Azeret typography, cool neutral surfaces, true cobalt
   actions, literal Library-first information architecture, an explanatory
-  split sign-in surface, and a compact progressive upload dialog. It was
-  verified at narrow and wide widths in both color schemes.
+  split sign-in surface, a compact progressive upload dialog, and an account
+  menu that shows the current identity alongside account destinations and
+  sign-out. It was verified at narrow and wide widths in both color schemes.
 - Cache Components, PPR, Partial Prefetching, shared Server Component shells,
   and Next's `instant()` assertions cover sign-in, every primary destination,
   and upload detail navigation.

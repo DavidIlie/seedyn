@@ -160,6 +160,36 @@ test("the sign-in and authenticated library shells are instant", async ({
 
   await signIn(page);
 
+  const accountTrigger = page.locator(
+    "summary:visible[aria-label^='Account menu for']",
+  );
+  await expect(accountTrigger).toBeVisible();
+  await accountTrigger.click();
+
+  const accountMenu = page.getByRole("group", { name: "Account" });
+  await expect(accountMenu).toBeVisible();
+  await expect(accountMenu.getByText("Signed in as")).toBeVisible();
+  await expect(
+    accountMenu.getByText(
+      process.env.E2E_PRODUCTION === "true"
+        ? "Seedyn E2E"
+        : "Seedyn local developer",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(
+    accountMenu.getByRole("link", { name: "API keys", exact: true }),
+  ).toHaveAttribute("href", "/api-keys");
+  await expect(
+    accountMenu.getByRole("link", { name: "Documentation", exact: true }),
+  ).toHaveAttribute("href", "/docs");
+  await expect(
+    accountMenu.getByRole("button", { name: "Sign out", exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(accountMenu).toBeHidden();
+  await expect(accountTrigger).toBeFocused();
+
   for (const destination of [
     { label: "Images", path: "/images", heading: "Images" },
     { label: "Files", path: "/files", heading: "Files" },
@@ -209,6 +239,9 @@ test("the sign-in and authenticated library shells are instant", async ({
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Upload", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.locator("summary:visible[aria-label^='Account menu for']"),
   ).toBeVisible();
   expect(
     await page.evaluate(

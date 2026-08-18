@@ -33,7 +33,7 @@ Wide layout:
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────┐
-│  Seedyn         Library Images  Files  Texts  API Keys  Docs  Upload  Sign out │
+│  Seedyn         Library Images  Files  Texts  API Keys  Docs  Upload  [D] │
 ├──────────────────────────────────────────────────────────────────────┤
 │                                                                      │
 │  page content                                                        │
@@ -45,12 +45,15 @@ Wide layout:
 - the port mark and wordmark are one consistent product identity;
 - active links use a compact blue-tinted location surface plus `aria-current`;
 - Upload stays in the same command-bar position on every product route.
+- the fixed-size account avatar streams into the static header shell without a
+  layout shift; its menu identifies the signed-in person, links to API keys and
+  documentation, and owns the sign-out action.
 
 Narrow layout:
 
 ```text
 ┌──────────────────────────┐
-│ Seedyn          Browse Upload │
+│ Seedyn          Browse Upload [D] │
 ├──────────────────────────┤
 │ page title               │
 │ content / rows           │

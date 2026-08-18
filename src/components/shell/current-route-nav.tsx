@@ -19,7 +19,7 @@ import { PrimaryNav } from "./primary-nav";
  * already knows the segment, so the hook resolves synchronously and no fallback
  * is shown.
  */
-export function CurrentRouteNav({ signOut }: { signOut: React.ReactNode }) {
+export function CurrentRouteNav() {
   const segment = useSelectedLayoutSegment();
   const disclosure = useRef<HTMLDetailsElement>(null);
 
@@ -31,11 +31,5 @@ export function CurrentRouteNav({ signOut }: { signOut: React.ReactNode }) {
     if (disclosure.current) disclosure.current.open = false;
   }, [segment]);
 
-  return (
-    <PrimaryNav
-      segment={segment}
-      signOut={signOut}
-      disclosureRef={disclosure}
-    />
-  );
+  return <PrimaryNav segment={segment} disclosureRef={disclosure} />;
 }

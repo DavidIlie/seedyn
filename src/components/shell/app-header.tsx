@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 
 import { SeedynLogo } from "~/components/brand/seedyn-logo";
+import { AccountMenuPlaceholder } from "./account-menu-placeholder";
 import { ActionBearingHeader } from "./action-bearing-header";
 import { PrimaryNav } from "./primary-nav";
 
@@ -28,9 +29,9 @@ export function AppHeader() {
           <Suspense
             fallback={
               <>
-                <PrimaryNav segment={null} signOut={<SignOutPlaceholder />} />
+                <PrimaryNav segment={null} />
                 <UploadActionFallback />
-                <SignOutPlaceholder className="hidden lg:flex" />
+                <AccountMenuPlaceholder />
               </>
             }
           >
@@ -61,17 +62,6 @@ function UploadActionFallback() {
         <path d="M8 11V2.75M4.75 6 8 2.75 11.25 6M2.5 10.5v2.75h11V10.5" />
       </svg>
       Upload
-    </span>
-  );
-}
-
-function SignOutPlaceholder({ className = "" }: { className?: string }) {
-  return (
-    <span
-      aria-hidden="true"
-      className={`text-muted-foreground h-11 w-full items-center px-3 text-sm md:h-10 md:w-auto md:px-2 ${className || "flex"}`}
-    >
-      Sign out
     </span>
   );
 }
