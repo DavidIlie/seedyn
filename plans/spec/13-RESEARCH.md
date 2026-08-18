@@ -48,7 +48,10 @@ Reference for:
 - MCP availability and invite policy;
 - concise dashboard navigation and planning/build prompt conventions.
 
-No DavidApps resource was provisioned during this planning pass.
+No DavidApps resource was provisioned during the original research pass. The
+implementation phase subsequently registered the invite-only Seedyn OIDC app,
+granted David its signed admin role, and delivered the one-time secret through
+the approved encrypted sink workflow described in the security specification.
 
 ### `~/dev/zerocut`
 

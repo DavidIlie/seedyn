@@ -156,8 +156,9 @@ the invite policy; Seedyn does not grow a second invitation system.
 
 The invite-only DavidApps OIDC application is provisioned for
 `seedyn.dave.tips` and `seedyn.localhost:3000`. David resolves to its signed
-`admin` application role. The secret output remains an opaque reference until
-the approved non-model secret mover writes the encrypted production sink.
+`admin` application role. An approved non-model mover consumed the opaque
+one-time output into the SOPS-encrypted production sink without exposing it to
+the application repository or model context.
 
 ## 8. Persistence thesis
 

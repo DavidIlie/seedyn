@@ -1,7 +1,8 @@
 # Seedyn build results
 
-Status: **application complete and verified locally; encrypted secret delivery
-and home-cluster deployment require separate authority**
+Status: **application complete and verified locally; production credentials are
+encrypted and the home-cluster GitOps commit is prepared but not pushed or
+applied**
 
 Date: **2026-08-18**
 
@@ -55,6 +56,11 @@ Date: **2026-08-18**
   formatting, static checks, integration, development/production browser tests,
   and a container build. A separate least-privilege workflow publishes immutable
   `master-<sha>-<timestamp>` and `latest` images to GHCR for Flux automation.
+- The prepared home-cluster commit `d9a4a229b2cafddc06a51d47fe8bdcb15d08597f`
+  (parent `bf1f99fbe71ab3d17bd079db49c50c1a290653d4`) adds one `default`
+  namespace workload for both hosts, existing PostgreSQL/Dragonfly/central
+  MinIO integration, migrations, probes, SOPS, Gatus, Homepage, and Flux image
+  automation. It is intentionally local, unpushed, and unapplied.
 
 ## Local acceptance evidence
 
@@ -138,21 +144,22 @@ application handoff:
    capture should start with `--internal-trace --experimental-cpu-prof`, retain
    `RUST_BACKTRACE=full`, and collect a macOS `sample` plus thread/process state
    before terminating the spinning child.
-3. The npm `canary` tag was `16.3.1-canary.22` at the time of the A/B. It uses a
+3. The npm `canary` tag was `16.3.1-canary.22` during the first A/B. It uses a
    version-keyed cache directory separate from 16.3.0, so it could not consume
    the preserved failing database. Its fresh cache remained responsive for more
    than 18 minutes through route compilation and HMR while growing to about
    436 MiB / 61 files. That is a successful fresh-cache soak, not evidence that
    the original persistence loop is fixed.
-4. `16.3.1-canary.22` introduced a separate deterministic Instant Navigation
-   regression in this application. Inside the documented `instant()` helper,
-   `/api-keys` → `/docs` fetched the destination RSC in 18–108 ms but never
-   committed the URL before the 90-second timeout. The same failure reproduced
-   with `turbopackFileSystemCacheForDev: false`; 16.3.0 passes the identical
-   route and test. Both stable and canary also log failed `instant` validation
-   when a protected route intentionally redirects its unauthenticated
-   validation render. Seedyn therefore remains pinned to 16.3.0 with the dev
-   persistence mitigation while these are investigated.
+4. The follow-up isolated A/B on exact `16.3.1-canary.23` shows that the
+   Instant Navigation regression remains. A reduced `/api-keys` → `/docs`
+   sequence failed in one of ten fresh contexts: the `/docs` RSC returned 200
+   in about 31 ms and the Docs link became active, but the router retained the
+   API-keys tree until timeout. Passing runs repeatedly logged
+   `TypeError: this.value.push is not a function`. Ordinary navigation remained
+   healthy across 100 cycles / 300 navigations (70 ms average, 2,009 ms cold
+   maximum) with 100/100 health responses. The server stayed responsive during
+   the instant stall, so this is distinct from the historical whole-process
+   CPU/HTTP hang. Seedyn remains pinned to 16.3.0 while this is investigated.
 5. An otherwise static Server Action form required `await connection()` before
    Auth.js/action-reference work to avoid Cache Components prerender crypto
    behavior, making the action-bearing header stream instead of join the shell.
@@ -218,11 +225,13 @@ application handoff:
 
 ## Explicitly deferred production work
 
-- DavidApps' one-time client secret remains in the owner-only MCP handoff. An
-  approved non-model mover must place it in the encrypted home-cluster Secret;
-  no secret was printed, read, or committed.
-- No `home-cluster`, production MinIO, DNS, TLS, SOPS, production database, Flux,
-  GHCR, backup, or restore state was mutated by this build.
+- The one-time DavidApps client secret was consumed directly into a verified
+  SOPS-encrypted home-cluster Secret by an approved non-model mover; no secret
+  was printed, read by the model, or committed to the application repository.
+- The private, versioned production MinIO bucket and scoped Seedyn principal are
+  ready, and GHCR publishing is active. No live home-cluster, production
+  database, DNS, TLS, Flux, backup, or restore state has been changed; the
+  cluster branch remains a local prepared commit for review and GitOps merge.
 - Production readiness still requires the separately authorized Phase 8 steps
   in `spec/11-BUILD-PLAN.md`, including backup/restore proof before calling the
   storage promise permanent.

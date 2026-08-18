@@ -57,9 +57,10 @@ Seedyn is registered as invite-only OIDC application
 `.davidapps/auth.public.json`. David resolves to the application role `admin`;
 production authorization uses that signed role, never an email allowlist.
 
-The one-time client secret remains in DavidApps' owner-only handoff store until
-an approved mover writes it to the encrypted home-cluster Secret. The inactive
-template under `deploy/` is deliberately not a deployable plaintext Secret.
+An approved non-model mover consumed the one-time client secret directly into
+Seedyn's SOPS-encrypted home-cluster Secret and deleted the owner-only transport
+artifact after verification. The inactive template under `deploy/` remains
+deliberately empty and is not a deployable plaintext Secret.
 
 ## Quality gates
 
