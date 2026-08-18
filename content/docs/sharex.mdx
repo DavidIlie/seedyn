@@ -1,0 +1,26 @@
+---
+title: ShareX setup
+description: Create a scoped key and import Seedyn as a custom uploader.
+---
+
+## Generate the uploader
+
+Open **API keys**, choose the upload scopes, and create a key. Before dismissing
+the one-time secret, download the generated `.sxcu` file. Treat it like a
+password: it contains the Bearer key.
+
+The generated configuration posts one `file` field to:
+
+```http
+POST https://seedyn.dave.tips/api/upload
+Authorization: Bearer sdn_live_...
+Content-Type: multipart/form-data
+```
+
+ShareX reads the returned URL from `{json:url}` and errors from
+`{json:error.message}`.
+
+## Rotate a lost configuration
+
+Seedyn cannot recover an existing key. Revoke it, create a replacement, and
+import the new `.sxcu`.

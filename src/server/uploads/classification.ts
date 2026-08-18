@@ -1,0 +1,306 @@
+import { createReadStream } from "node:fs";
+
+import { fileTypeFromBuffer } from "file-type";
+import sharp from "sharp";
+
+import { DomainError } from "./errors";
+import { UPLOAD_LIMITS, type ParsedUploadFile } from "./multipart";
+
+export type UploadKindValue = "IMAGE" | "VIDEO" | "TEXT" | "FILE";
+export type DispositionValue = "INLINE" | "ATTACHMENT";
+export type ForcedUploadKind = "auto" | "image" | "file" | "text";
+
+export type ClassifiedUpload = {
+  kind: UploadKindValue;
+  extension: string;
+  contentType: string;
+  disposition: DispositionValue;
+  width: number | null;
+  height: number | null;
+  durationMs: number | null;
+  frameCount: number | null;
+};
+
+const SAFE_IMAGES = new Map<string, { extension: string; contentType: string }>(
+  [
+    ["jpg", { extension: "jpg", contentType: "image/jpeg" }],
+    ["png", { extension: "png", contentType: "image/png" }],
+    ["webp", { extension: "webp", contentType: "image/webp" }],
+    ["avif", { extension: "avif", contentType: "image/avif" }],
+    ["gif", { extension: "gif", contentType: "image/gif" }],
+  ],
+);
+
+const SAFE_VIDEOS = new Map<string, { extension: string; contentType: string }>(
+  [
+    ["mp4", { extension: "mp4", contentType: "video/mp4" }],
+    ["webm", { extension: "webm", contentType: "video/webm" }],
+    ["mov", { extension: "mov", contentType: "video/quicktime" }],
+  ],
+);
+
+function looksLikeGif(prefix: Uint8Array): boolean {
+  if (prefix.byteLength < 6) return false;
+  const magic = Buffer.from(prefix.subarray(0, 6)).toString("ascii");
+  return magic === "GIF87a" || magic === "GIF89a";
+}
+
+function unsafeTextFormat(prefix: Uint8Array): { extension: string } | null {
+  const value = new TextDecoder("utf-8", { fatal: false })
+    .decode(prefix)
+    .replace(/^\uFEFF/, "")
+    .trimStart()
+    .toLowerCase();
+  if (
+    value.startsWith("<!doctype html") ||
+    value.startsWith("<html") ||
+    value.startsWith("<script")
+  ) {
+    return { extension: "html" };
+  }
+  if (value.startsWith("<svg")) return { extension: "svg" };
+  if (value.startsWith("<?xml") || /^<[a-z_][\w:.-]*(?:\s|>)/.test(value)) {
+    return { extension: "xml" };
+  }
+  if (value.startsWith("#!")) return { extension: "txt" };
+  if (
+    /^(?:import\s|export\s|(?:const|let|var)\s+[a-z_$]|(?:async\s+)?function\s+[a-z_$])/i.test(
+      value,
+    )
+  ) {
+    return { extension: "js" };
+  }
+  return null;
+}
+
+async function isStrictPlainText(path: string): Promise<boolean> {
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  try {
+    for await (const chunk of createReadStream(path)) {
+      const decoded = decoder.decode(chunk as Buffer, { stream: true });
+      for (const character of decoded) {
+        const code = character.codePointAt(0)!;
+        if (code === 0) return false;
+        if (code < 0x20 && code !== 0x09 && code !== 0x0a && code !== 0x0d) {
+          return false;
+        }
+        if (code >= 0x7f && code <= 0x9f) return false;
+      }
+    }
+    decoder.decode();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function rasterMetadata(path: string): Promise<{
+  width: number;
+  height: number;
+  durationMs: number | null;
+  frameCount: number;
+}> {
+  try {
+    const metadata = await sharp(path, {
+      animated: true,
+      limitInputPixels: 100_000_000,
+    }).metadata();
+    if (!metadata.width || !metadata.height)
+      throw new Error("Missing raster dimensions");
+    const frameCount = metadata.pages ?? 1;
+    const height = metadata.pageHeight ?? metadata.height;
+    const durationMs = metadata.delay?.length
+      ? metadata.delay.reduce((total, delay) => total + delay, 0)
+      : null;
+    return { width: metadata.width, height, durationMs, frameCount };
+  } catch (error) {
+    throw new DomainError("unsupported_media", {
+      message: "The image is malformed or exceeds safe metadata limits.",
+      cause: error,
+    });
+  }
+}
+
+export async function classifyUpload(
+  file: ParsedUploadFile,
+): Promise<ClassifiedUpload> {
+  if (file.byteSize === 0) {
+    return {
+      kind: "FILE",
+      extension: "bin",
+      contentType: "application/octet-stream",
+      disposition: "ATTACHMENT",
+      width: null,
+      height: null,
+      durationMs: null,
+      frameCount: null,
+    };
+  }
+  let detected: Awaited<ReturnType<typeof fileTypeFromBuffer>>;
+  try {
+    detected = await fileTypeFromBuffer(file.sniffPrefix);
+  } catch {
+    detected = undefined;
+  }
+
+  if (detected) {
+    const image = SAFE_IMAGES.get(detected.ext);
+    if (image) {
+      // The byte signature is enough to apply the image ceiling before sharp
+      // scans dimensions and an animated frame table.
+      if (file.byteSize > UPLOAD_LIMITS.imageOrText) {
+        throw new DomainError("payload_too_large", {
+          message: `The upload exceeds the ${UPLOAD_LIMITS.imageOrText / (1024 * 1024)} MiB limit for this media type.`,
+        });
+      }
+      const metadata = await rasterMetadata(file.path);
+      return {
+        kind: "IMAGE",
+        ...image,
+        disposition: "INLINE",
+        ...metadata,
+      };
+    }
+
+    const video = SAFE_VIDEOS.get(detected.ext);
+    if (video) {
+      return {
+        kind: "VIDEO",
+        ...video,
+        disposition: "INLINE",
+        width: null,
+        height: null,
+        durationMs: null,
+        frameCount: null,
+      };
+    }
+
+    // PDF, archives, executables, unsupported media, and every other known
+    // binary format remain downloadable but never render inline.
+    return {
+      kind: "FILE",
+      extension: /^[a-z0-9]{1,10}$/.test(detected.ext) ? detected.ext : "bin",
+      contentType: "application/octet-stream",
+      disposition: "ATTACHMENT",
+      width: null,
+      height: null,
+      durationMs: null,
+      frameCount: null,
+    };
+  }
+
+  if (await isStrictPlainText(file.path)) {
+    const unsafe = unsafeTextFormat(file.sniffPrefix);
+    if (unsafe) {
+      return {
+        kind: "FILE",
+        extension: unsafe.extension,
+        contentType: "application/octet-stream",
+        disposition: "ATTACHMENT",
+        width: null,
+        height: null,
+        durationMs: null,
+        frameCount: null,
+      };
+    }
+    return {
+      kind: "TEXT",
+      extension: "txt",
+      contentType: "text/plain; charset=utf-8",
+      disposition: "INLINE",
+      width: null,
+      height: null,
+      durationMs: null,
+      frameCount: null,
+    };
+  }
+
+  return {
+    kind: "FILE",
+    extension: "bin",
+    contentType: "application/octet-stream",
+    disposition: "ATTACHMENT",
+    width: null,
+    height: null,
+    durationMs: null,
+    frameCount: null,
+  };
+}
+
+export function assertClassificationSize(
+  file: Pick<ParsedUploadFile, "byteSize">,
+  classification: Pick<ClassifiedUpload, "kind">,
+): void {
+  const maximum =
+    classification.kind === "IMAGE" || classification.kind === "TEXT"
+      ? UPLOAD_LIMITS.imageOrText
+      : UPLOAD_LIMITS.generic;
+  if (file.byteSize > maximum) {
+    throw new DomainError("payload_too_large", {
+      message: `The upload exceeds the ${maximum / (1024 * 1024)} MiB limit for this media type.`,
+    });
+  }
+}
+
+export function assertForcedUploadKind(
+  classification: Pick<ClassifiedUpload, "kind">,
+  forcedKind: ForcedUploadKind,
+): void {
+  if (forcedKind === "auto") return;
+  if (forcedKind === "image" && classification.kind !== "IMAGE") {
+    throw new DomainError("unsupported_media");
+  }
+  if (forcedKind === "text" && classification.kind !== "TEXT") {
+    throw new DomainError("unsupported_media");
+  }
+  if (forcedKind === "file" && classification.kind === "TEXT") {
+    throw new DomainError("unsupported_media");
+  }
+}
+
+export async function validateGifVariant(
+  file: ParsedUploadFile,
+): Promise<ClassifiedUpload> {
+  if (file.byteSize > UPLOAD_LIMITS.gif) {
+    throw new DomainError("payload_too_large", {
+      message: "The GIF exceeds the 25 MiB variant limit.",
+    });
+  }
+  if (!looksLikeGif(file.sniffPrefix))
+    throw new DomainError("unsupported_media");
+  const classification = await classifyUpload(file);
+  if (classification.kind !== "IMAGE" || classification.extension !== "gif") {
+    throw new DomainError("unsupported_media");
+  }
+  if (
+    classification.width === null ||
+    classification.height === null ||
+    classification.width > 1920 ||
+    classification.height > 1080 ||
+    (classification.frameCount ?? 1) > 120 ||
+    (classification.durationMs !== null && classification.durationMs > 60_000)
+  ) {
+    throw new DomainError("unsupported_media", {
+      message:
+        "The GIF exceeds the permitted dimensions, frame count, or duration.",
+    });
+  }
+  return classification;
+}
+
+export function sanitizeOriginalName(value: string): string {
+  const withoutControlCharacters = Array.from(value.normalize("NFC"))
+    .filter((character) => {
+      const code = character.codePointAt(0) ?? 0;
+      return code > 0x1f && code !== 0x7f;
+    })
+    .join("");
+  const normalized = withoutControlCharacters.replace(/[\\/]/g, "_").trim();
+  const fallback = normalized || "upload";
+  let output = "";
+  for (const character of fallback) {
+    if (Buffer.byteLength(output + character, "utf8") > 255) break;
+    output += character;
+  }
+  return output || "upload";
+}

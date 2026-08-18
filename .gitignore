@@ -7,6 +7,8 @@
 
 # testing
 /coverage
+/playwright-report/
+/test-results/
 
 # database
 /prisma/db.sqlite
@@ -17,9 +19,13 @@ db.sqlite
 /.next/
 /out/
 next-env.d.ts
+/.source/
 
 # production
 /build
+/public/ffmpeg/
+
+/uploads/
 
 # misc
 .DS_Store
@@ -33,8 +39,8 @@ yarn-error.log*
 
 # local env files
 # do not commit any .env files to git, except for the .env.example file. https://create.t3.gg/en/usage/env-variables#using-environment-variables
-.env
-.env*.local
+.env*
+!.env.example
 
 # vercel
 .vercel

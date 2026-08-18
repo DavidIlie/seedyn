@@ -1,0 +1,14 @@
+{
+  "title": "Seedyn",
+  "pages": [
+    "index",
+    "sharex",
+    "uploads",
+    "api-keys",
+    "gif",
+    "http-api",
+    "legacy-api",
+    "security",
+    "operations"
+  ]
+}

@@ -1,6 +1,236 @@
-@import "tailwindcss";
+/* Source detection is pinned to `src` so Tailwind scans application code only.
+   The repository also contains `plans/` and `content/`, and letting the scan
+   walk the whole worktree makes every planning document a class source. */
+@import "tailwindcss" source("../");
 
-@theme {
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif,
-    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+/* Fumadocs' structural preset, deliberately NOT its stylesheet. `preset.css`
+   imports `lib/base.css`, `lib/shiki.css`, the typography plugin, and the
+   `generated/*.css` safelists. None of those contain a colour literal — the
+   palette comes from the `--color-fd-*` bridge below.
+
+   The safelist is load-bearing rather than cosmetic: Tailwind's source scan is
+   pinned to `src` and never sees `node_modules`, so without this import the
+   utility classes Fumadocs' compiled MDX components reference are never
+   emitted. */
+@import "fumadocs-ui/css/preset.css";
+
+/* Version shim, not a design token.
+
+   `fumadocs-ui@16.14`'s `lib/base.css` does `@apply size-8 -inset-s-4` on its
+   step marker. Logical inset utilities (`inset-s-*`, `inset-e-*`) landed in
+   Tailwind 4.3; the pinned version here is 4.1.14, so that `@apply` is a hard
+   build failure — "Cannot apply unknown utility class `-inset-s-4`" — and it
+   takes the whole stylesheet with it.
+
+   Defining the utilities is the smallest fix available without changing the
+   lockfile. Delete this block once `tailwindcss` reaches 4.3; Tailwind's own
+   definitions are identical and will simply take over.
+
+   Negative values need their own rule: a custom functional utility does not
+   generate a `-` prefixed variant automatically. */
+@utility inset-s-* {
+  inset-inline-start: --spacing(--value(number));
+}
+
+@utility -inset-s-* {
+  inset-inline-start: calc(--spacing(--value(number)) * -1);
+}
+
+@utility inset-e-* {
+  inset-inline-end: --spacing(--value(number));
+}
+
+@utility -inset-e-* {
+  inset-inline-end: calc(--spacing(--value(number)) * -1);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-panel: var(--panel);
+  --color-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-danger: var(--danger);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Fumadocs colour bridge. `static`, not `inline`: Fumadocs reads these variables
+   at runtime — `lib/base.css` sets the global border colour from
+   `var(--color-fd-border)` and `lib/shiki.css` feeds `--color-fd-muted-foreground`
+   through `color-mix()`. With `inline` those runtime lookups resolve to nothing.
+
+   Every value is an app token or a `color-mix()` of app tokens, so the docs
+   inherit the same ramp as the rest of the app.
+
+   In each `color-mix()` the base colour is written first on purpose: Tailwind
+   emits an `@supports` fallback whose value is the mix's first argument, so
+   stating the mix from the background side degrades to a flat background rather
+   than to a solid foreground block. */
+@theme static {
+  --color-fd-background: var(--background);
+  --color-fd-foreground: var(--foreground);
+  --color-fd-muted: color-mix(
+    in oklab,
+    var(--background) 95%,
+    var(--foreground)
+  );
+  --color-fd-muted-foreground: var(--muted-foreground);
+  --color-fd-secondary: color-mix(
+    in oklab,
+    var(--background) 96%,
+    var(--foreground)
+  );
+  --color-fd-secondary-foreground: var(--foreground);
+  --color-fd-card: var(--panel);
+  --color-fd-card-foreground: var(--foreground);
+  --color-fd-popover: var(--panel);
+  --color-fd-popover-foreground: var(--foreground);
+  --color-fd-article: var(--background);
+  --color-fd-border: var(--border);
+
+  /* `fd-primary` is Fumadocs' emphasis colour — active nav, focus ring, code
+     highlight — which is what Seedyn calls `--accent`. */
+  --color-fd-primary: var(--accent);
+  --color-fd-primary-foreground: var(--accent-foreground);
+  --color-fd-ring: var(--accent);
+
+  /* `fd-accent` is NOT a brand accent: Fumadocs uses it as the neutral hover
+     fill behind menu items. Mapping cyan here would put a tinted block behind
+     every hovered link, which the design rules reserve for primary action,
+     focus, and active navigation only. */
+  --color-fd-accent: color-mix(
+    in oklab,
+    var(--background) 92%,
+    var(--foreground)
+  );
+  --color-fd-accent-foreground: var(--foreground);
+  --color-fd-overlay: color-mix(in oklab, var(--background) 70%, transparent);
+
+  /* Callout and diff tones. The ramp is one cool neutral plus one accent plus a
+     single danger tone reserved for real failure states, so these stay tonal
+     rather than inventing a second brand palette. */
+  --color-fd-diff-add: color-mix(in oklab, transparent 86%, var(--accent));
+  --color-fd-diff-add-symbol: var(--accent);
+  --color-fd-diff-remove: color-mix(
+    in oklab,
+    transparent 84%,
+    var(--muted-foreground)
+  );
+  --color-fd-diff-remove-symbol: var(--muted-foreground);
+  --color-fd-info: var(--accent);
+  --color-fd-idea: var(--accent);
+  --color-fd-success: var(--accent);
+  --color-fd-warning: var(--muted-foreground);
+  --color-fd-error: var(--danger);
+}
+
+/* One low-chroma cool-neutral ramp with a single cyan accent. Light and dark are
+   the same palette at different lightness, so a surface reads as the same
+   surface in both. The operating-system preference applies without a global
+   client theme provider; `color-scheme` keeps native controls aligned. */
+:root {
+  color-scheme: light;
+
+  --background: oklch(0.985 0.002 230);
+  --panel: oklch(1 0 0);
+  --foreground: oklch(0.19 0.012 230);
+  --muted-foreground: oklch(0.5 0.012 230);
+  --border: oklch(0.9 0.006 230);
+  --accent: oklch(0.52 0.1 215);
+  --accent-foreground: oklch(1 0 0);
+  --danger: oklch(0.5 0.16 25);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --background: oklch(0.16 0.008 230);
+    --panel: oklch(0.195 0.009 230);
+    --foreground: oklch(0.955 0.003 230);
+    --muted-foreground: oklch(0.67 0.012 230);
+    --border: oklch(0.275 0.01 230);
+    --accent: oklch(0.78 0.11 210);
+    --accent-foreground: oklch(0.16 0.008 230);
+    --danger: oklch(0.72 0.15 25);
+  }
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-feature-settings:
+      "rlig" 1,
+      "calt" 1;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.01em;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: color-mix(in oklab, transparent 78%, var(--accent));
+  }
+}
+
+@layer components {
+  /* Row-level navigation without nesting interactive elements: the row is the
+     positioning context, the single anchor grows an overlay to cover it, and
+     any real control inside the row lifts above that overlay. This keeps one
+     anchor and one button as siblings in the accessibility tree. */
+  .row-link::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+  }
+
+  .row-control {
+    position: relative;
+    z-index: 2;
+  }
+}
+
+/* Shiki bridge. Every token in a highlighted block carries both `--shiki-light`
+   and `--shiki-dark`; `lib/shiki.css` picks between them with a `.dark`
+   ancestor selector at the same specificity as these rules, so this block wins
+   on source order and must stay after the import. */
+@media (prefers-color-scheme: dark) {
+  .shiki:not(.not-fumadocs-codeblock *) code span,
+  code.shiki:not(.not-fumadocs-code *) span {
+    color: var(--shiki-dark);
+    font-style: var(--shiki-dark-font-style);
+  }
+}
+
+/* The only motion in the product is a 120ms copy-feedback swap and determinate
+   progress. Both remain legible with motion removed. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

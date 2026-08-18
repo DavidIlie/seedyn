@@ -1,0 +1,60 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "eslint",
+    "typescript",
+    "oxc",
+    "import",
+    "react",
+    "jsx-a11y",
+    "nextjs",
+    "promise",
+    "vitest"
+  ],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "warn"
+  },
+  "options": {
+    "typeAware": true
+  },
+  "env": {
+    "browser": true,
+    "node": true,
+    "vitest": true
+  },
+  "ignorePatterns": [
+    ".deepsec/**",
+    ".next/**",
+    ".source/**",
+    "coverage/**",
+    "node_modules/**",
+    "playwright-report/**",
+    "public/ffmpeg/**",
+    "test-results/**"
+  ],
+  "rules": {
+    "eslint/no-unused-vars": "off",
+    "eslint/no-await-in-loop": "off",
+    "eslint/no-underscore-dangle": "off",
+    "import/no-unassigned-import": "off",
+    "react/react-in-jsx-scope": "off",
+    "jsx-a11y/prefer-tag-over-role": "off",
+    "typescript/no-unsafe-type-assertion": "off",
+    "typescript/no-unused-vars": [
+      "error",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_"
+      }
+    ],
+    "typescript/consistent-type-imports": [
+      "warn",
+      {
+        "prefer": "type-imports",
+        "fixStyle": "inline-type-imports"
+      }
+    ]
+  }
+}

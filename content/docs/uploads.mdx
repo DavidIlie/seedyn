@@ -1,0 +1,18 @@
+---
+title: Browser uploads
+description: Upload local files or fetch eligible HTTPS URLs in your browser.
+---
+
+The browser uploader uses your DavidApps-backed Seedyn session. It sends bytes
+to `/api/uploads` and shows actual transfer progress.
+
+URL ingestion happens only in the browser. The URL must be HTTPS, CORS must
+allow the fetch, redirects must remain HTTPS, and the streamed bytes must stay
+within the upload cap. URLs containing embedded credentials are rejected. The
+request omits cookies, authorization, and referrer information; the app CSP
+allows arbitrary HTTPS connection destinations solely for this user-selected
+fetch and does not broaden script, style, worker, form, or frame sources.
+Seedyn does not provide a server-side CORS or SSRF proxy.
+
+Original uploads are capped at 64 MiB. Image and text compatibility endpoints
+use a 16 MiB cap.

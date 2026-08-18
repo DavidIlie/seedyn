@@ -1,0 +1,32 @@
+---
+title: Security model
+description: Identity, tenancy, public media, and untrusted-file boundaries.
+---
+
+DavidApps controls invitation and issues OIDC authorization codes with PKCE.
+Seedyn persists the issuer and pairwise subject and enforces the current user id
+inside every resource query.
+
+The MinIO bucket is private. Public access goes through the media handler, which
+looks up an exact READY slug and extension and derives headers from trusted
+database classification. Dangerous or unknown content is attachment-only;
+every response is `nosniff`, the wire response carries
+`Content-Security-Policy: sandbox; default-src 'none'`, and the media origin
+receives no app cookie.
+
+API upload routes authenticate and pass fail-closed Redis source, credential,
+and account ceilings before reading multipart bytes. Browser mutations have both
+source and account ceilings; GIF validation has a lower account budget and one
+active validation slot. The parser uses bounded fields, one file, actual-byte
+limits, timeouts, cancellation, stale-file reaping, and temporary files rather
+than `Request.formData()`. Object-store writes use 5 MiB multipart streaming and
+an abort-aware process concurrency cap, so allowed large uploads cannot all be
+buffered in the Next.js process at once.
+
+Upload Route Handlers repeat the app-host boundary themselves and are excluded
+from the Next.js Proxy matcher. This avoids Next 16.3's pre-Proxy request clone,
+which otherwise buffers bodies and silently truncates them at its configured
+cap. Remaining proxied request bodies are capped at 256 KiB.
+
+Runtime-protected docs intentionally contain no credentials or operational
+secrets because repository visibility is a separate boundary.

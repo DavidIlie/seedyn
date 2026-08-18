@@ -1,0 +1,36 @@
+---
+title: API keys
+description: Scope, store, revoke, and rotate machine upload credentials.
+---
+
+Keys use the `sdn_live_` prefix and 256 random secret bits. Seedyn stores only a
+unique SHA-256 digest and a short display prefix.
+
+Available scopes:
+
+- `upload:image` — safe raster images accepted by the image endpoint.
+- `upload:text` — bounded valid UTF-8 text.
+- `upload:file` — generic files and supported video.
+
+Unknown scopes grant nothing. Revoked, expired, malformed, and nonexistent keys
+share the same authentication response. Query-string credentials are never
+accepted.
+
+An account can have up to 10 active keys. Revoke or let one expire before
+creating another. Upload throttling has both source-address and account-wide
+ceilings shared across all keys, so creating extra keys or using extra source
+addresses cannot multiply the account's request allowance without bound.
+
+The key page shows at most the 100 most recent active and inactive keys. Seedyn
+keeps recent revocation and expiry history for troubleshooting, and during
+later key creation removes inactive history after 90 days or when that bounded
+history fills. An inactive key's name can be reused. Raw key material is never
+retained during cleanup.
+
+Machine requests authenticate a key first, then authorize the required upload
+scope from the server-classified bytes. Authentication alone never grants an
+operation.
+
+Key creation and revocation controls enable after the page hydrates. This avoids
+creating an unrecoverable one-time secret in a JavaScript-disabled browser,
+where Next.js 16.3 PPR cannot render a Server Action's result.

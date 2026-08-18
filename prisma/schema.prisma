@@ -1,74 +1,163 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
-    provider = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 datasource db {
-    provider = "postgresql"
-    // NOTE: When using mysql or sqlserver, uncomment the @db.Text annotations in model Account below
-    // Further reading:
-    // https://next-auth.js.org/adapters/prisma#create-the-prisma-schema
-    // https://www.prisma.io/docs/reference/api-reference/prisma-schema-reference#string
-    url      = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
-model Post {
-    id        Int      @id @default(autoincrement())
-    name      String
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-
-    createdBy   User   @relation(fields: [createdById], references: [id])
-    createdById String
-
-    @@index([name])
+enum UploadKind {
+  IMAGE
+  VIDEO
+  TEXT
+  FILE
 }
 
-// Necessary for Next auth
+enum UploadState {
+  READY
+  DELETING
+  DELETE_FAILED
+}
+
+enum VariantKind {
+  GIF
+}
+
+enum VariantState {
+  READY
+  DELETING
+  DELETE_FAILED
+}
+
+enum ContentDisposition {
+  INLINE
+  ATTACHMENT
+}
+
 model Account {
-    id                       String  @id @default(cuid())
-    userId                   String
-    type                     String
-    provider                 String
-    providerAccountId        String
-    refresh_token            String? // @db.Text
-    access_token             String? // @db.Text
-    expires_at               Int?
-    token_type               String?
-    scope                    String?
-    id_token                 String? // @db.Text
-    session_state            String?
-    user                     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-    refresh_token_expires_in Int?
+  id                       String  @id @default(cuid())
+  userId                   String
+  type                     String
+  provider                 String
+  providerAccountId        String
+  issuer                   String?
+  refresh_token            String?
+  access_token             String?
+  expires_at               Int?
+  token_type               String?
+  scope                    String?
+  id_token                 String?
+  session_state            String?
+  refresh_token_expires_in Int?
+  user                     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@unique([provider, providerAccountId])
+  @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
 model Session {
-    id           String   @id @default(cuid())
-    sessionToken String   @unique
-    userId       String
-    expires      DateTime
-    user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model User {
-    id            String    @id @default(cuid())
-    name          String?
-    email         String?   @unique
-    emailVerified DateTime?
-    image         String?
-    accounts      Account[]
-    sessions      Session[]
-    posts         Post[]
+  id              String    @id @default(cuid())
+  name            String?
+  email           String?   @unique
+  emailVerified   DateTime?
+  image           String?
+  identityIssuer  String?
+  identitySubject String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  accounts        Account[]
+  sessions        Session[]
+  apiKeys         ApiKey[]
+  uploads         Upload[]
+
+  @@unique([identityIssuer, identitySubject])
 }
 
 model VerificationToken {
-    identifier String
-    token      String   @unique
-    expires    DateTime
+  identifier String
+  token      String   @unique
+  expires    DateTime
 
-    @@unique([identifier, token])
+  @@unique([identifier, token])
+}
+
+model ApiKey {
+  id         String    @id
+  userId     String
+  name       String
+  prefix     String
+  secretHash Bytes     @unique
+  scopes     String[]
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  revokedAt  DateTime?
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+  @@index([userId, revokedAt, createdAt(sort: Desc)])
+}
+
+model Upload {
+  id              String             @id
+  userId          String
+  publicSlug      String             @unique
+  kind            UploadKind
+  state           UploadState        @default(READY)
+  originalName    String
+  extension       String
+  contentType     String
+  disposition     ContentDisposition
+  byteSize        BigInt
+  sha256          Bytes
+  storageKey      String             @unique
+  width           Int?
+  height          Int?
+  durationMs      Int?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  deleteErrorCode String?
+  deleteErrorAt   DateTime?
+  user            User               @relation(fields: [userId], references: [id], onDelete: Restrict)
+  variants        UploadVariant[]
+
+  @@index([userId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([userId, kind, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([state, updatedAt])
+}
+
+model UploadVariant {
+  id              String             @id
+  uploadId        String
+  publicSlug      String             @unique
+  kind            VariantKind
+  state           VariantState       @default(READY)
+  extension       String
+  contentType     String
+  disposition     ContentDisposition @default(INLINE)
+  byteSize        BigInt
+  sha256          Bytes
+  storageKey      String             @unique
+  width           Int?
+  height          Int?
+  durationMs      Int?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  deleteErrorCode String?
+  deleteErrorAt   DateTime?
+  upload          Upload             @relation(fields: [uploadId], references: [id], onDelete: Restrict)
+
+  @@unique([uploadId, kind])
+  @@index([state, updatedAt])
 }

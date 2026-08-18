@@ -1,0 +1,38 @@
+import { Suspense } from "react";
+
+import { AppHeader } from "~/components/shell/app-header";
+import { SessionGate } from "~/components/shell/session-gate";
+import { UploadProvider } from "~/components/upload/upload-action";
+
+/**
+ * The authenticated shell: skip link, header, main landmark.
+ *
+ * Everything here is static, so it is the App Shell every client navigation
+ * between the six destinations reuses. The one request-time read — the session
+ * — sits under its own Suspense boundary rendering nothing, so it cannot make a
+ * navigation block.
+ */
+export default function AppLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <UploadProvider>
+      <div className="min-h-dvh">
+        <a
+          href="#main"
+          className="border-border bg-panel sr-only rounded-md border px-3 py-2 text-sm focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50"
+        >
+          Skip to content
+        </a>
+
+        <AppHeader />
+
+        <Suspense fallback={null}>
+          <SessionGate />
+        </Suspense>
+
+        <main id="main" className="mx-auto max-w-5xl px-4 pb-20">
+          {children}
+        </main>
+      </div>
+    </UploadProvider>
+  );
+}

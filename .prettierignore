@@ -1,0 +1,10 @@
+.deepsec/data/*/files/
+.deepsec/data/*/debug/
+.deepsec/data/*/revalidation/
+.deepsec/data/*/reports/
+.deepsec/data/*/runs/
+.deepsec/data/*/setup/
+.deepsec/data/*/project.json
+.deepsec/data/*/tech.json
+.deepsec/node_modules/
+.deepsec/pnpm-lock.yaml

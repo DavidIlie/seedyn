@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94
+        env:
+          POSTGRES_DB: seedyn
+          POSTGRES_USER: seedyn
+          POSTGRES_PASSWORD: seedyn-ci-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U seedyn -d seedyn"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+      redis:
+        image: redis:7-alpine@sha256:e7723ff73d963f5cc6d9c4643ea3d989527a402a319239054e9472a7fb9219a2
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      AUTH_SECRET: seedyn-ci-auth-secret
+      AUTH_DAVIDAPPS_ID: seedyn-ci-client
+      AUTH_DAVIDAPPS_SECRET: seedyn-ci-client-secret
+      DATABASE_URL: postgresql://seedyn:seedyn-ci-password@127.0.0.1:5432/seedyn
+      REDIS_URL: redis://127.0.0.1:6379
+      APP_URL: http://seedyn.localhost:3000
+      CDN_URL: http://i.localhost:3000
+      APP_HOSTS: seedyn.localhost,localhost
+      MEDIA_HOSTS: i.localhost
+      TRUSTED_PROXY_HOPS: 1
+      MINIO_URL: 127.0.0.1
+      MINIO_PORT: 9000
+      MINIO_SECURE: false
+      MINIO_KEY_ID: seedyn-ci
+      MINIO_PASSWORD: seedyn-ci-password
+      MINIO_BUCKET: seedyn-ci
+      SEEDYN_DEV_AUTH: true
+      SEEDYN_DEV_AUTH_EMAIL: david@davidilie.com
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Start MinIO
+        run: >-
+          docker run --detach --rm --name seedyn-ci-minio
+          --publish 9000:9000
+          --env MINIO_ROOT_USER=seedyn-ci
+          --env MINIO_ROOT_PASSWORD=seedyn-ci-password
+          minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+          server /data
+      - name: Prepare services
+        run: |
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:9000/minio/health/live >/dev/null; then break; fi
+            if [ "$attempt" = 30 ]; then docker logs seedyn-ci-minio; exit 1; fi
+            sleep 1
+          done
+          pnpm storage:setup
+          pnpm db:migrate
+          pnpm db:seed
+
+      - run: pnpm format:check
+      - run: pnpm check
+      - run: pnpm test:integration
+      - run: pnpm test:e2e
+      - run: pnpm test:e2e:production
+      - run: docker build --tag seedyn:ci .

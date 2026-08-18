@@ -1,0 +1,27 @@
+---
+title: Operations
+description: Health, storage reconciliation, deletion, and deployment behavior.
+---
+
+`/api/healthz` reports process liveness on the app origin and to direct IP or
+localhost probes. `/api/readyz` is available only through numeric loopback or
+the exact `POD_IP` injected into the container and checks PostgreSQL, Redis, and
+MinIO without returning endpoints, credentials, or object names. A failed
+dependency removes the pod from new ingress traffic without restarting it;
+public media remains available only when the dependency set is ready.
+
+Kubernetes must inject `POD_IP` with the downward API (`status.podIP`) because
+the kubelet addresses an HTTP probe by pod IP. Arbitrary literal-IP and
+`localhost` Host headers cannot invoke dependency readiness.
+
+Object writes use predetermined managed keys. If the database insert fails,
+Seedyn compensates by deleting the object. `pnpm storage:check` compares
+managed MinIO markers to PostgreSQL after a safety age and defaults to dry-run.
+
+Deletion removes current public visibility immediately at the origin. Existing
+recipients and compliant edge caches may retain bytes for up to 24 hours.
+That shared cache window applies to complete media responses; partial `206`
+responses are browser-private and vary on the requested byte range.
+Bucket versions and backups can retain older bytes; V1 does not claim physical
+erasure from those systems. Destructive controls enable only after hydration so
+their confirmation and authoritative result can always be shown.

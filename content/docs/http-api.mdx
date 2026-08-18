@@ -1,0 +1,34 @@
+---
+title: Upload API
+description: Canonical machine-upload request and response contract.
+---
+
+## Request
+
+```http
+POST /api/upload
+Authorization: Bearer <key>
+Content-Type: multipart/form-data
+
+file=<binary>
+```
+
+Optional `kind` is a hint: `auto`, `image`, `file`, or `text`. Server byte
+classification remains authoritative.
+
+## Success
+
+The canonical endpoint returns HTTP 201:
+
+```json
+{
+  "id": "upload-id",
+  "kind": "image",
+  "url": "https://i.dave.tips/unguessable.png",
+  "message": "https://i.dave.tips/unguessable.png"
+}
+```
+
+Errors are JSON with `error.code`, `error.message`, and a safe request id.
+Rate-limit responses include `Retry-After`. Dependency failure before body
+parsing returns a safe 503.

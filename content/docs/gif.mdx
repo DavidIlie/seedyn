@@ -1,0 +1,21 @@
+---
+title: Copy as GIF
+description: Convert an uploaded image or short video in your own browser.
+---
+
+Seedyn preserves the original and stores one reusable GIF derivative. Still
+images use a small `gifenc` worker. Supported animation and short video use a
+lazy, single-thread `ffmpeg.wasm` worker, so its larger engine is downloaded
+only after you choose **Create GIF**.
+
+Video conversion uses the first 10 seconds at 15 fps with a 640-pixel maximum
+edge. V1 has no trimming UI. The source follows the 64 MiB generic upload cap,
+and the generated GIF must remain at or below 25 MiB.
+
+The browser output is untrusted input. The server verifies ownership, GIF
+signature, dimensions, frame count, duration, byte size, and the one-GIF-per-
+upload uniqueness rule before storing it.
+
+The initial compatibility floor is PNG, JPEG, and WebP stills plus H.264 MP4
+where the bundled FFmpeg build supports it. The UI reports unsupported codecs
+instead of claiming desktop FFmpeg parity.

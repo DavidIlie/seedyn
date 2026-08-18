@@ -1,0 +1,23 @@
+---
+title: Legacy ShareX aliases
+description: Compatibility adapters for the original sharex-upload-server.
+---
+
+| Endpoint           | Multipart field | Required scope |
+| ------------------ | --------------- | -------------- |
+| `POST /api/images` | `image`         | `upload:image` |
+| `POST /api/files`  | `file`          | `upload:file`  |
+| `POST /api/texts`  | `text`          | `upload:text`  |
+
+Aliases accept a Bearer key or the legacy raw key in the `Authorization`
+header. They return HTTP 200 with `{"message":"<url>"}`.
+
+Because each alias has a fixed purpose, Seedyn checks that route's scope before
+reading the multipart body. `/api/files` uses `upload:file` for every accepted
+non-text payload, including an image sent through that compatibility route.
+The canonical `/api/upload` endpoint instead authorizes the kind detected from
+the uploaded bytes.
+
+Seedyn does not preserve old query-string keys, browser JWT cookies, plaintext
+key storage, or the endpoint-reclassification bug that let image keys upload
+arbitrary bytes.
