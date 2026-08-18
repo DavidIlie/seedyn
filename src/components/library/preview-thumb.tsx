@@ -25,7 +25,7 @@ export function PreviewThumb({
     <span
       aria-hidden="true"
       className={
-        "border-border bg-background relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded border " +
+        "border-border bg-sunken relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-sm border " +
         className
       }
     >

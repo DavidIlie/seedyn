@@ -19,7 +19,7 @@ export function KeyList({ keys }: { keys: ApiKeySummary[] }) {
     return (
       <EmptyState
         title="No API keys"
-        body="A key authenticates ShareX and any other upload tool. Create one above to get a ready-to-import configuration."
+        body="Create a scoped key for a script, desktop tool, or another HTTP client."
       />
     );
   }
@@ -94,7 +94,7 @@ export function KeyListSkeleton({ rows = 3 }: { rows?: number }) {
             <span className="bg-border block h-4 w-1/2 rounded" />
             <span className="bg-border block h-3 w-3/4 rounded" />
           </span>
-          <span className="border-border h-9 w-20 shrink-0 rounded-md border" />
+          <span className="border-border h-11 w-20 shrink-0 rounded-sm border md:h-9" />
         </li>
       ))}
     </ul>

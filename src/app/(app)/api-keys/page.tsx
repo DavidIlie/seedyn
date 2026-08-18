@@ -16,7 +16,7 @@ export default function ApiKeysPage() {
     <>
       <PageHeader
         title="API keys"
-        subtitle="Keys authenticate ShareX and other upload tools. A key is shown once, when it is created."
+        subtitle="Scoped credentials let scripts and upload clients write to your account. A key is shown once."
       />
 
       <div className="space-y-8">

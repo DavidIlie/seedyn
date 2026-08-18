@@ -197,16 +197,3 @@ export async function readUploadTotals(userId: string): Promise<UploadTotals> {
     byteSize: (totals._sum.byteSize ?? BigInt(0)).toString(10),
   };
 }
-
-/** Drives the dashboard's ShareX onboarding, which appears only when absent. */
-export async function hasActiveApiKey(userId: string): Promise<boolean> {
-  const active = await db.apiKey.findFirst({
-    where: {
-      userId,
-      revokedAt: null,
-      OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-    },
-    select: { id: true },
-  });
-  return active !== null;
-}

@@ -13,7 +13,7 @@ import { buttonPrimary } from "~/components/ui/styles";
 export default function Unauthorized() {
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-4 py-16">
-      <div className="border-border bg-panel rounded-md border p-6">
+      <div className="border-border bg-panel rounded-sm border p-6">
         <h1 className="text-lg font-semibold">Sign in to continue</h1>
         <p className="text-muted-foreground mt-2 text-sm">
           This page belongs to a Seedyn account. Signing in will bring you back

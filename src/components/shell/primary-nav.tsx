@@ -16,7 +16,7 @@ import Link from "next/link";
  */
 
 export const NAV_DESTINATIONS = [
-  { href: "/dashboard", segment: "dashboard", label: "Dashboard" },
+  { href: "/dashboard", segment: "dashboard", label: "Recent" },
   { href: "/images", segment: "images", label: "Images" },
   { href: "/files", segment: "files", label: "Files" },
   { href: "/texts", segment: "texts", label: "Texts" },
@@ -63,13 +63,13 @@ export function PrimaryNav({
       <details ref={disclosureRef} className="relative md:hidden">
         <summary
           aria-label="Menu"
-          className="border-border flex h-9 cursor-pointer list-none items-center rounded-md border px-3 text-sm [&::-webkit-details-marker]:hidden"
+          className="border-border flex h-11 cursor-pointer list-none items-center rounded-sm border px-3 text-sm md:h-9 [&::-webkit-details-marker]:hidden"
         >
           Menu
         </summary>
         <nav
           aria-label="Primary"
-          className="border-border bg-panel absolute top-full right-0 z-50 mt-2 w-56 rounded-md border py-1"
+          className="border-border bg-panel absolute top-full right-0 z-50 mt-2 w-56 rounded-sm border py-1"
         >
           <ul>
             {NAV_DESTINATIONS.map((destination) => {

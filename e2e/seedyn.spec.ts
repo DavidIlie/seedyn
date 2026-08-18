@@ -15,12 +15,13 @@ const PNG = Buffer.from(
 
 const DOCS_READING_ORDER = [
   { path: "/docs", title: "Seedyn" },
-  { path: "/docs/sharex", title: "ShareX setup" },
   { path: "/docs/uploads", title: "Browser uploads" },
-  { path: "/docs/api-keys", title: "API keys" },
-  { path: "/docs/gif", title: "Copy as GIF" },
   { path: "/docs/http-api", title: "Upload API" },
-  { path: "/docs/legacy-api", title: "Legacy ShareX aliases" },
+  { path: "/docs/api-keys", title: "API keys" },
+  { path: "/docs/serving", title: "Serving objects" },
+  { path: "/docs/gif", title: "Copy as GIF" },
+  { path: "/docs/sharex", title: "ShareX setup" },
+  { path: "/docs/legacy-api", title: "Compatibility endpoints" },
   { path: "/docs/security", title: "Security model" },
   { path: "/docs/operations", title: "Operations" },
 ];
@@ -46,7 +47,7 @@ async function signIn(page: Page) {
     ]);
     await page.goto("/dashboard");
     await expect(
-      page.getByRole("heading", { name: "Dashboard" }),
+      page.getByRole("heading", { name: "Recent", exact: true }),
     ).toBeVisible();
     return;
   }
@@ -58,7 +59,9 @@ async function signIn(page: Page) {
     .getByRole("button", { name: "Continue with local development sign-in" })
     .click();
   await page.waitForURL((url) => url.pathname === "/dashboard");
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Recent", exact: true }),
+  ).toBeVisible();
 }
 
 const productionIdentities: ProductionTestIdentity[] = [];
@@ -107,21 +110,24 @@ test("the sign-in and authenticated library shells are instant", async ({
     async () => {
       await page.goto("/sign-in");
       await expect(
-        page.getByRole("heading", { name: "Your private upload library" }),
+        page.getByRole("heading", { name: "Files that need a URL" }),
       ).toBeVisible();
       await expect
         .poll(async () =>
           page.evaluate(() => {
             const heading = document.querySelector("h1");
             if (!heading) return false;
+            const rootStyle = getComputedStyle(document.documentElement);
             const bodyStyle = getComputedStyle(document.body);
             const headingStyle = getComputedStyle(heading);
             return (
               [...document.styleSheets].some((sheet) =>
                 sheet.href?.includes("/_next/static/"),
               ) &&
-              bodyStyle.fontFamily.includes("Geist") &&
-              headingStyle.fontSize === "24px" &&
+              bodyStyle.fontFamily.includes("IBM Plex Sans") &&
+              bodyStyle.backgroundColor !== "rgba(0, 0, 0, 0)" &&
+              rootStyle.getPropertyValue("--accent").trim().length > 0 &&
+              headingStyle.fontSize === "32px" &&
               headingStyle.fontWeight === "600"
             );
           }),
@@ -155,7 +161,7 @@ test("the sign-in and authenticated library shells are instant", async ({
     { label: "Texts", path: "/texts", heading: "Texts" },
     { label: "API keys", path: "/api-keys", heading: "API keys" },
     { label: "Docs", path: "/docs", heading: "Seedyn" },
-    { label: "Dashboard", path: "/dashboard", heading: "Dashboard" },
+    { label: "Recent", path: "/dashboard", heading: "Recent" },
   ]) {
     await instant(page, async () => {
       await page
@@ -184,6 +190,32 @@ test("the sign-in and authenticated library shells are instant", async ({
   expect(errors).toEqual([]);
 });
 
+test("signed-out documentation discloses neither prose nor the page tree", async ({
+  request,
+}) => {
+  const protectedTitles = [
+    "Browser uploads",
+    "Serving objects",
+    "Compatibility endpoints",
+    "Security model",
+  ];
+
+  const requestHeaders: Record<string, string>[] = [{}, { RSC: "1" }];
+  for (const headers of requestHeaders) {
+    const response = await request.get("/docs", {
+      headers,
+      maxRedirects: 0,
+    });
+    const body = await response.text();
+    for (const title of protectedTitles) expect(body).not.toContain(title);
+  }
+
+  for (const path of ["/docs.md", "/llms.txt", "/llms-full.txt"]) {
+    const response = await request.get(path, { maxRedirects: 0 });
+    expect(response.status()).toBe(401);
+  }
+});
+
 test("documentation surfaces share the authored reading order", async ({
   page,
 }) => {
@@ -192,14 +224,16 @@ test("documentation surfaces share the authored reading order", async ({
   await expect(
     page.getByRole("heading", { name: "Seedyn", level: 1 }),
   ).toBeVisible();
+  await expect(page.locator("#nd-docs-layout")).toBeVisible();
+  await expect(page.locator("#nd-page")).toBeVisible();
 
-  const docsLinks = page
-    .getByRole("navigation", { name: "Documentation" })
-    .getByRole("link");
+  const docsLinks = page.locator("#nd-sidebar a[data-active]");
   await expect(docsLinks).toHaveCount(DOCS_READING_ORDER.length);
   expect(await docsLinks.allTextContents()).toEqual(
     DOCS_READING_ORDER.map((entry) => entry.title),
   );
+  await expect(docsLinks.first()).toHaveAttribute("data-active", "true");
+  await expect(page.locator("#nd-toc")).toContainText("Start here");
 
   const indexResponse = await page.request.get("/llms.txt");
   expect(indexResponse.status()).toBe(200);
@@ -219,6 +253,36 @@ test("documentation surfaces share the authored reading order", async ({
   expect(malformedMarkdown.status()).toBe(404);
   const malformedHtml = await page.request.get("/docs/%25");
   expect(malformedHtml.status()).toBe(404);
+
+  // Fumadocs' page, TOC popover, and article must remain direct grid items.
+  // A wrapper here silently auto-places the article into an intrinsic outer
+  // track and only reveals itself as horizontal clipping on a narrow viewport.
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.goto("/docs/http-api");
+  await expect(
+    page.getByRole("heading", { name: "Upload API", level: 1 }),
+  ).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          document.documentElement.scrollWidth <=
+          document.documentElement.clientWidth,
+      ),
+    )
+    .toBe(true);
+
+  await page.getByRole("button", { name: "Upload", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Upload" });
+  await expect(dialog).toBeVisible();
+  expect(
+    await dialog.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return rect.left >= 0 && rect.right <= window.innerWidth;
+    }),
+  ).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
 });
 
 test("Proxy-excluded upload methods retain the strict host boundary", async ({

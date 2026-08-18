@@ -25,22 +25,24 @@ export default function SignInPage({
 }) {
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-4 py-16">
-      <div className="border-border bg-panel rounded-md border p-6">
-        <p className="text-[15px] font-semibold tracking-tight">seedyn</p>
+      <div>
+        <p className="font-mono text-sm font-medium tracking-[-0.02em]">
+          seedyn
+        </p>
 
-        <h1 className="mt-6 text-2xl font-semibold tracking-tight">
-          Your private upload library
+        <h1 className="mt-10 text-[2rem] leading-tight font-semibold tracking-[-0.025em]">
+          Files that need a URL
         </h1>
-        <p className="text-muted-foreground mt-2 text-sm">
-          ShareX-ready links, stored for good. Uploads are private to your
-          account; the links you share are public to anyone who has them.
+        <p className="text-muted-foreground mt-3 max-w-[38ch] text-[15px] leading-6">
+          Upload from the browser or any program. Seedyn stores the object and
+          gives it a permanent public-by-link URL.
         </p>
 
         <Suspense fallback={<SignInFallback />}>
           <SignInPanel searchParams={searchParams} />
         </Suspense>
 
-        <p className="border-border text-muted-foreground mt-6 border-t pt-4 text-sm">
+        <p className="text-muted-foreground mt-8 text-sm leading-5">
           Invite-only. Accounts are granted through DavidApps; there is no
           sign-up form here.
         </p>
@@ -53,7 +55,7 @@ function SignInFallback() {
   return (
     <div
       aria-hidden="true"
-      className="border-border mt-6 h-11 rounded-md border md:h-10"
+      className="bg-border mt-6 h-11 rounded-sm md:h-10"
     />
   );
 }
@@ -96,7 +98,7 @@ function SignInError({ code }: { code: string }) {
     <div
       role="alert"
       className={
-        "rounded-md border p-3 text-sm " +
+        "rounded-sm border p-3 text-sm " +
         (denied
           ? "border-border text-muted-foreground"
           : "border-danger text-danger")

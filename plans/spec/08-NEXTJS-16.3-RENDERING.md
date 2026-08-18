@@ -4,10 +4,11 @@ Status: **implemented and verified on Next.js 16.3.0**
 
 ## Version policy
 
-Use the current patched 16.3 stable line, pinned exactly in `package.json` and
-the lockfile. On 2026-08-17 npm reported `next@16.3.1`; do not downgrade to
-16.3.0 merely to match the initial phrase “around 16.3.0”. Recheck official
-release/security notes immediately before the build.
+The verified release remains pinned exactly to `16.3.0`. An explicit A/B against
+the npm `canary` tag (`16.3.1-canary.22` on 2026-08-18) found a deterministic
+`@next/playwright` Instant Navigation regression on `/api-keys` → `/docs` that
+does not occur on 16.3.0. Recheck the stable/canary line before deployment, but
+do not move the release pin without rerunning both browser matrices.
 
 Pair it with the React/Auth.js/Fumadocs versions proven compatible by the final
 install, and use the versioned documentation bundled by Next 16.3. Do not let
@@ -23,6 +24,9 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   output: "standalone",
+  experimental: {
+    turbopackFileSystemCacheForDev: false,
+  },
 };
 
 export default createMDX()(nextConfig);
@@ -73,7 +77,7 @@ navigation requires it and its browser-only caching semantics are understood.
 
 | Route           | Instant shell must contain                                         | May stream                            |
 | --------------- | ------------------------------------------------------------------ | ------------------------------------- |
-| `/dashboard`    | app header, Dashboard heading, Upload action, stat/list skeletons  | totals, recents, ShareX status        |
+| `/dashboard`    | app header, Recent heading, Upload action, stat/list skeletons     | totals and recents                    |
 | `/images`       | header, title, upload action, search/order controls, list skeleton | image rows                            |
 | `/files`        | same                                                               | file/video rows                       |
 | `/texts`        | same                                                               | text rows                             |
@@ -143,8 +147,8 @@ synchronous and minimal.
 
 ## Required instant tests
 
-- Dashboard document load and Sign-in → Dashboard transition.
-- Dashboard → Images/Files/Texts/API Keys/Docs.
+- Recent document load and Sign-in → Recent transition.
+- Recent → Images/Files/Texts/API Keys/Docs.
 - Images list → upload detail and sibling upload detail.
 - Back navigation retains reasonable UI/scroll state.
 - Slow database fixture still commits destination shell immediately.

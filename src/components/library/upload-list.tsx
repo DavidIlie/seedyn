@@ -94,7 +94,7 @@ export function LibraryEmpty({
   ) : (
     <EmptyState
       title={`No ${noun} yet`}
-      body="Uploads from ShareX and from this browser both land here."
+      body="Upload from this browser or use the HTTP API. Every completed object gets a permanent link."
       action={action}
     />
   );

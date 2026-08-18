@@ -15,11 +15,11 @@ An identity admitted by the Seedyn application in DavidApps. V1 treats invited
 users as peers for their own data: they manage only their own keys and uploads.
 No Seedyn-specific admin console or cross-user browsing is planned.
 
-### ShareX
+### HTTP client
 
 An API client holding one user-created key. It can upload only the media types
 covered by that key's scopes. It has no browser session and cannot read the
-dashboard or docs.
+application or docs. ShareX is one supported HTTP client.
 
 ### Browser
 
@@ -33,14 +33,15 @@ signing in. They cannot browse or enumerate the library.
 
 ## Jobs to be done
 
-1. Capture a screenshot in ShareX and immediately receive a pasteable URL.
-2. Upload a normal file, image, video, or text item from the browser.
+1. Upload a normal file, image, video, or text item from the browser.
+2. Upload from a script or desktop tool and immediately receive a pasteable URL.
 3. Paste a remote media URL, ingest it, and receive a durable Seedyn URL.
 4. Find a previous upload without searching MinIO or a filesystem.
 5. Copy the original URL, download the original, or delete the upload.
 6. Turn an existing still image or short video into a stored GIF and copy its
    `.gif` URL for Discord.
-7. Create/revoke a ShareX key and download a ready-to-import `.sxcu` file.
+7. Create/revoke a scoped API key and optionally download a ready-to-import
+   ShareX `.sxcu` file.
 8. Read human and agent-friendly docs without exposing them publicly.
 
 ## Core terminology
@@ -68,9 +69,9 @@ signing in. They cannot browse or enumerate the library.
 3. Continue to DavidApps with PKCE.
 4. DavidApps enforces invite policy and returns the user.
 5. Auth.js creates/loads the local account and database session.
-6. Dashboard renders its static shell immediately, then streams user totals and
+6. Recent renders its static shell immediately, then streams user totals and
    recent uploads.
-7. Empty state offers “Upload something” and “Set up ShareX”.
+7. Empty state explains local file, paste, and HTTPS URL upload paths.
 
 ### ShareX setup
 
@@ -85,16 +86,17 @@ signing in. They cannot browse or enumerate the library.
    remain.
 7. Import the `.sxcu` into ShareX and perform a test upload.
 
-### ShareX upload
+### Machine upload
 
-1. ShareX sends one multipart file with the key.
+1. A script, desktop tool, or ShareX sends one multipart file with the key.
 2. Seedyn authenticates and rate/size checks before durable work.
 3. The handler derives a safe kind, filename, extension, MIME, checksum, slug,
    and object key.
 4. Bytes are written to MinIO.
 5. Metadata is committed to PostgreSQL.
-6. Seedyn returns the stable public URL in the legacy-compatible JSON field.
-7. ShareX copies the parsed URL.
+6. The canonical route returns the stable public URL in its structured response;
+   compatibility routes also return the legacy `message` field.
+7. The client copies or stores the parsed URL.
 
 ### Browser upload
 
@@ -144,7 +146,7 @@ Recommended navigation:
 
 ```text
 Seedyn
-├── Dashboard
+├── Recent
 ├── Images
 ├── Files
 ├── Texts
@@ -153,17 +155,17 @@ Seedyn
 ```
 
 Videos live under Files in the main navigation but receive their own kind and
-preview/treatment. A single all-uploads search can be added to Dashboard without
+preview/treatment. A single all-uploads search can be added to Recent without
 adding another top-level page.
 
 ## V1 scope details
 
-### Dashboard
+### Recent
 
-- total uploads, total stored bytes, image/file/text counts;
-- six most recent uploads;
+- total uploads and total stored bytes;
+- ten most recent uploads;
 - primary upload action;
-- ShareX setup callout until at least one active API key exists.
+- no integration-specific onboarding in the primary library.
 
 ### Library lists
 

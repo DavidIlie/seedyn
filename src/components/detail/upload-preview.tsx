@@ -62,7 +62,7 @@ export function UploadPreview({
       <p className="text-muted-foreground flex items-center gap-3 text-sm">
         <span
           aria-hidden="true"
-          className="border-border grid h-10 w-10 place-items-center rounded border font-mono text-[10px] tracking-wider"
+          className="border-border bg-sunken grid h-10 w-10 place-items-center rounded-sm border font-mono text-[10px] tracking-wider"
         >
           {uploadKindGlyph(upload.kind)}
         </span>
@@ -76,7 +76,7 @@ export function UploadPreview({
 
 function Frame({ children }: { children: React.ReactNode }) {
   return (
-    <div className="border-border bg-panel flex min-h-[12rem] items-center justify-center rounded-md border p-3">
+    <div className="border-border bg-sunken flex min-h-[12rem] items-center justify-center rounded-sm border p-3">
       {children}
     </div>
   );
@@ -86,7 +86,7 @@ export function UploadPreviewSkeleton() {
   return (
     <div
       aria-hidden="true"
-      className="border-border bg-panel min-h-[12rem] rounded-md border"
+      className="border-border bg-sunken min-h-[12rem] rounded-sm border"
     />
   );
 }

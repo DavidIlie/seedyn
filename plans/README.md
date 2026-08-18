@@ -1,7 +1,7 @@
 # Seedyn planning dossier
 
 Status: **implemented local baseline; production infrastructure deferred**
-Last updated: **2026-08-17**
+Last updated: **2026-08-18**
 
 This directory records the product, architecture, and acceptance baseline that
 the implemented Next.js 16.3 application follows. The former T3-style scaffold
@@ -50,10 +50,11 @@ Seedyn is one self-hosted Next.js application with two public origins:
 - `seedyn.dave.tips` — invite-only application and protected docs.
 - `i.dave.tips` — short public-by-link immutable media delivery.
 
-The application owns authentication, the dashboard, the ShareX-compatible API,
-the public media gateway, and documentation. PostgreSQL owns metadata; a private
-MinIO bucket owns bytes. Media-to-GIF conversion happens in the browser and the
-result is uploaded once as a permanent stored derivative.
+The application owns authentication, the upload library, a general HTTP upload
+API with optional ShareX compatibility, the public media gateway, and protected
+Fumadocs documentation. PostgreSQL owns metadata; a private MinIO bucket owns
+bytes. Media-to-GIF conversion happens in the browser and the result is uploaded
+once as a permanent stored derivative.
 
 David confirmed both hostnames. `dave.tips` and its wildcard are already routed
 through home-cluster, and the separate media origin keeps uploaded content away

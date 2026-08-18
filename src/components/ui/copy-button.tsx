@@ -61,12 +61,13 @@ export function CopyButton({
         aria-label={label}
         data-state={state}
         className={
-          "inline-flex h-9 w-20 shrink-0 items-center justify-center rounded-md border " +
-          "border-border bg-panel text-sm font-medium transition-colors duration-[120ms] " +
+          "inline-flex h-11 w-20 shrink-0 items-center justify-center rounded-sm border md:h-9 " +
+          "border-border bg-panel text-sm font-medium transition-[background-color,border-color,color,transform] duration-[120ms] " +
+          "ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] motion-reduce:transform-none " +
           // The label change from "Copy" to "Copied" carries the state; the
-          // border only reinforces it. Cyan is not spent here — it is reserved
-          // for the primary action, the focus ring, and the active destination,
-          // so that it always means one of those three things.
+          // border only reinforces it. Ember is not spent here — it is reserved
+          // for the primary action, focus ring, active destination, and upload
+          // URL rule, so it keeps a precise meaning.
           "hover:bg-foreground/5 data-[state=copied]:border-foreground " +
           "data-[state=failed]:border-danger data-[state=copied]:font-semibold " +
           "data-[state=failed]:text-danger " +

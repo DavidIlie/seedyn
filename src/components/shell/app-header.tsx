@@ -19,10 +19,10 @@ import { PrimaryNav } from "./primary-nav";
 export function AppHeader() {
   return (
     <header className="border-border bg-background sticky top-0 z-40 border-b">
-      <div className="mx-auto flex h-14 max-w-5xl items-center gap-3 px-4">
+      <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4">
         <Link
           href="/dashboard"
-          className="text-[15px] font-semibold tracking-tight"
+          className="font-mono text-sm font-medium tracking-[-0.02em]"
         >
           seedyn
         </Link>

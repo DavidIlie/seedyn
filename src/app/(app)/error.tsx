@@ -20,7 +20,7 @@ export default function AppSectionError({
 }) {
   return (
     <div className="py-16">
-      <div className="border-border bg-panel max-w-md rounded-md border p-6">
+      <div className="border-border bg-panel max-w-md rounded-sm border p-6">
         <h1 className="text-lg font-semibold">This page could not load</h1>
         <p className="text-muted-foreground mt-2 text-sm">
           A read failed on the way to rendering it. Your uploads are unaffected

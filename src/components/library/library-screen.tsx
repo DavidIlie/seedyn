@@ -76,13 +76,7 @@ export function LibraryScreen({
       </Suspense>
 
       <Suspense fallback={<UploadListSkeleton rows={PAGE_SIZE} />}>
-        <Rows
-          kind={kind}
-          path={path}
-          noun={noun}
-          uploadLabel={uploadLabel}
-          searchParams={searchParams}
-        />
+        <Rows kind={kind} path={path} noun={noun} searchParams={searchParams} />
       </Suspense>
     </>
   );
@@ -109,13 +103,11 @@ async function Rows({
   kind,
   path,
   noun,
-  uploadLabel,
   searchParams,
 }: {
   kind: LibraryKind;
   path: LibraryPath;
   noun: string;
-  uploadLabel: string;
   searchParams: SearchParams;
 }) {
   const params = await searchParams;
@@ -141,11 +133,7 @@ async function Rows({
   if (page.items.length === 0) {
     return (
       <>
-        <LibraryEmpty
-          searching={query.length > 0}
-          noun={noun}
-          action={<UploadAction label={uploadLabel} />}
-        />
+        <LibraryEmpty searching={query.length > 0} noun={noun} />
         <LibraryPagination
           basePath={path}
           page={page}

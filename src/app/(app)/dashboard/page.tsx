@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Suspense } from "react";
 
 import { requireSessionUser } from "~/components/data/session";
 import {
   DASHBOARD_RECENT_COUNT,
-  hasActiveApiKey,
   listRecentUploads,
   readUploadTotals,
 } from "~/components/data/uploads";
@@ -16,10 +14,9 @@ import {
 import { formatBytes } from "~/components/lib/format";
 import { EmptyState } from "~/components/ui/empty-state";
 import { PageHeader } from "~/components/ui/page-header";
-import { buttonQuiet } from "~/components/ui/styles";
 import { UploadAction } from "~/components/upload/upload-action";
 
-export const metadata: Metadata = { title: "Dashboard" };
+export const metadata: Metadata = { title: "Recent" };
 
 /**
  * Heading, one muted total, ten real rows.
@@ -34,7 +31,7 @@ export default function DashboardPage() {
   return (
     <>
       <PageHeader
-        title="Dashboard"
+        title="Recent"
         subtitle={
           <Suspense fallback={<TotalsFallback />}>
             <Totals />
@@ -53,15 +50,6 @@ export default function DashboardPage() {
           <Recent />
         </Suspense>
       </section>
-
-      {/*
-        Onboarding sits below the list and streams into nothing, so the rows
-        above it never move when it resolves — and when a key already exists it
-        renders nothing at all.
-      */}
-      <Suspense fallback={null}>
-        <ShareXOnboarding />
-      </Suspense>
     </>
   );
 }
@@ -95,34 +83,10 @@ async function Recent() {
     return (
       <EmptyState
         title="Nothing uploaded yet"
-        body="Uploads from ShareX and from this browser both land here, each with a permanent URL."
-        action={<UploadAction label="Upload a file" />}
+        body="Upload a local file, paste one, or fetch an eligible HTTPS URL. Every completed object gets a permanent link."
       />
     );
   }
 
   return <UploadList items={uploads} />;
-}
-
-async function ShareXOnboarding() {
-  const user = await requireSessionUser();
-  if (await hasActiveApiKey(user.id)) return null;
-
-  return (
-    <section
-      aria-labelledby="sharex-heading"
-      className="border-border mt-8 rounded-md border p-4"
-    >
-      <h2 id="sharex-heading" className="text-sm font-medium">
-        ShareX is not set up
-      </h2>
-      <p className="text-muted-foreground mt-1 max-w-prose text-sm">
-        Create an API key to get a ready-to-import ShareX configuration. The key
-        is shown once, at creation, and the configuration file contains it.
-      </p>
-      <Link href="/api-keys" className={`${buttonQuiet} mt-4`}>
-        Set up ShareX
-      </Link>
-    </section>
-  );
 }

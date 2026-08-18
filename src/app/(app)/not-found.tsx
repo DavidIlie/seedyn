@@ -10,7 +10,7 @@ import { buttonQuiet } from "~/components/ui/styles";
 export default function AppNotFound() {
   return (
     <div className="py-16">
-      <div className="border-border bg-panel max-w-md rounded-md border p-6">
+      <div className="border-border bg-panel max-w-md rounded-sm border p-6">
         <h1 className="text-lg font-semibold">Not found</h1>
         <p className="text-muted-foreground mt-2 text-sm">
           This upload does not exist, or it is not yours. If you just deleted

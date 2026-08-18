@@ -55,7 +55,7 @@ export function MetadataList({ upload }: { upload: SerializedUpload }) {
   ];
 
   return (
-    <dl className="border-border rounded-md border">
+    <dl className="border-border border-y">
       {rows.map((row, index) => (
         <div
           key={row.term}
@@ -74,7 +74,7 @@ export function MetadataList({ upload }: { upload: SerializedUpload }) {
 
 export function MetadataListSkeleton() {
   return (
-    <div aria-hidden="true" className="border-border rounded-md border">
+    <div aria-hidden="true" className="border-border border-y">
       {Array.from({ length: 5 }, (_, index) => (
         <div
           key={index}

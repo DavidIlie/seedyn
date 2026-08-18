@@ -21,7 +21,7 @@ export default function AppError({
 }) {
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-4 py-16">
-      <div className="border-border bg-panel rounded-md border p-6">
+      <div className="border-border bg-panel rounded-sm border p-6">
         <h1 className="text-lg font-semibold">Something went wrong</h1>
         <p className="text-muted-foreground mt-2 text-sm">
           The page could not be rendered. Nothing you were doing was saved or

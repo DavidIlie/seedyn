@@ -1,0 +1,37 @@
+---
+title: Serving objects
+description: Public URL behavior, caching, ranges, downloads, and deletion.
+---
+
+Every completed original and GIF variant receives an application-generated URL
+on `i.dave.tips`. The bucket remains private: the media origin validates the
+database row and managed MinIO metadata before streaming any bytes.
+
+## Public by exact link
+
+Media requests do not require a Seedyn session, and responses allow cross-origin
+reads. There is no public index, search, or directory listing. A URL must match
+the stored lowercase slug and extension exactly; alternate extensions and case
+changes return not found.
+
+Treat a media URL as a bearer link. Anyone who has it can fetch the object until
+its owner deletes the upload.
+
+## HTTP behavior
+
+The media origin supports `GET`, `HEAD`, and `OPTIONS`, conditional requests with
+`ETag` and `Last-Modified`, and one byte range at a time. Full responses are
+cached publicly for one hour in a browser and up to one day in a shared cache.
+Range responses are private and vary on `Range` so an intermediary cannot
+confuse a partial body with the complete representation.
+
+Content disposition is recorded with the upload. Safe media may render inline;
+other files download with a sanitized form of the original filename. Every
+response uses `nosniff` and a sandboxed content security policy.
+
+## Deletion
+
+Deleting an upload removes its original and all generated variants from Seedyn.
+The exact public URLs then resolve as not found. A client or intermediary may
+retain a previously cached response until its advertised cache lifetime ends,
+so deletion is not a recall mechanism for bytes someone already fetched.

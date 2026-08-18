@@ -68,7 +68,7 @@ browser suite and a clean container build.
 
 ## HTTP contracts
 
-- `POST /api/upload` — canonical ShareX endpoint (`file`, Bearer API key).
+- `POST /api/upload` — canonical client upload (`file`, Bearer API key).
 - `POST /api/images`, `/api/files`, `/api/texts` — legacy-compatible aliases.
 - `POST /api/uploads` — cookie-authenticated browser upload with progress.
 - `POST /api/uploads/:id/gif` — finalize a browser-generated GIF variant.

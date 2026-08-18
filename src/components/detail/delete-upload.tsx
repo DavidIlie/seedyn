@@ -28,7 +28,7 @@ export function DeleteUpload({
   );
 
   return (
-    <details className="border-border rounded-md border">
+    <details className="border-border rounded-sm border">
       <summary className="flex h-12 cursor-pointer list-none items-center px-4 text-sm [&::-webkit-details-marker]:hidden">
         Delete this upload…
       </summary>
@@ -46,7 +46,7 @@ export function DeleteUpload({
         {state.error ? (
           <p
             role="alert"
-            className="border-danger text-danger rounded-md border p-3 text-sm"
+            className="border-danger text-danger rounded-sm border p-3 text-sm"
           >
             {state.error}
           </p>

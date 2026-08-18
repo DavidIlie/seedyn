@@ -5,11 +5,12 @@ import { orderPagesByTree } from "./order";
 
 const authoredUrls = [
   "/docs",
-  "/docs/sharex",
   "/docs/uploads",
-  "/docs/api-keys",
-  "/docs/gif",
   "/docs/http-api",
+  "/docs/api-keys",
+  "/docs/serving",
+  "/docs/gif",
+  "/docs/sharex",
   "/docs/legacy-api",
   "/docs/security",
   "/docs/operations",

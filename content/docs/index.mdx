@@ -1,18 +1,21 @@
 ---
 title: Seedyn
-description: Private-by-account uploads with public-by-link media URLs.
+description: Upload and store an object, then serve it from a durable public URL.
 ---
 
-Seedyn accepts screenshots, files, text, and short media from ShareX or the
-browser. It stores the original in a private MinIO bucket and returns an
+Seedyn accepts images, files, text, and short media from the browser or any HTTP
+client. It stores the original in a private MinIO bucket and returns an
 unguessable public URL on `i.dave.tips`.
 
 ## Start here
 
 1. Sign in with DavidApps.
-2. Create an API key with the upload scopes you need.
-3. Download the generated ShareX custom uploader while the key is still visible.
-4. Import the `.sxcu` into ShareX and send a test capture.
+2. Choose **Upload** to send a local file, paste one, or fetch an eligible HTTPS URL.
+3. Copy the permanent URL from the completed upload or its detail page.
+
+For scripts and desktop tools, create a scoped API key and use the canonical
+upload endpoint. The [ShareX setup](/docs/sharex) page provides a ready-made
+configuration for that client.
 
 The API key is shown once. Seedyn stores only its SHA-256 digest, so a lost key
 must be revoked and replaced.

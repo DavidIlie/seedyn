@@ -2,12 +2,16 @@
   "title": "Seedyn",
   "pages": [
     "index",
-    "sharex",
+    "---Upload and serve---",
     "uploads",
-    "api-keys",
-    "gif",
     "http-api",
+    "api-keys",
+    "serving",
+    "gif",
+    "---Integrations---",
+    "sharex",
     "legacy-api",
+    "---Operate---",
     "security",
     "operations"
   ]

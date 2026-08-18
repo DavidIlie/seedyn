@@ -55,7 +55,23 @@ type Phase =
   | { name: "failed"; code: string; message: string };
 
 const MAX_UPLOAD_BYTES = URL_INGEST_BYTE_CAP;
-const UploadDialogContext = createContext<(() => void) | null>(null);
+const UploadDialogContext = createContext<((file?: File) => void) | null>(null);
+const DROP_ENABLED_PATHS = new Set([
+  "/dashboard",
+  "/images",
+  "/files",
+  "/texts",
+]);
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLElement &&
+    (target.isContentEditable ||
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      target instanceof HTMLSelectElement)
+  );
+}
 
 function percent(loaded: number, total: number | null): number | null {
   if (total === null || total <= 0) return null;
@@ -120,7 +136,7 @@ export function UploadAction({
   return (
     <button
       type="button"
-      onClick={openDialog}
+      onClick={() => openDialog()}
       className={`${buttonPrimary} ${className}`}
     >
       {label}
@@ -137,6 +153,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const controller = useRef<AbortController | null>(null);
+  const dragDepth = useRef(0);
   const router = useRouter();
 
   const [open, setOpen] = useState(false);
@@ -227,6 +244,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     if (!open) return undefined;
     const onPaste = (event: ClipboardEvent) => {
       if (controller.current) return;
+      if (isEditableTarget(event.target)) return;
       const data = event.clipboardData;
       if (!data) return;
       const file = data.files.item(0);
@@ -242,12 +260,57 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener("paste", onPaste);
   }, [open, chooseFile]);
 
-  const openDialog = useCallback(() => {
-    setPhase({ name: "idle" });
+  const openDialog = useCallback((file?: File) => {
+    if (fileInput.current) fileInput.current.value = "";
+    setPhase(file ? { name: "selected", file } : { name: "idle" });
     setUrlValue("");
+    dragDepth.current = 0;
+    setDragging(false);
     setOpen(true);
     dialog.current?.showModal();
   }, []);
+
+  // The four library surfaces accept a dropped or pasted file even before the
+  // dialog is open. They still hand it to the one canonical state machine;
+  // editable fields and an in-flight operation are never intercepted.
+  useEffect(() => {
+    if (open) return undefined;
+
+    const isDropEnabled = () =>
+      DROP_ENABLED_PATHS.has(window.location.pathname);
+
+    const onDragOver = (event: DragEvent) => {
+      if (!isDropEnabled()) return;
+      if (isEditableTarget(event.target)) return;
+      if (!event.dataTransfer?.types.includes("Files")) return;
+      event.preventDefault();
+    };
+    const onDrop = (event: DragEvent) => {
+      if (!isDropEnabled()) return;
+      if (isEditableTarget(event.target) || controller.current) return;
+      const file = event.dataTransfer?.files.item(0);
+      if (!file) return;
+      event.preventDefault();
+      openDialog(file);
+    };
+    const onClosedPaste = (event: ClipboardEvent) => {
+      if (!isDropEnabled()) return;
+      if (isEditableTarget(event.target) || controller.current) return;
+      const file = event.clipboardData?.files.item(0);
+      if (!file) return;
+      event.preventDefault();
+      openDialog(file);
+    };
+
+    document.addEventListener("dragover", onDragOver);
+    document.addEventListener("drop", onDrop);
+    document.addEventListener("paste", onClosedPaste);
+    return () => {
+      document.removeEventListener("dragover", onDragOver);
+      document.removeEventListener("drop", onDrop);
+      document.removeEventListener("paste", onClosedPaste);
+    };
+  }, [open, openDialog]);
 
   function closeDialog() {
     if (busy) {
@@ -323,7 +386,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
           closeDialog();
         }}
         onClose={() => setOpen(false)}
-        className="border-border bg-panel text-foreground backdrop:bg-foreground/30 m-auto w-[min(34rem,calc(100vw-2rem))] rounded-md border p-0"
+        className="border-border bg-panel text-foreground backdrop:bg-foreground/30 m-auto max-h-[calc(100dvh-2rem)] w-[min(34rem,calc(100vw-2rem))] overflow-hidden rounded-sm border p-0"
       >
         <div className="border-border flex h-14 items-center justify-between border-b px-4">
           <h2 id={dialogTitleId} className="text-base font-medium">
@@ -334,7 +397,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
           </button>
         </div>
 
-        <div className="space-y-5 p-4">
+        <div className="max-h-[calc(100dvh-5.5rem)] space-y-5 overflow-y-auto overscroll-contain p-4">
           {phase.name === "done" ? (
             <div className="space-y-4">
               <p className="text-sm">
@@ -357,7 +420,10 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
                 ) : null}
                 <button
                   type="button"
-                  onClick={() => setPhase({ name: "idle" })}
+                  onClick={() => {
+                    if (fileInput.current) fileInput.current.value = "";
+                    setPhase({ name: "idle" });
+                  }}
                   className={buttonQuiet}
                 >
                   Upload another
@@ -367,20 +433,29 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
           ) : (
             <>
               <div
-                onDragOver={(event) => {
+                onDragEnter={(event) => {
                   event.preventDefault();
+                  dragDepth.current += 1;
                   setDragging(true);
                 }}
-                onDragLeave={() => setDragging(false)}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                }}
+                onDragLeave={(event) => {
+                  event.preventDefault();
+                  dragDepth.current = Math.max(0, dragDepth.current - 1);
+                  if (dragDepth.current === 0) setDragging(false);
+                }}
                 onDrop={(event) => {
                   event.preventDefault();
+                  dragDepth.current = 0;
                   setDragging(false);
                   const file = event.dataTransfer.files.item(0);
                   if (file) chooseFile(file);
                 }}
                 className={
-                  "rounded-md border border-dashed p-4 " +
-                  (dragging ? "border-foreground" : "border-border")
+                  "rounded-sm border border-dashed p-4 " +
+                  (dragging ? "border-accent bg-sunken" : "border-border")
                 }
               >
                 <p className="text-muted-foreground text-sm">
@@ -399,13 +474,13 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
                       const file = event.target.files?.item(0);
                       if (file) chooseFile(file);
                     }}
-                    className="file:border-border file:bg-background file:text-foreground block w-full text-sm file:mr-3 file:h-9 file:rounded-md file:border file:px-3 file:text-sm"
+                    className="file:border-border file:bg-background file:text-foreground block w-full text-sm file:mr-3 file:h-11 file:rounded-sm file:border file:px-3 file:text-sm md:file:h-9"
                   />
                 </div>
               </div>
 
               {phase.name === "selected" ? (
-                <div className="border-border flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
+                <div className="border-border flex flex-wrap items-center justify-between gap-3 rounded-sm border p-3">
                   <p className="min-w-0 text-sm">
                     <span className="block truncate font-medium">
                       {phase.file.name}
@@ -426,7 +501,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
               ) : null}
 
               {busy ? (
-                <div className="border-border space-y-3 rounded-md border p-3">
+                <div className="border-border space-y-3 rounded-sm border p-3">
                   <Progress
                     loaded={phase.loaded}
                     total={phase.total}
@@ -450,7 +525,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
                 <label htmlFor={urlInputId} className={labelBase}>
                   Or fetch an HTTPS URL
                 </label>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <input
                     id={urlInputId}
                     type="url"
@@ -460,12 +535,12 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
                     disabled={busy}
                     onChange={(event) => setUrlValue(event.target.value)}
                     aria-describedby={urlHintId}
-                    className={inputBase}
+                    className={`${inputBase} min-w-0 flex-1`}
                   />
                   <button
                     type="submit"
                     disabled={busy || urlValue.trim().length === 0}
-                    className={buttonQuiet}
+                    className={`${buttonQuiet} w-full sm:w-auto`}
                   >
                     Fetch
                   </button>
@@ -480,7 +555,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
               {phase.name === "failed" ? (
                 <p
                   role="alert"
-                  className="border-danger text-danger rounded-md border p-3 text-sm"
+                  className="border-danger text-danger rounded-sm border p-3 text-sm"
                 >
                   {phase.message}
                 </p>

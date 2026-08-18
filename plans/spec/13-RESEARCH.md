@@ -95,6 +95,40 @@ Important correction to older project knowledge: 16.3 Instant Navigation needs
 both `cacheComponents: true` and `partialPrefetching: true`. PPR is part of Cache
 Components, not the old experimental PPR flag.
 
+## Next.js 16.3.0 → 16.3.1-canary.22 A/B
+
+The raw-HTML incident was traced to a whole-process `next dev` stall, not a CSS
+pipeline failure: the Next child pinned a core, accepted TCP, and returned no
+bytes for HTML, RSC, CSS, or health routes while the persistent Turbopack dev
+cache was roughly 1.0 GiB. Disabling only
+`turbopackFileSystemCacheForDev` eliminated the failure across a workload beyond
+the prior failure window.
+
+Replaying 16.3.0 against the preserved database did not immediately reproduce,
+so the database is not simply and deterministically poisoned. The strongest
+working hypothesis is a live persistence writer/snapshot/compaction or task
+coordination loop reached by a particular HMR and route workload.
+
+The npm `canary` tag was `16.3.1-canary.22`. Its cache is version-keyed and could
+not consume the 16.3.0 database; a fresh-cache soak remained healthy for more
+than 18 minutes. The same canary did expose an independent regression: the
+documented `@next/playwright` `instant()` helper consistently failed to commit
+an otherwise completed `/api-keys` → `/docs` navigation. The destination RSC
+completed in tens of milliseconds, the server remained idle, and disabling the
+persistent cache did not change the result. The identical test passes on
+16.3.0, which remains the release pin.
+
+Related framework records inspected during the diagnosis:
+
+- [Issue #96093](https://github.com/vercel/next.js/issues/96093)
+- [Discussion #87283](https://github.com/vercel/next.js/discussions/87283)
+- [Discussion #87796](https://github.com/vercel/next.js/discussions/87796)
+- [Discussion #90691](https://github.com/vercel/next.js/discussions/90691)
+- [PR #96043](https://github.com/vercel/next.js/pull/96043)
+- [PR #95975](https://github.com/vercel/next.js/pull/95975)
+- [PR #96929](https://github.com/vercel/next.js/pull/96929)
+- [PR #96941](https://github.com/vercel/next.js/pull/96941)
+
 ## Browser GIF primary sources
 
 - [ffmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm) and its

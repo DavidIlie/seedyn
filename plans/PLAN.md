@@ -1,17 +1,17 @@
 # Seedyn — master product and architecture plan
 
 Status: **implemented local baseline; production infrastructure deferred**
-Date: **2026-08-17**
+Date: **2026-08-18**
 
 ## 1. Product in one paragraph
 
-Seedyn is David's small, private upload library. An invited user signs in with
-DavidApps, creates a scoped API key, installs a generated ShareX custom-uploader
-configuration, and uploads screenshots, text, video, or arbitrary files. Every
-upload receives a stable public-by-link URL backed by MinIO. The web library can
-also turn a stored image or short video into a GIF entirely in the visitor's
-browser, upload that derivative once, and copy its permanent `.gif` URL for uses
-such as Discord favorites.
+Seedyn is David's small, private upload library: upload or ingest an object,
+store it permanently in MinIO, and receive a stable public-by-link URL. An
+invited user signs in with DavidApps and can use the browser, any compatible
+HTTP client, or the supported ShareX integration. The web library can also turn
+a stored image or short video into a GIF entirely in the visitor's browser,
+upload that derivative once, and copy its permanent `.gif` URL for uses such as
+Discord favorites.
 
 ## 2. Non-negotiable constraints
 
@@ -75,12 +75,12 @@ above. "It is already in the scaffold" is not sufficient reason to keep it.
 ### Protected application
 
 - Sign-in page with one “Continue with DavidApps” action.
-- Dashboard: total objects/bytes, recent uploads, upload action.
+- Recent: total objects/bytes, recent uploads, upload action.
 - Images, files, and texts library views with URL-state pagination/filtering.
 - Upload detail: preview, metadata, checksum, URLs, copy/download/delete.
 - API keys: create, reveal once, download `.sxcu`, inspect last use, revoke.
-- Docs: ShareX setup, upload API, keys/scopes, browser uploader, GIF conversion,
-  URL behavior, limits, and troubleshooting.
+- Docs: browser uploads, the general upload API, keys/scopes, serving semantics,
+  GIF conversion, ShareX setup, compatibility endpoints, and operations.
 
 ### Public-by-link surface
 
@@ -91,8 +91,8 @@ above. "It is already in the scaffold" is not sufficient reason to keep it.
 
 ### Machine-facing surface
 
-- A canonical ShareX upload endpoint and compatibility aliases matching the old
-  repository's image/file/text contracts.
+- A canonical client upload endpoint plus ShareX-compatible aliases matching the
+  old repository's image/file/text contracts.
 - API-key authentication, size/type checks, uniform JSON responses, request IDs,
   and a generated ShareX configuration that removes manual setup.
 

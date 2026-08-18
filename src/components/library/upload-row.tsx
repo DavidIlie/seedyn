@@ -80,12 +80,12 @@ export function UploadRowSkeleton() {
       aria-hidden="true"
       className={`flex ${ROW_HEIGHT_CLASS} border-border items-center gap-3 border-b px-3 last:border-b-0`}
     >
-      <span className="border-border bg-background h-10 w-10 shrink-0 rounded border" />
+      <span className="border-border bg-sunken h-10 w-10 shrink-0 rounded-sm border" />
       <span className="flex min-w-0 flex-1 flex-col gap-1.5">
         <span className="bg-border block h-3.5 w-2/3 rounded" />
         <span className="bg-border block h-3 w-1/3 rounded" />
       </span>
-      <span className="border-border h-9 w-20 shrink-0 rounded-md border" />
+      <span className="border-border h-11 w-20 shrink-0 rounded-sm border md:h-9" />
     </li>
   );
 }
