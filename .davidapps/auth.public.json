@@ -1,0 +1,16 @@
+{
+  "applicationId": "application_90fb0334-3ca6-4f3d-981a-a60b45f438c0",
+  "clientId": "N3HqSugmik9n4eSjXybKFybxlyWfKn3K",
+  "cluster": {
+    "namespace": "default",
+    "secretName": "seedyn-davidapps-auth"
+  },
+  "hostnames": ["seedyn.dave.tips"],
+  "issuer": "https://id.davidapps.dev",
+  "mode": "oidc",
+  "origin": "https://seedyn.dave.tips",
+  "signupPolicy": "invite",
+  "silentSsoPaths": [],
+  "slug": "seedyn",
+  "version": 1
+}

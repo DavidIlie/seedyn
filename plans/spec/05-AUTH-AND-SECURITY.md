@@ -1,21 +1,18 @@
 # 05 — Authentication and security
 
-Status: **implemented locally; production OIDC provisioning deferred**
+Status: **OIDC application provisioned; encrypted secret delivery pending**
 
 ## DavidApps OIDC contract
 
 - Issuer: `https://id.davidapps.dev`.
 - Discovery: `/.well-known/openid-configuration`.
 - Client type: confidential server client.
-- Flow: authorization code with PKCE S256 and state.
+- Flow: authorization code with PKCE S256, state, and nonce.
 - Scopes: `openid profile email`; no `offline_access`.
 - Auth.js provider id: `davidapps`.
 - Production callback:
   `https://seedyn.dave.tips/api/auth/callback/davidapps` (recommended host).
-- Local callbacks: `http://seedyn.localhost:3000/api/auth/callback/davidapps`
-  and the plain-loopback fallback
-  `http://localhost:3000/api/auth/callback/davidapps` on a separate localhost
-  client because DavidApps subjects are pairwise per client.
+- Registered local callback origin: `http://seedyn.localhost:3000`.
 
 The app stores the issuer/provider plus pairwise subject as the durable identity.
 It must never use email as an identity key or auto-link a new provider account to
@@ -23,7 +20,7 @@ an existing user by email.
 
 ## Invite policy
 
-Recommended MCP setup after URLs are locked:
+Provisioned MCP setup:
 
 ```text
 name: Seedyn
@@ -31,13 +28,16 @@ slug: seedyn
 mode: oidc
 signupPolicy: invite
 hostnames: [seedyn.dave.tips]
-devUrls: [http://seedyn.localhost:3000, http://localhost:3000]
-consentInterstitial: true (recommended for the first integration)
+devUrls: [http://seedyn.localhost:3000]
+consentInterstitial: true
 ```
 
-Then explicitly ensure `david@davidilie.com` has owner/access through the
-DavidApps control plane. Future users are invited there. Seedyn does not add an
-email allowlist that can drift from the identity platform.
+Application id:
+`application_90fb0334-3ca6-4f3d-981a-a60b45f438c0`. Public client id:
+`N3HqSugmik9n4eSjXybKFybxlyWfKn3K`. Access resolution confirms David is
+allowed with effective role `admin`. Future users are invited in DavidApps.
+Seedyn does not add an email allowlist that can drift from the identity
+platform.
 
 Provisioning preconditions:
 
@@ -51,6 +51,10 @@ Provisioning preconditions:
 ## Session contract
 
 - Auth.js v5 database sessions through Prisma.
+- Sessions have a 15-minute hard maximum so a removed DavidApps admin grant
+  cannot remain effective for Auth.js' default 30 days.
+- The validated `app_role=admin` claim maps to Seedyn `ADMIN`; every other or
+  malformed value fails closed to `MEMBER`.
 - Secure, HttpOnly, SameSite=Lax cookies in production.
 - Trust the external proxy/host only through explicit production config.
 - Every protected RSC read, Server Action, and browser upload route calls a
@@ -87,6 +91,7 @@ Provisioning preconditions:
 | Delete upload              | own user        | deferred API scope          | no        |
 | Manage keys                | own user        | no                          | no        |
 | Read HTML/Markdown docs    | invited user    | optional future `docs:read` | no        |
+| Read cross-user admin data | admin role only | no                          | no        |
 | Fetch exact CDN URL        | yes             | yes                         | yes       |
 | List/search CDN            | no              | no                          | no        |
 

@@ -57,6 +57,7 @@ export async function createProductionTestIdentity(
       name: "Seedyn E2E",
       identityIssuer: "urn:seedyn:e2e",
       identitySubject: email,
+      appRole: "ADMIN",
       sessions: {
         create: {
           sessionToken,

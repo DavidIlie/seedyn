@@ -23,7 +23,11 @@ export async function ActionBearingHeader() {
       <UploadAction className="lg:ml-auto" />
       {user ? (
         <AccountMenu
-          identity={{ name: user.name ?? null, email: user.email ?? null }}
+          identity={{
+            name: user.name ?? null,
+            email: user.email ?? null,
+            appRole: user.appRole,
+          }}
           signOut={<SignOutForm />}
         />
       ) : (

@@ -22,6 +22,8 @@ export class TransportError extends Error {
 export type UploadedRecord = {
   id: string;
   kind?: string;
+  contentType?: string;
+  extension?: string;
   url: string;
 };
 
@@ -64,13 +66,26 @@ function readRecord(body: string): UploadedRecord {
     throw new TransportError("invalid_response", "The server sent no upload.");
   }
   const record = parsed as Record<string, unknown>;
+  const upload =
+    typeof record.upload === "object" && record.upload !== null
+      ? (record.upload as Record<string, unknown>)
+      : null;
   const url = typeof record.url === "string" ? record.url : record.message;
   if (typeof url !== "string" || url.length === 0) {
     throw new TransportError("invalid_response", "The server sent no URL.");
   }
   return {
     id: typeof record.id === "string" ? record.id : "",
-    kind: typeof record.kind === "string" ? record.kind : undefined,
+    kind:
+      typeof upload?.kind === "string"
+        ? upload.kind
+        : typeof record.kind === "string"
+          ? record.kind
+          : undefined,
+    contentType:
+      typeof upload?.contentType === "string" ? upload.contentType : undefined,
+    extension:
+      typeof upload?.extension === "string" ? upload.extension : undefined,
     url,
   };
 }

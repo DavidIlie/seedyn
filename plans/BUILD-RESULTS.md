@@ -1,7 +1,7 @@
 # Seedyn build results
 
-Status: **application complete and verified locally; production provisioning and
-home-cluster deployment require separate authority**
+Status: **application complete and verified locally; encrypted secret delivery
+and home-cluster deployment require separate authority**
 
 Date: **2026-08-18**
 
@@ -12,14 +12,19 @@ Date: **2026-08-18**
 - Auth.js uses DavidApps OIDC in production and an explicit, production-rejected
   local provider for `david@davidilie.com`; the supported dev launcher binds
   loopback only and the provider refuses to initialize without its marker.
+- The invite-only DavidApps OIDC application is registered, David resolves to
+  signed app role `admin`, roles fail closed, and sessions expire after 15
+  minutes so a revoked grant cannot survive for the Auth.js default 30 days.
 - PostgreSQL owns Auth.js, API-key, upload, variant, and deletion state; Redis
   owns fail-closed layered abuse limits; a private MinIO bucket owns bytes.
 - The product is organized around the general upload/store/serve job. Its
   canonical HTTP upload endpoint accepts any supported client; ShareX remains a
   first-class optional integration with three compatible aliases, scoped
   digest-only keys, one-time reveal, `.sxcu` export, and revocation.
-- Browser upload supports file selection, drop, paste, HTTPS/CORS URL ingest,
-  real progress, cancellation, and authoritative RSC refresh.
+- Browser upload supports file selection, immediate deliberate drop/paste,
+  HTTPS/CORS URL ingest, real progress, cancellation, and authoritative RSC
+  refresh. Clipboard images expose original and one-step GIF URL choices in the
+  same dialog.
 - Still images use a small `gifenc` worker; supported video uses lazy self-hosted
   `ffmpeg.wasm`. The untrusted result is validated and stored as one reusable
   permanent GIF variant.
@@ -30,9 +35,12 @@ Date: **2026-08-18**
 - The application now has its own “Blue Port” identity: a custom object-to-link
   mark, Onest/Geologica/Azeret typography, cool neutral surfaces, true cobalt
   actions, literal Library-first information architecture, an explanatory
-  split sign-in surface, a compact progressive upload dialog, and an account
+  split sign-in surface, a shadcn/Radix upload dialog, and an account
   menu that shows the current identity alongside account destinations and
   sign-out. It was verified at narrow and wide widths in both color schemes.
+- An admin-only Server Component ledger reports users, current object/variant
+  bytes, active API keys, typed upload activity, content distribution, recent
+  objects, and failure attention without selecting secret-bearing fields.
 - Cache Components, PPR, Partial Prefetching, shared Server Component shells,
   and Next's `instant()` assertions cover sign-in, every primary destination,
   and upload detail navigation.
@@ -45,7 +53,8 @@ Date: **2026-08-18**
   preflight the complete production environment before importing Next.
 - GitHub Actions provisions disposable PostgreSQL, Redis, and MinIO, then runs
   formatting, static checks, integration, development/production browser tests,
-  and a container build.
+  and a container build. A separate least-privilege workflow publishes immutable
+  `master-<sha>-<timestamp>` and `latest` images to GHCR for Flux automation.
 
 ## Local acceptance evidence
 
@@ -66,8 +75,10 @@ pnpm build
 docker build --tag seedyn:local .
 ```
 
-`pnpm check` passed 33 test files / 234 tests. Both development and standalone
-production browser matrices passed eight cases, including sensitive Server
+`pnpm check` passed 35 test files / 240 tests. Both development and standalone
+production browser matrices passed 11 cases, including admin authorization and
+analytics, immediate clipboard PNG/GIF URLs, guarded in-flight cancellation,
+sensitive Server
 Actions staying inert without JavaScript, one-time key/download/revoke, a real
 PNG upload, browser worker GIF conversion, permanent original/GIF retrieval,
 deletion/post-delete 404s, authored docs order, malformed docs paths, strict host
@@ -207,10 +218,9 @@ application handoff:
 
 ## Explicitly deferred production work
 
-- DavidApps production client provisioning did not complete: the installed
-  setup service returned an internal 500 and a subsequent exact lookup returned
-  not found. No secret was printed or committed. The production client must be
-  created with invite-only access before deployment.
+- DavidApps' one-time client secret remains in the owner-only MCP handoff. An
+  approved non-model mover must place it in the encrypted home-cluster Secret;
+  no secret was printed, read, or committed.
 - No `home-cluster`, production MinIO, DNS, TLS, SOPS, production database, Flux,
   GHCR, backup, or restore state was mutated by this build.
 - Production readiness still requires the separately authorized Phase 8 steps

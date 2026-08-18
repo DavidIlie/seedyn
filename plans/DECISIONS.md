@@ -39,6 +39,9 @@ explicitly revisits it; implementation convenience is not a decision.
 | D-023 | Public media edge caching is capped at 24 hours until an authenticated purge integration exists.                                 | Origin deletion is immediate while the UI/docs state the bounded recipient/cache-retention caveat honestly.                                                |
 | D-024 | Upload routes authenticate before a bounded streaming multipart parser.                                                          | `Request.formData()` is not acceptable for the 64 MiB contract or concurrency envelope.                                                                    |
 | D-025 | Runtime-protected docs contain no secrets and every representation/search surface is authenticated and private/no-store.         | Runtime auth prevents casual exposure; repository visibility is a separate boundary and may expose checked-in source.                                      |
+| D-026 | Admin authorization comes only from DavidApps' signed application role.                                                          | Exact `app_role=admin` maps to local `ADMIN`; email remains display data and all other values fail closed to member.                                       |
+| D-027 | Deliberate clipboard-file paste and file drop start uploading immediately.                                                       | The low-step path is Paste → Copy original, or Paste → Create GIF URL → Copy GIF; picker selection still confirms explicitly.                              |
+| D-028 | Seedyn's invite-only OIDC application is registered in DavidApps.                                                                | Public app/client ids are checked in; its one-time secret stays in the owner-only handoff until encrypted cluster delivery.                                |
 
 ## V1 implementation decisions
 

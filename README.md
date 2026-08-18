@@ -3,7 +3,7 @@
 Seedyn turns a file into a permanent short URL. It is one Next.js 16.3
 application with two host roles:
 
-- `seedyn.dave.tips` — authenticated dashboard, uploads, API keys, and docs.
+- `seedyn.dave.tips` — authenticated library, admin ledger, API keys, and docs.
 - `i.dave.tips` — anonymous, exact-URL media streaming only.
 
 The same process serves both hosts. A fixed host resolver rejects unknown hosts
@@ -46,6 +46,20 @@ The seed and local credentials provider require development mode plus localhost
 application and PostgreSQL targets. They refuse to adopt an existing federated
 user with the configured email. `NODE_ENV=production pnpm db:seed` fails closed.
 Production uses DavidApps OIDC with an invite-only DavidApps application.
+The loopback development identity is an explicit admin so local `/admin`
+exercises the same authorization path without comparing emails.
+
+## DavidApps registration
+
+Seedyn is registered as invite-only OIDC application
+`application_90fb0334-3ca6-4f3d-981a-a60b45f438c0`, with public client id
+`N3HqSugmik9n4eSjXybKFybxlyWfKn3K`. The non-secret receipt is checked in at
+`.davidapps/auth.public.json`. David resolves to the application role `admin`;
+production authorization uses that signed role, never an email allowlist.
+
+The one-time client secret remains in DavidApps' owner-only handoff store until
+an approved mover writes it to the encrypted home-cluster Secret. The inactive
+template under `deploy/` is deliberately not a deployable plaintext Secret.
 
 ## Quality gates
 
@@ -80,6 +94,11 @@ browser suite and a clean container build.
 The authenticated product documentation under `/docs` is the normative user
 and agent guide. The complete design record and acceptance plan live in
 [`plans/`](plans/README.md).
+
+The admin-only `/admin` route aggregates Seedyn's own PostgreSQL data: signed-in
+users, original and GIF storage, active API keys, upload activity, content
+types, and recent objects. DavidApps does not expose a broad user-directory
+analytics API, so granted users appear after their first Seedyn sign-in.
 
 ## Storage and operations
 

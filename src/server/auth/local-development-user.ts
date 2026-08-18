@@ -15,6 +15,7 @@ const localUserSelect = {
   image: true,
   identityIssuer: true,
   identitySubject: true,
+  appRole: true,
 } satisfies Prisma.UserSelect;
 
 type LocalDevelopmentUser = Prisma.UserGetPayload<{
@@ -111,7 +112,15 @@ export async function ensureLocalDevelopmentUser(
   const email = rawEmail.trim().toLowerCase();
   const stableId = localDevelopmentUserId(email);
   const existing = await findEmailCollision(email);
-  if (existing) return assertExpectedLocalUser(existing, email, stableId);
+  if (existing) {
+    const expected = assertExpectedLocalUser(existing, email, stableId);
+    if (expected.appRole === "ADMIN") return expected;
+    return db.user.update({
+      where: { id: stableId },
+      data: { appRole: "ADMIN" },
+      select: localUserSelect,
+    });
+  }
 
   try {
     return await db.user.create({
@@ -121,6 +130,7 @@ export async function ensureLocalDevelopmentUser(
         name: "Seedyn local developer",
         identityIssuer: LOCAL_DEVELOPMENT_IDENTITY_ISSUER,
         identitySubject: email,
+        appRole: "ADMIN",
       },
       select: localUserSelect,
     });
@@ -132,7 +142,15 @@ export async function ensureLocalDevelopmentUser(
       error.code === "P2002"
     ) {
       const raced = await findEmailCollision(email);
-      if (raced) return assertExpectedLocalUser(raced, email, stableId);
+      if (raced) {
+        const expected = assertExpectedLocalUser(raced, email, stableId);
+        if (expected.appRole === "ADMIN") return expected;
+        return db.user.update({
+          where: { id: stableId },
+          data: { appRole: "ADMIN" },
+          select: localUserSelect,
+        });
+      }
     }
     throw error;
   }

@@ -11,6 +11,7 @@ import {
   assertLocalDevelopmentServerBinding,
   ensureLocalDevelopmentUser,
 } from "./local-development-user";
+import { seedynRoleFromDavidAppsClaim, type SeedynRole } from "./app-role";
 import { resolveAuthRedirect } from "./redirect";
 
 export const DAVIDAPPS_ISSUER = "https://id.davidapps.dev";
@@ -21,12 +22,20 @@ declare module "next-auth" {
   interface Session extends DefaultSession {
     user: {
       id: string;
+      appRole: SeedynRole;
     } & DefaultSession["user"];
   }
 
   interface User {
     identityIssuer?: string | null;
     identitySubject?: string | null;
+    appRole?: SeedynRole;
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    appRole?: SeedynRole;
   }
 }
 
@@ -59,7 +68,7 @@ function davidAppsProvider(): OIDCConfig<Profile> {
         scope: "openid profile email",
       },
     },
-    checks: ["pkce", "state"],
+    checks: ["pkce", "state", "nonce"],
     allowDangerousEmailAccountLinking: false,
     profile(profile: Profile) {
       if (typeof profile.sub !== "string" || profile.sub.length === 0) {
@@ -77,6 +86,7 @@ function davidAppsProvider(): OIDCConfig<Profile> {
         image: profile.picture ?? null,
         identityIssuer: DAVIDAPPS_ISSUER,
         identitySubject: profile.sub,
+        appRole: seedynRoleFromDavidAppsClaim(profile.app_role),
       };
     },
     account(tokens) {
@@ -143,10 +153,36 @@ export const authConfig = {
   adapter: developmentAuthEnabled ? undefined : PrismaAdapter(db),
   session: {
     strategy: developmentAuthEnabled ? "jwt" : "database",
+    // DavidApps application grants are re-evaluated on every OIDC login. A
+    // short hard session cap prevents a removed admin grant from surviving in
+    // Seedyn for Auth.js' default 30 days.
+    maxAge: 15 * 60,
   },
   callbacks: {
+    async signIn({ account, profile }) {
+      if (
+        account?.provider === DAVIDAPPS_PROVIDER_ID &&
+        typeof profile?.sub === "string" &&
+        profile.sub.length > 0
+      ) {
+        // New users receive the role from `profile()` when Prisma creates the
+        // row. Existing users are synchronized before Auth.js re-reads them to
+        // create the database session.
+        await db.user.updateMany({
+          where: {
+            identityIssuer: DAVIDAPPS_ISSUER,
+            identitySubject: profile.sub,
+          },
+          data: {
+            appRole: seedynRoleFromDavidAppsClaim(profile.app_role),
+          },
+        });
+      }
+      return true;
+    },
     jwt({ token, user }) {
       if (user?.id) token.sub = user.id;
+      if (user?.appRole) token.appRole = user.appRole;
       return token;
     },
     session({ session, token, user }) {
@@ -161,6 +197,10 @@ export const authConfig = {
         user: {
           ...session.user,
           id: userId,
+          appRole:
+            user?.appRole ??
+            token.appRole ??
+            (developmentAuthEnabled ? "ADMIN" : "MEMBER"),
         },
       };
     },

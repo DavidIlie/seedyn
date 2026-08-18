@@ -8,11 +8,13 @@ type LocalUserRow = {
   image: string | null;
   identityIssuer: string | null;
   identitySubject: string | null;
+  appRole: "MEMBER" | "ADMIN";
 };
 
 const mocks = vi.hoisted(() => ({
   create: vi.fn<(...args: unknown[]) => Promise<LocalUserRow>>(),
   findFirst: vi.fn<(...args: unknown[]) => Promise<LocalUserRow | null>>(),
+  update: vi.fn<(...args: unknown[]) => Promise<LocalUserRow>>(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -21,6 +23,7 @@ vi.mock("~/server/db", () => ({
     user: {
       create: mocks.create,
       findFirst: mocks.findFirst,
+      update: mocks.update,
     },
   },
 }));
@@ -44,6 +47,7 @@ function expectedLocalUser(): LocalUserRow {
     image: null,
     identityIssuer: LOCAL_DEVELOPMENT_IDENTITY_ISSUER,
     identitySubject: email,
+    appRole: "ADMIN",
   };
 }
 
@@ -118,7 +122,23 @@ describe("local development identity", () => {
           name: "Seedyn local developer",
           identityIssuer: LOCAL_DEVELOPMENT_IDENTITY_ISSUER,
           identitySubject: email,
+          appRole: "ADMIN",
         },
+      }),
+    );
+  });
+
+  it("promotes the exact pre-migration local identity to admin", async () => {
+    const member = { ...expectedLocalUser(), appRole: "MEMBER" as const };
+    const admin = expectedLocalUser();
+    mocks.findFirst.mockResolvedValue(member);
+    mocks.update.mockResolvedValue(admin);
+
+    await expect(ensureLocalDevelopmentUser(email)).resolves.toEqual(admin);
+    expect(mocks.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: admin.id },
+        data: { appRole: "ADMIN" },
       }),
     );
   });

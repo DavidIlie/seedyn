@@ -6,14 +6,15 @@ Status: **implemented baseline**
 
 ### Owner
 
-David is the initial owner. He can use every normal feature, manage API keys,
-delete uploads, read docs, and arrange future access through DavidApps.
+David is the initial owner and application admin. He can use every normal
+feature, manage his own data, arrange future access through DavidApps, and read
+the cross-user Seedyn admin ledger.
 
 ### Invited user
 
-An identity admitted by the Seedyn application in DavidApps. V1 treats invited
-users as peers for their own data: they manage only their own keys and uploads.
-No Seedyn-specific admin console or cross-user browsing is planned.
+An identity admitted by the Seedyn application in DavidApps. Members manage
+only their own keys and uploads. The signed DavidApps application role, not an
+email comparison, distinguishes admins from members.
 
 ### HTTP client
 
@@ -43,6 +44,8 @@ signing in. They cannot browse or enumerate the library.
 7. Create/revoke a scoped API key and optionally download a ready-to-import
    ShareX `.sxcu` file.
 8. Read human and agent-friendly docs without exposing them publicly.
+9. Let an application admin inspect users, storage, upload activity, content
+   mix, API-key totals, and deletion failures without gaining mutation powers.
 
 ## Core terminology
 
@@ -68,7 +71,8 @@ signing in. They cannot browse or enumerate the library.
 2. Redirect to the Seedyn sign-in page if no session exists.
 3. Continue to DavidApps with PKCE.
 4. DavidApps enforces invite policy and returns the user.
-5. Auth.js creates/loads the local account and database session.
+5. Auth.js creates/loads the local account, maps the verified DavidApps
+   `app_role`, and creates a bounded session.
 6. Library renders its static shell immediately, then streams user totals and
    recent uploads.
 7. Empty state explains local file, paste, and HTTPS URL upload paths.
@@ -101,11 +105,15 @@ signing in. They cannot browse or enumerate the library.
 ### Browser upload
 
 1. User opens the upload dialog or drops/pastes a file.
-2. Client shows local preview and validation before network transfer.
+2. A deliberate file drop or clipboard-file paste starts the upload
+   immediately; file-picker selection keeps an explicit `Upload file` step.
 3. Upload route reports progress and supports cancellation.
-4. On success, navigate to or refresh the upload detail/list without a full page
+4. A pasted convertible image exposes its original URL plus a one-step
+   `Create GIF URL` action in the same dialog. The browser encodes and stores
+   the GIF directly without a detail-page preview/store detour.
+5. On success, navigate to or refresh the upload detail/list without a full page
    reload.
-5. The new row is authoritative server-rendered data.
+6. The new row is authoritative server-rendered data.
 
 ### URL ingest
 
@@ -158,6 +166,10 @@ Videos live under Files in the main navigation but receive their own kind and
 preview/treatment. A single all-uploads search can be added to Library without
 adding another top-level page.
 
+Admins also receive an `Admin` entry inside the account menu. It stays out of
+the already-dense primary navigation and is backed by a server-side role guard;
+hiding the link is not authorization.
+
 ## V1 scope details
 
 ### Library
@@ -190,6 +202,17 @@ adding another top-level page.
 - `.sxcu` generated only while the raw key is present, or generated client-side
   from the one-time value;
 - revoke (no recovery) and create replacement; no secret reveal later.
+
+### Admin ledger
+
+- admin-only, read-only cross-user surface;
+- total users, originals, GIF variants, stored bytes, and active API keys;
+- 7/30/90-day upload activity and storage by content kind;
+- safe user ledger and recent-upload metadata;
+- no API-key hashes, provider tokens, object keys, checksums, or uploaded
+  bodies;
+- Seedyn Postgres counts users who have actually signed in; it does not pretend
+  to enumerate all DavidApps grants.
 
 ## Deferred product ideas
 

@@ -136,11 +136,31 @@ selected-file.png · image/png · 1.4 MB
 [██████████████░░░░] 72%                    Cancel
 ```
 
-- Native dialog or proven accessible dialog primitive.
+- shadcn's Radix Dialog primitive owns modal semantics, focus trapping,
+  backdrop dismissal, Escape, scroll locking, and focus restoration.
 - Drag/drop is an enhancement; file input always works.
 - URL errors distinguish invalid URL, CORS blocked, unsupported MIME, and size.
 - Closing during active upload asks before aborting.
 - Successful upload gives Copy URL and View upload.
+
+A deliberate file drop or clipboard-file paste starts uploading immediately.
+For a pasted PNG/JPEG/WebP/AVIF, success presents the original format URL and a
+`Create GIF URL` action in the same dialog. GIF encoding and storage are one
+action; after it finishes, the PNG/original and GIF copy controls remain side by
+side. File-picker selection retains an explicit confirmation step.
+
+Safe idle/selected/error/completed states dismiss on backdrop press or Escape.
+An active transfer stays open and presents `Keep uploading` / `Cancel and
+close` inside the dialog; it never relies on an unstyled browser confirm.
+
+## Admin ledger
+
+The account menu exposes `Admin` only for an admin session. `/admin` uses a
+quiet divided facts rail rather than floating KPI cards, a 7/30/90-day stacked
+upload chart, storage-by-type bars, a responsive user ledger, and recent
+cross-user upload metadata. Recharts is confined to this route; all queries and
+view models are Server Components, and a screen-reader-only table mirrors the
+chart data in server-rendered HTML.
 
 ## Upload detail and GIF action
 

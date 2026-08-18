@@ -6,6 +6,12 @@ description: Upload local files or fetch eligible HTTPS URLs in your browser.
 The browser uploader uses your DavidApps-backed Seedyn session. It sends bytes
 to `/api/uploads` and shows actual transfer progress.
 
+A file dropped onto an authenticated page or pasted from the clipboard starts
+uploading immediately. File-picker selection keeps an explicit **Upload file**
+step. For a pasted PNG, JPEG, WebP, or AVIF, the completion dialog exposes the
+original URL and a **Create GIF URL** action together. GIF encoding happens in
+your browser and stores the validated derivative without a detail-page detour.
+
 URL ingestion happens only in the browser. The URL must be HTTPS, CORS must
 allow the fetch, redirects must remain HTTPS, and the streamed bytes must stay
 within the upload cap. URLs containing embedded credentials are rejected. The

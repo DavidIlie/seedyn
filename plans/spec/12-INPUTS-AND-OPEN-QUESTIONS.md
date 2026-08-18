@@ -56,8 +56,9 @@ preserved. No old database/object import is part of V1.
 
 ### Q-009 — Invited-user isolation
 
-Resolved: every user manages only their own keys and uploads. There is no
-cross-user owner/admin UI in V1.
+Resolved: every member manages only their own keys and uploads. Exact signed
+DavidApps `app_role=admin` grants a read-only cross-user ledger; it does not
+grant cross-user mutation. Email never grants the role.
 
 ### Q-010 — Agent-readable docs
 
@@ -82,10 +83,11 @@ GHCR publication and any private pull-secret requirement are deployment work.
 
 ### Q-014 — Production authority
 
-Deferred by design: DavidApps production client creation, production MinIO
-mutation, `home-cluster` edits, production migrations, Flux reconciliation, DNS,
-TLS, backups, and restore proof require explicit authority beyond this local
-build.
+Partially resolved: the invite-only DavidApps production client and David's
+admin grant are provisioned. Moving the opaque secret to encrypted SOPS,
+production MinIO mutation, `home-cluster` edits, production migrations, Flux
+reconciliation, DNS, TLS, backups, and restore proof remain separate authority
+boundaries.
 
 ## Verified implementation versions
 

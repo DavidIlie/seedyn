@@ -16,6 +16,11 @@ The browser output is untrusted input. The server verifies ownership, GIF
 signature, dimensions, frame count, duration, byte size, and the one-GIF-per-
 upload uniqueness rule before storing it.
 
+For a clipboard image, the upload dialog offers the faster path: the original
+URL is ready as soon as the paste upload completes, and **Create GIF URL**
+encodes and stores the same one-frame variant directly. Both permanent copy
+controls remain visible in that dialog.
+
 The initial compatibility floor is PNG, JPEG, and WebP stills plus H.264 MP4
 where the bundled FFmpeg build supports it. The UI reports unsupported codecs
 instead of claiming desktop FFmpeg parity.

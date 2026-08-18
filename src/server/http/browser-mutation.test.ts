@@ -84,7 +84,7 @@ beforeEach(() => {
   mocks.userLimit.mockResolvedValue(allowed);
   mocks.getUserResult.mockResolvedValue({
     ok: true,
-    user: { id: "user_1" },
+    user: { id: "user_1", appRole: "MEMBER" },
   });
 });
 

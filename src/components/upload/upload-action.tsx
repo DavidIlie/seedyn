@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { FileCheck2, FileUp, Link2, XIcon } from "lucide-react";
 import {
   createContext,
   useCallback,
@@ -13,16 +14,25 @@ import {
 } from "react";
 
 import { formatBytes } from "~/components/lib/format";
+import { planGifConversion } from "~/components/gif/eligibility";
+import { GIF_MAX_OUTPUT_BYTES } from "~/components/gif/options";
 import { CopyButton } from "~/components/ui/copy-button";
 import {
-  buttonCompact,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "~/components/ui/dialog";
+import {
+  buttonDanger,
   buttonPrimary,
   buttonQuiet,
   inputBase,
   labelBase,
 } from "~/components/ui/styles";
 
-import { BROWSER_UPLOAD_ENDPOINT } from "./endpoints";
+import { BROWSER_UPLOAD_ENDPOINT, browserGifEndpoint } from "./endpoints";
 import {
   postMultipart,
   TransportError,
@@ -42,8 +52,9 @@ import {
  * fetch of an HTTPS URL. Everything it reports is measured — there is no
  * synthetic progress and no optimistic row.
  *
- * The native `<dialog>` element carries the modal semantics: focus trap, focus
- * restore, and Escape are the browser's, not a re-implementation.
+ * The shadcn/Radix dialog carries modal semantics, focus trapping/restoration,
+ * outside-press dismissal, and Escape handling. Seedyn still owns the transfer
+ * state machine and refuses to discard an active operation silently.
  */
 
 type Phase =
@@ -51,17 +62,19 @@ type Phase =
   | { name: "selected"; file: File }
   | { name: "fetching"; label: string; loaded: number; total: number | null }
   | { name: "uploading"; label: string; loaded: number; total: number | null }
-  | { name: "done"; record: UploadedRecord; label: string }
+  | {
+      name: "done";
+      record: UploadedRecord;
+      label: string;
+      file: File;
+      quickGif: boolean;
+    }
   | { name: "failed"; code: string; message: string };
 
 const MAX_UPLOAD_BYTES = URL_INGEST_BYTE_CAP;
-const UploadDialogContext = createContext<((file?: File) => void) | null>(null);
-const DROP_ENABLED_PATHS = new Set([
-  "/dashboard",
-  "/images",
-  "/files",
-  "/texts",
-]);
+type OpenDialogOptions = { autoStart?: boolean; quickGif?: boolean };
+type OpenUploadDialog = (file?: File, options?: OpenDialogOptions) => void;
+const UploadDialogContext = createContext<OpenUploadDialog | null>(null);
 
 function isEditableTarget(target: EventTarget | null): boolean {
   return (
@@ -71,6 +84,21 @@ function isEditableTarget(target: EventTarget | null): boolean {
       target instanceof HTMLTextAreaElement ||
       target instanceof HTMLSelectElement)
   );
+}
+
+function clipboardLabel(file: File): string {
+  return file.name && file.name !== "image.png" ? file.name : "Clipboard image";
+}
+
+function uploadedFormat(record: UploadedRecord): string {
+  if (record.extension) return record.extension.toLocaleUpperCase();
+  try {
+    return (
+      new URL(record.url).pathname.split(".").at(-1) ?? "file"
+    ).toLocaleUpperCase();
+  } catch {
+    return "FILE";
+  }
 }
 
 function percent(loaded: number, total: number | null): number | null {
@@ -149,12 +177,13 @@ export function UploadAction({
 
 export function UploadProvider({ children }: { children: React.ReactNode }) {
   const instanceId = useId();
-  const dialogTitleId = `${instanceId}-upload-dialog-title`;
   const fileInputId = `${instanceId}-upload-file`;
   const urlInputId = `${instanceId}-upload-url`;
   const urlHintId = `${instanceId}-upload-url-hint`;
-  const dialog = useRef<HTMLDialogElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const browseButton = useRef<HTMLButtonElement>(null);
+  const keepUploadingButton = useRef<HTMLButtonElement>(null);
+  const returnFocus = useRef<HTMLElement | null>(null);
   const controller = useRef<AbortController | null>(null);
   const dragDepth = useRef(0);
   const router = useRouter();
@@ -163,11 +192,14 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   const [phase, setPhase] = useState<Phase>({ name: "idle" });
   const [dragging, setDragging] = useState(false);
   const [urlValue, setUrlValue] = useState("");
+  const [confirmingClose, setConfirmingClose] = useState(false);
+  const [quickGifBusy, setQuickGifBusy] = useState(false);
 
-  const busy = phase.name === "uploading" || phase.name === "fetching";
+  const transferBusy = phase.name === "uploading" || phase.name === "fetching";
+  const busy = transferBusy || quickGifBusy;
 
   const send = useCallback(
-    async (file: File, sourceLabel: string) => {
+    async (file: File, sourceLabel: string, quickGif = false) => {
       if (controller.current) return;
       if (file.size > MAX_UPLOAD_BYTES) {
         setPhase({
@@ -206,7 +238,13 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
             }),
         });
         if (!ownsOperation() || abort.signal.aborted) return;
-        setOwnedPhase({ name: "done", record, label: sourceLabel });
+        setOwnedPhase({
+          name: "done",
+          record,
+          label: sourceLabel,
+          file,
+          quickGif,
+        });
         // Server-rendered lists are the source of truth; nothing is inserted
         // optimistically.
         router.refresh();
@@ -246,14 +284,14 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!open) return undefined;
     const onPaste = (event: ClipboardEvent) => {
-      if (controller.current) return;
+      if (busy || controller.current) return;
       if (isEditableTarget(event.target)) return;
       const data = event.clipboardData;
       if (!data) return;
       const file = data.files.item(0);
       if (file) {
         event.preventDefault();
-        chooseFile(file);
+        void send(file, clipboardLabel(file), file.type.startsWith("image/"));
         return;
       }
       const text = data.getData("text/plain").trim();
@@ -261,48 +299,77 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     };
     document.addEventListener("paste", onPaste);
     return () => document.removeEventListener("paste", onPaste);
-  }, [open, chooseFile]);
+  }, [busy, open, send]);
 
-  const openDialog = useCallback((file?: File) => {
-    if (fileInput.current) fileInput.current.value = "";
-    setPhase(file ? { name: "selected", file } : { name: "idle" });
-    setUrlValue("");
-    dragDepth.current = 0;
-    setDragging(false);
-    setOpen(true);
-    dialog.current?.showModal();
-  }, []);
+  useEffect(() => {
+    if (confirmingClose) keepUploadingButton.current?.focus();
+  }, [confirmingClose]);
 
-  // The four library surfaces accept a dropped or pasted file even before the
-  // dialog is open. They still hand it to the one canonical state machine;
-  // editable fields and an in-flight operation are never intercepted.
+  useEffect(() => {
+    if (!busy) setConfirmingClose(false);
+  }, [busy]);
+
+  useEffect(() => {
+    if (!busy) return undefined;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [busy]);
+
+  const openDialog = useCallback(
+    (file?: File, options?: OpenDialogOptions) => {
+      returnFocus.current =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
+      if (fileInput.current) fileInput.current.value = "";
+      setPhase(file ? { name: "selected", file } : { name: "idle" });
+      setUrlValue("");
+      dragDepth.current = 0;
+      setDragging(false);
+      setConfirmingClose(false);
+      setQuickGifBusy(false);
+      setOpen(true);
+
+      if (file && options?.autoStart) {
+        const label = options.quickGif ? clipboardLabel(file) : file.name;
+        void send(file, label || "Dropped file", options.quickGif ?? false);
+      }
+    },
+    [send],
+  );
+
+  // UploadProvider exists only inside the authenticated application layout, so
+  // a deliberate file paste/drop can open the canonical upload state machine
+  // from any app page. Editable fields and in-flight operations are never
+  // intercepted.
   useEffect(() => {
     if (open) return undefined;
 
-    const isDropEnabled = () =>
-      DROP_ENABLED_PATHS.has(window.location.pathname);
-
     const onDragOver = (event: DragEvent) => {
-      if (!isDropEnabled()) return;
       if (isEditableTarget(event.target)) return;
       if (!event.dataTransfer?.types.includes("Files")) return;
       event.preventDefault();
     };
     const onDrop = (event: DragEvent) => {
-      if (!isDropEnabled()) return;
       if (isEditableTarget(event.target) || controller.current) return;
       const file = event.dataTransfer?.files.item(0);
       if (!file) return;
       event.preventDefault();
-      openDialog(file);
+      openDialog(file, { autoStart: true });
     };
     const onClosedPaste = (event: ClipboardEvent) => {
-      if (!isDropEnabled()) return;
       if (isEditableTarget(event.target) || controller.current) return;
       const file = event.clipboardData?.files.item(0);
       if (!file) return;
       event.preventDefault();
-      openDialog(file);
+      openDialog(file, {
+        autoStart: true,
+        quickGif: file.type.startsWith("image/"),
+      });
     };
 
     document.addEventListener("dragover", onDragOver);
@@ -315,19 +382,29 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     };
   }, [open, openDialog]);
 
-  function closeDialog() {
-    if (busy) {
-      const abandon = window.confirm(
-        "An upload is still running. Cancel it and close?",
-      );
-      if (!abandon) return;
-      const active = controller.current;
-      controller.current = null;
-      active?.abort();
-    }
+  function finishClose() {
     setOpen(false);
     setPhase({ name: "idle" });
-    dialog.current?.close();
+    setQuickGifBusy(false);
+    setConfirmingClose(false);
+    setUrlValue("");
+    dragDepth.current = 0;
+    setDragging(false);
+  }
+
+  function requestClose() {
+    if (busy) {
+      setConfirmingClose(true);
+      return;
+    }
+    finishClose();
+  }
+
+  function cancelAndClose() {
+    const active = controller.current;
+    controller.current = null;
+    active?.abort();
+    finishClose();
   }
 
   async function ingestUrl(event: React.FormEvent<HTMLFormElement>) {
@@ -380,216 +457,569 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     <UploadDialogContext.Provider value={openDialog}>
       {children}
 
-      <dialog
-        ref={dialog}
-        aria-labelledby={dialogTitleId}
-        onCancel={(event) => {
-          // Escape must not discard a running upload without asking.
-          event.preventDefault();
-          closeDialog();
+      <Dialog
+        open={open}
+        onOpenChange={(nextOpen) => {
+          if (nextOpen) setOpen(true);
+          else requestClose();
         }}
-        onClose={() => setOpen(false)}
-        className="border-border bg-panel text-foreground backdrop:bg-foreground/35 m-auto max-h-[calc(100dvh-2rem)] w-[min(34rem,calc(100vw-2rem))] overflow-hidden rounded-xl border p-0"
       >
-        <div className="border-border flex h-14 items-center justify-between border-b px-4">
-          <h2
-            id={dialogTitleId}
-            className="font-display text-base font-semibold"
-          >
-            Upload
-          </h2>
-          <button type="button" onClick={closeDialog} className={buttonCompact}>
-            Close
-          </button>
-        </div>
-
-        <div className="max-h-[calc(100dvh-5.5rem)] space-y-5 overflow-y-auto overscroll-contain p-4">
-          {phase.name === "done" ? (
-            <div className="space-y-4">
-              <p className="text-sm">
-                <span className="font-medium">{phase.label}</span> is stored.
-              </p>
-              <p className="font-mono text-sm break-all">{phase.record.url}</p>
-              <div className="flex flex-wrap items-center gap-2">
-                <CopyButton
-                  value={phase.record.url}
-                  label="Copy the uploaded URL"
-                />
-                {phase.record.id ? (
-                  <Link
-                    href={`/uploads/${phase.record.id}`}
-                    onClick={closeDialog}
-                    className={buttonQuiet}
-                  >
-                    View upload
-                  </Link>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (fileInput.current) fileInput.current.value = "";
-                    setPhase({ name: "idle" });
-                  }}
-                  className={buttonQuiet}
-                >
-                  Upload another
-                </button>
+        <DialogContent
+          showCloseButton={false}
+          onOpenAutoFocus={(event) => {
+            if (phase.name !== "idle") return;
+            event.preventDefault();
+            browseButton.current?.focus();
+          }}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            returnFocus.current?.focus();
+          }}
+          onEscapeKeyDown={(event) => {
+            if (!busy) return;
+            event.preventDefault();
+            setConfirmingClose(true);
+          }}
+          onPointerDownOutside={(event) => {
+            if (!busy) return;
+            event.preventDefault();
+            setConfirmingClose(true);
+          }}
+          className="max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden p-0 sm:max-w-xl"
+        >
+          <DialogHeader className="border-border border-b px-5 py-4 pr-16">
+            <div className="flex items-start gap-3">
+              <span className="border-border bg-sunken text-accent grid size-10 shrink-0 place-items-center rounded-lg border">
+                <FileUp className="size-[18px]" aria-hidden="true" />
+              </span>
+              <div className="min-w-0 space-y-1">
+                <DialogTitle>Upload</DialogTitle>
+                <DialogDescription>
+                  Store a file, paste from your clipboard, or import a public
+                  HTTPS URL.
+                </DialogDescription>
               </div>
             </div>
-          ) : (
-            <>
-              <div
-                onDragEnter={(event) => {
-                  event.preventDefault();
-                  dragDepth.current += 1;
-                  setDragging(true);
-                }}
-                onDragOver={(event) => {
-                  event.preventDefault();
-                }}
-                onDragLeave={(event) => {
-                  event.preventDefault();
-                  dragDepth.current = Math.max(0, dragDepth.current - 1);
-                  if (dragDepth.current === 0) setDragging(false);
-                }}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  dragDepth.current = 0;
-                  setDragging(false);
-                  const file = event.dataTransfer.files.item(0);
-                  if (file) chooseFile(file);
-                }}
-                className={
-                  "rounded-xl border border-dashed px-5 py-6 text-center transition-colors " +
-                  (dragging ? "border-accent bg-sunken" : "border-border")
-                }
-              >
-                <p className="font-display text-sm font-semibold">
-                  Drop a file here
-                </p>
-                <p className="text-muted-foreground mt-1 text-sm">
-                  You can also paste a file from your clipboard.
-                </p>
-                <div className="mt-4 flex justify-center">
-                  <input
-                    ref={fileInput}
-                    id={fileInputId}
-                    type="file"
-                    disabled={busy}
-                    onChange={(event) => {
-                      const file = event.target.files?.item(0);
-                      if (file) chooseFile(file);
-                    }}
-                    className="peer sr-only"
-                  />
-                  <label
-                    htmlFor={fileInputId}
-                    className={`${buttonQuiet} peer-focus-visible:outline-accent peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2`}
-                  >
-                    Browse files
-                  </label>
-                </div>
-              </div>
+          </DialogHeader>
+          <button
+            type="button"
+            aria-label="Close upload dialog"
+            onClick={requestClose}
+            className="text-muted-foreground hover:border-border-strong hover:bg-sunken hover:text-foreground absolute top-3.5 right-3.5 grid size-11 place-items-center rounded-lg border border-transparent transition-colors focus-visible:outline-offset-2 md:size-10"
+          >
+            <XIcon className="size-4" aria-hidden="true" />
+          </button>
 
-              {phase.name === "selected" ? (
-                <div className="border-border flex flex-wrap items-center justify-between gap-3 border-t pt-4">
-                  <p className="min-w-0 text-sm">
-                    <span className="block truncate font-medium">
-                      {phase.file.name}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {phase.file.type || "unknown type"} ·{" "}
-                      {formatBytes(phase.file.size)}
-                    </span>
+          <div className="min-h-0 space-y-5 overflow-y-auto overscroll-contain p-5">
+            {phase.name === "done" ? (
+              <div className="space-y-5">
+                <div className="flex items-start gap-3">
+                  <span className="border-accent/30 bg-accent/10 text-accent grid size-10 shrink-0 place-items-center rounded-full border">
+                    <FileCheck2 className="size-5" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="font-display text-base font-semibold">
+                      Upload complete
+                    </p>
+                    <p className="text-muted-foreground mt-1 truncate text-sm">
+                      {phase.label} is stored and ready to share.
+                    </p>
+                  </div>
+                </div>
+                <div className="border-border bg-sunken rounded-lg border p-3">
+                  <p className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
+                    {phase.quickGif
+                      ? `${uploadedFormat(phase.record)} URL`
+                      : "Permanent URL"}
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => void send(phase.file, phase.file.name)}
-                    className={buttonPrimary}
-                  >
-                    Upload file
-                  </button>
+                  <div className="mt-2 flex items-center gap-3">
+                    <p className="min-w-0 flex-1 font-mono text-xs break-all">
+                      {phase.record.url}
+                    </p>
+                    <CopyButton
+                      value={phase.record.url}
+                      label={
+                        phase.quickGif
+                          ? `Copy the ${uploadedFormat(phase.record)} URL`
+                          : "Copy the uploaded URL"
+                      }
+                    />
+                  </div>
                 </div>
-              ) : null}
-
-              {busy ? (
-                <div className="border-border space-y-3 border-t pt-4">
-                  <Progress
-                    loaded={phase.loaded}
-                    total={phase.total}
-                    caption={
-                      phase.name === "fetching"
-                        ? `Fetching ${phase.label} —`
-                        : `Uploading ${phase.label} —`
-                    }
+                {phase.quickGif && phase.record.id ? (
+                  <QuickGifUrl
+                    uploadId={phase.record.id}
+                    file={phase.file}
+                    record={phase.record}
+                    onBusyChange={setQuickGifBusy}
                   />
+                ) : null}
+                {confirmingClose ? (
+                  <div
+                    role="alert"
+                    className="border-danger bg-danger/5 rounded-lg border p-4"
+                  >
+                    <p className="font-display text-sm font-semibold">
+                      Cancel this transfer?
+                    </p>
+                    <p className="text-muted-foreground mt-1 text-sm">
+                      Closing now stops the active GIF operation. The original
+                      URL remains stored.
+                    </p>
+                    <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                      <button
+                        ref={keepUploadingButton}
+                        type="button"
+                        onClick={() => setConfirmingClose(false)}
+                        className={buttonQuiet}
+                      >
+                        Keep working
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelAndClose}
+                        className={buttonDanger}
+                      >
+                        Cancel and close
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+                <div className="flex flex-wrap items-center gap-2">
+                  {phase.record.id ? (
+                    busy ? (
+                      <button type="button" disabled className={buttonPrimary}>
+                        View upload
+                      </button>
+                    ) : (
+                      <Link
+                        href={`/uploads/${phase.record.id}`}
+                        onClick={finishClose}
+                        className={buttonPrimary}
+                      >
+                        View upload
+                      </Link>
+                    )
+                  ) : null}
                   <button
                     type="button"
-                    onClick={() => controller.current?.abort()}
+                    disabled={busy}
+                    onClick={() => {
+                      if (fileInput.current) fileInput.current.value = "";
+                      setQuickGifBusy(false);
+                      setPhase({ name: "idle" });
+                    }}
                     className={buttonQuiet}
                   >
-                    Cancel
+                    Upload another
                   </button>
                 </div>
-              ) : null}
-
-              <details className="border-border group border-t">
-                <summary className="flex h-11 cursor-pointer list-none items-center justify-between text-sm font-medium [&::-webkit-details-marker]:hidden">
-                  Import from an HTTPS URL
-                  <span
-                    aria-hidden="true"
-                    className="text-muted-foreground text-lg leading-none transition-transform duration-150 group-open:rotate-45 motion-reduce:transform-none"
-                  >
-                    +
-                  </span>
-                </summary>
-                <form
-                  onSubmit={ingestUrl}
-                  className="border-border space-y-2 border-t pt-4"
+              </div>
+            ) : (
+              <>
+                <div
+                  onDragEnter={(event) => {
+                    event.preventDefault();
+                    dragDepth.current += 1;
+                    setDragging(true);
+                  }}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                  }}
+                  onDragLeave={(event) => {
+                    event.preventDefault();
+                    dragDepth.current = Math.max(0, dragDepth.current - 1);
+                    if (dragDepth.current === 0) setDragging(false);
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    dragDepth.current = 0;
+                    setDragging(false);
+                    const file = event.dataTransfer.files.item(0);
+                    if (file) void send(file, file.name || "Dropped file");
+                  }}
+                  className={
+                    "rounded-xl border border-dashed p-5 transition-[background-color,border-color] duration-150 " +
+                    (dragging
+                      ? "border-accent bg-accent/10"
+                      : "border-border-strong bg-sunken/55")
+                  }
                 >
-                  <label htmlFor={urlInputId} className={labelBase}>
-                    HTTPS URL
-                  </label>
-                  <div className="flex flex-col gap-2 sm:flex-row">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                    <span className="border-border bg-panel text-muted-foreground grid size-11 shrink-0 place-items-center rounded-lg border">
+                      <FileUp className="size-5" aria-hidden="true" />
+                    </span>
+                    <div className="min-w-0 flex-1 text-left">
+                      <p className="font-display text-sm font-semibold">
+                        Drop a file here
+                      </p>
+                      <p className="text-muted-foreground mt-1 text-sm">
+                        Or paste a file anywhere in this dialog.
+                      </p>
+                    </div>
                     <input
-                      id={urlInputId}
-                      type="url"
-                      inputMode="url"
-                      placeholder="https://example.com/image.png"
-                      value={urlValue}
+                      ref={fileInput}
+                      id={fileInputId}
+                      type="file"
                       disabled={busy}
-                      onChange={(event) => setUrlValue(event.target.value)}
-                      aria-describedby={urlHintId}
-                      className={`${inputBase} min-w-0 flex-1`}
+                      onChange={(event) => {
+                        const file = event.target.files?.item(0);
+                        if (file) chooseFile(file);
+                      }}
+                      className="sr-only"
                     />
                     <button
-                      type="submit"
-                      disabled={busy || urlValue.trim().length === 0}
-                      className={`${buttonQuiet} w-full sm:w-auto`}
+                      ref={browseButton}
+                      type="button"
+                      disabled={busy}
+                      onClick={() => fileInput.current?.click()}
+                      className={`${buttonPrimary} w-full sm:w-auto`}
                     >
-                      Import
+                      Browse files
                     </button>
                   </div>
-                  <p id={urlHintId} className="text-muted-foreground text-sm">
-                    The browser fetches it without cookies or a referrer. The
-                    remote site must allow cross-origin reads.
-                  </p>
-                </form>
-              </details>
+                </div>
 
-              {phase.name === "failed" ? (
-                <p
-                  role="alert"
-                  className="border-danger text-danger rounded-lg border p-3 text-sm"
-                >
-                  {phase.message}
-                </p>
-              ) : null}
-            </>
-          )}
-        </div>
-      </dialog>
+                {phase.name === "selected" ? (
+                  <div className="border-border bg-panel flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
+                    <p className="min-w-0 flex-1 text-sm">
+                      <span className="block truncate font-medium">
+                        {phase.file.name}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {phase.file.type || "unknown type"} ·{" "}
+                        {formatBytes(phase.file.size)}
+                      </span>
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void send(phase.file, phase.file.name)}
+                      className={buttonPrimary}
+                    >
+                      Upload file
+                    </button>
+                  </div>
+                ) : null}
+
+                {transferBusy ? (
+                  <div className="border-border bg-sunken/55 space-y-4 rounded-lg border p-4">
+                    <Progress
+                      loaded={phase.loaded}
+                      total={phase.total}
+                      caption={
+                        phase.name === "fetching"
+                          ? `Fetching ${phase.label} —`
+                          : `Uploading ${phase.label} —`
+                      }
+                    />
+                    <button
+                      type="button"
+                      onClick={() => controller.current?.abort()}
+                      className={buttonQuiet}
+                    >
+                      Cancel transfer
+                    </button>
+                  </div>
+                ) : null}
+
+                <div className="border-border space-y-3 border-t pt-5">
+                  <div className="flex items-start gap-3">
+                    <Link2
+                      className="text-muted-foreground mt-0.5 size-4 shrink-0"
+                      aria-hidden="true"
+                    />
+                    <div>
+                      <p className="text-sm font-medium">Import from URL</p>
+                      <p className="text-muted-foreground mt-0.5 text-sm">
+                        Bring in a publicly accessible file without downloading
+                        it first.
+                      </p>
+                    </div>
+                  </div>
+                  <form onSubmit={ingestUrl} className="space-y-2">
+                    <label
+                      htmlFor={urlInputId}
+                      className={`${labelBase} sr-only`}
+                    >
+                      HTTPS URL
+                    </label>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <input
+                        id={urlInputId}
+                        type="url"
+                        inputMode="url"
+                        placeholder="https://example.com/image.png"
+                        value={urlValue}
+                        disabled={busy}
+                        onChange={(event) => setUrlValue(event.target.value)}
+                        aria-describedby={urlHintId}
+                        className={`${inputBase} min-w-0 flex-1`}
+                      />
+                      <button
+                        type="submit"
+                        disabled={busy || urlValue.trim().length === 0}
+                        className={`${buttonQuiet} w-full sm:w-auto`}
+                      >
+                        Import
+                      </button>
+                    </div>
+                    <p id={urlHintId} className="text-muted-foreground text-sm">
+                      The browser fetches it without cookies or a referrer. The
+                      remote site must allow cross-origin reads.
+                    </p>
+                  </form>
+                </div>
+
+                {phase.name === "failed" ? (
+                  <p
+                    role="alert"
+                    className="border-danger bg-danger/5 text-danger rounded-lg border p-3 text-sm"
+                  >
+                    {phase.message}
+                  </p>
+                ) : null}
+
+                {confirmingClose ? (
+                  <div
+                    role="alert"
+                    className="border-danger bg-danger/5 rounded-lg border p-4"
+                  >
+                    <p className="font-display text-sm font-semibold">
+                      Cancel this transfer?
+                    </p>
+                    <p className="text-muted-foreground mt-1 text-sm">
+                      Closing now stops the active transfer. Nothing incomplete
+                      is added to your library.
+                    </p>
+                    <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                      <button
+                        ref={keepUploadingButton}
+                        type="button"
+                        onClick={() => setConfirmingClose(false)}
+                        className={buttonQuiet}
+                      >
+                        Keep uploading
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelAndClose}
+                        className={buttonDanger}
+                      >
+                        Cancel and close
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </UploadDialogContext.Provider>
+  );
+}
+
+type QuickGifStage =
+  | { name: "idle" }
+  | { name: "converting" }
+  | { name: "uploading"; blob: Blob; loaded: number; total: number | null }
+  | { name: "stored"; url: string }
+  | { name: "failed"; message: string; blob: Blob | null };
+
+function QuickGifUrl({
+  uploadId,
+  file,
+  record,
+  onBusyChange,
+}: {
+  uploadId: string;
+  file: File;
+  record: UploadedRecord;
+  onBusyChange: (busy: boolean) => void;
+}) {
+  const router = useRouter();
+  const controller = useRef<AbortController | null>(null);
+  const [stage, setStage] = useState<QuickGifStage>({ name: "idle" });
+  const plan = planGifConversion({
+    uploadKind: record.kind ?? "",
+    contentType: record.contentType ?? file.type,
+    hasStoredGif: false,
+  });
+
+  useEffect(() => {
+    return () => {
+      const active = controller.current;
+      controller.current = null;
+      active?.abort();
+      onBusyChange(false);
+    };
+  }, [onBusyChange]);
+
+  if (plan.engine !== "still") return null;
+
+  function cancel() {
+    const active = controller.current;
+    controller.current = null;
+    active?.abort();
+    onBusyChange(false);
+    setStage({ name: "idle" });
+  }
+
+  async function createGif(retainedBlob?: Blob) {
+    if (controller.current) return;
+    const abort = new AbortController();
+    controller.current = abort;
+    const ownsOperation = () => controller.current === abort;
+    const setOwnedStage = (next: QuickGifStage) => {
+      if (ownsOperation()) setStage(next);
+    };
+    onBusyChange(true);
+
+    let blob = retainedBlob ?? null;
+    try {
+      if (!blob) {
+        setOwnedStage({ name: "converting" });
+        const bytes = await file.arrayBuffer();
+        if (abort.signal.aborted || !ownsOperation()) return;
+        const { encodeStillGif } = await import(
+          "~/components/gif/still-gif-client"
+        );
+        const result = await encodeStillGif({
+          bytes,
+          contentType: record.contentType ?? file.type,
+          signal: abort.signal,
+        });
+        blob = result.blob;
+      }
+
+      if (abort.signal.aborted || !ownsOperation()) return;
+      if (blob.size > GIF_MAX_OUTPUT_BYTES) {
+        setOwnedStage({
+          name: "failed",
+          message:
+            "The GIF is " +
+            formatBytes(blob.size) +
+            ", over the " +
+            formatBytes(GIF_MAX_OUTPUT_BYTES) +
+            " limit.",
+          blob: null,
+        });
+        return;
+      }
+
+      setOwnedStage({
+        name: "uploading",
+        blob,
+        loaded: 0,
+        total: blob.size,
+      });
+      const gif = await postMultipart({
+        endpoint: browserGifEndpoint(uploadId),
+        body: blob,
+        filename: "variant.gif",
+        signal: abort.signal,
+        onProgress: (loaded, total) =>
+          setOwnedStage({ name: "uploading", blob: blob!, loaded, total }),
+      });
+      if (abort.signal.aborted || !ownsOperation()) return;
+      setOwnedStage({ name: "stored", url: gif.url });
+      router.refresh();
+    } catch (error) {
+      if (abort.signal.aborted || !ownsOperation()) return;
+      const failure =
+        error instanceof TransportError
+          ? error
+          : new TransportError(
+              "conversion_failed",
+              error instanceof Error
+                ? error.message
+                : "The GIF could not be created in this browser.",
+            );
+      setOwnedStage({
+        name: "failed",
+        message: failure.message,
+        blob,
+      });
+    } finally {
+      if (ownsOperation()) {
+        controller.current = null;
+        onBusyChange(false);
+      }
+    }
+  }
+
+  return (
+    <div className="border-border rounded-lg border p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium">GIF URL</p>
+          <p className="text-muted-foreground mt-0.5 text-sm">
+            Create and store it here—no detail-page detour.
+          </p>
+        </div>
+        {stage.name === "idle" ? (
+          <button
+            type="button"
+            onClick={() => void createGif()}
+            className={buttonQuiet}
+          >
+            Create GIF URL
+          </button>
+        ) : null}
+      </div>
+
+      {stage.name === "converting" ? (
+        <div className="mt-4">
+          <p role="status" className="text-muted-foreground text-sm">
+            Encoding one GIF frame in your browser…
+          </p>
+          <button
+            type="button"
+            onClick={cancel}
+            className={buttonQuiet + " mt-3"}
+          >
+            Cancel
+          </button>
+        </div>
+      ) : null}
+
+      {stage.name === "uploading" ? (
+        <div className="mt-4 space-y-3">
+          <Progress
+            loaded={stage.loaded}
+            total={stage.total}
+            caption="Storing the GIF —"
+          />
+          <button type="button" onClick={cancel} className={buttonQuiet}>
+            Cancel
+          </button>
+        </div>
+      ) : null}
+
+      {stage.name === "stored" ? (
+        <div className="bg-sunken mt-3 flex items-center gap-3 rounded-lg p-3">
+          <p className="min-w-0 flex-1 font-mono text-xs break-all">
+            {stage.url}
+          </p>
+          <CopyButton value={stage.url} label="Copy the GIF URL" />
+        </div>
+      ) : null}
+
+      {stage.name === "failed" ? (
+        <div className="mt-3">
+          <p role="alert" className="text-danger text-sm">
+            {stage.message}
+          </p>
+          <button
+            type="button"
+            onClick={() => void createGif(stage.blob ?? undefined)}
+            className={buttonQuiet + " mt-3"}
+          >
+            Retry GIF
+          </button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 

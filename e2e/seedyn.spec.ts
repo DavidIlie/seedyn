@@ -160,6 +160,27 @@ test("the sign-in and authenticated library shells are instant", async ({
 
   await signIn(page);
 
+  const uploadTrigger = page.getByRole("button", {
+    name: "Upload",
+    exact: true,
+  });
+  await uploadTrigger.click();
+  const uploadDialog = page.getByRole("dialog", { name: "Upload" });
+  await expect(uploadDialog).toBeVisible();
+  const uploadDialogBox = await uploadDialog.boundingBox();
+  expect(uploadDialogBox).not.toBeNull();
+  expect(uploadDialogBox!.x).toBeGreaterThan(8);
+  expect(uploadDialogBox!.y).toBeGreaterThan(8);
+  await page.mouse.click(8, 8);
+  await expect(uploadDialog).toBeHidden({ timeout: 1_000 });
+  await expect(uploadTrigger).toBeFocused();
+
+  await uploadTrigger.click();
+  await expect(uploadDialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(uploadDialog).toBeHidden({ timeout: 1_000 });
+  await expect(uploadTrigger).toBeFocused();
+
   const accountTrigger = page.locator(
     "summary:visible[aria-label^='Account menu for']",
   );
@@ -177,18 +198,48 @@ test("the sign-in and authenticated library shells are instant", async ({
       { exact: true },
     ),
   ).toBeVisible();
+  if (process.env.E2E_PRODUCTION !== "true") {
+    await expect(
+      accountMenu.getByText("david@davidilie.com", { exact: true }),
+    ).toBeVisible();
+  }
   await expect(
     accountMenu.getByRole("link", { name: "API keys", exact: true }),
   ).toHaveAttribute("href", "/api-keys");
   await expect(
     accountMenu.getByRole("link", { name: "Documentation", exact: true }),
   ).toHaveAttribute("href", "/docs");
+  const adminLink = accountMenu.getByRole("link", {
+    name: "Admin",
+    exact: true,
+  });
+  await expect(adminLink).toHaveAttribute("href", "/admin");
   await expect(
     accountMenu.getByRole("button", { name: "Sign out", exact: true }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(accountMenu).toBeHidden();
   await expect(accountTrigger).toBeFocused();
+
+  await accountTrigger.click();
+  await adminLink.click();
+  await page.waitForURL((url) => url.pathname === "/admin");
+  await expect(
+    page.getByRole("heading", { name: "Admin", level: 1 }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Seedyn totals" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Users", level: 2 }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "7d", exact: true }).click();
+  await page.waitForURL(
+    (url) => url.pathname === "/admin" && url.search === "?range=7",
+  );
+  await expect(
+    page.getByRole("link", { name: "7d", exact: true }),
+  ).toHaveAttribute("aria-current", "page");
 
   for (const destination of [
     { label: "Images", path: "/images", heading: "Images" },
@@ -261,6 +312,172 @@ test("the sign-in and authenticated library shells are instant", async ({
   expect(errors).toEqual([]);
 });
 
+test("an active transfer cannot be dismissed without an explicit choice", async ({
+  page,
+}) => {
+  let releaseRequest: (() => void) | undefined;
+  const requestMayFinish = new Promise<void>((resolve) => {
+    releaseRequest = resolve;
+  });
+
+  await page.route("**/api/uploads", async (route) => {
+    await requestMayFinish;
+    await route.abort("aborted").catch(() => undefined);
+  });
+  await signIn(page);
+
+  const uploadTrigger = page.getByRole("button", {
+    name: "Upload",
+    exact: true,
+  });
+  await uploadTrigger.click();
+  const uploadDialog = page.getByRole("dialog", { name: "Upload" });
+  await uploadDialog.locator('input[type="file"]').setInputFiles({
+    name: "in-flight.png",
+    mimeType: "image/png",
+    buffer: PNG,
+  });
+  await uploadDialog.getByRole("button", { name: "Upload file" }).click();
+  await expect(uploadDialog.getByRole("progressbar")).toBeVisible();
+
+  await page.mouse.click(8, 8);
+  await expect(uploadDialog).toBeVisible();
+  const closeWarning = uploadDialog.getByRole("alert");
+  await expect(closeWarning).toContainText("Cancel this transfer?");
+  await expect(
+    uploadDialog.getByRole("button", { name: "Keep uploading" }),
+  ).toBeFocused();
+
+  await uploadDialog.getByRole("button", { name: "Keep uploading" }).click();
+  await expect(closeWarning).toBeHidden();
+  await page.keyboard.press("Escape");
+  await expect(closeWarning).toContainText("Cancel this transfer?");
+
+  await uploadDialog.getByRole("button", { name: "Cancel and close" }).click();
+  releaseRequest?.();
+  await expect(uploadDialog).toBeHidden({ timeout: 1_000 });
+  await expect(uploadTrigger).toBeFocused();
+});
+
+test("pasting a clipboard image immediately creates selectable PNG and GIF URLs", async ({
+  page,
+}) => {
+  const errors = collectBrowserErrors(page);
+  const filename = `clipboard-${Date.now()}.png`;
+  let uploadId: string | undefined;
+  let releaseGifRequest: (() => void) | undefined;
+  const gifRequestMayFinish = new Promise<void>((resolve) => {
+    releaseGifRequest = resolve;
+  });
+  await page.route("**/api/uploads/*/gif", async (route) => {
+    await gifRequestMayFinish;
+    await route.continue();
+  });
+  await signIn(page);
+
+  try {
+    await page.evaluate(
+      ({ bytes, name }) => {
+        const transfer = new DataTransfer();
+        transfer.items.add(
+          new File([new Uint8Array(bytes)], name, { type: "image/png" }),
+        );
+        document.dispatchEvent(
+          new ClipboardEvent("paste", {
+            bubbles: true,
+            cancelable: true,
+            clipboardData: transfer,
+          }),
+        );
+      },
+      { bytes: [...PNG], name: filename },
+    );
+
+    const dialog = page.getByRole("dialog", { name: "Upload" });
+    await expect(dialog).toBeVisible();
+    await expect(
+      dialog.getByText(filename + " is stored and ready to share."),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(
+      dialog.getByRole("button", { name: "Upload file" }),
+    ).toHaveCount(0);
+
+    const copyPng = dialog.getByRole("button", {
+      name: "Copy the PNG URL",
+    });
+    await expect(copyPng).toBeVisible();
+    await dialog.getByRole("button", { name: "Create GIF URL" }).click();
+    await expect(dialog.getByText("Storing the GIF —")).toBeVisible();
+    await expect(
+      dialog.getByRole("button", { name: "View upload" }),
+    ).toBeDisabled();
+    await expect(
+      dialog.getByRole("button", { name: "Upload another" }),
+    ).toBeDisabled();
+
+    await page.evaluate(
+      ({ bytes }) => {
+        const transfer = new DataTransfer();
+        transfer.items.add(
+          new File([new Uint8Array(bytes)], "must-not-replace.png", {
+            type: "image/png",
+          }),
+        );
+        document.dispatchEvent(
+          new ClipboardEvent("paste", {
+            bubbles: true,
+            cancelable: true,
+            clipboardData: transfer,
+          }),
+        );
+      },
+      { bytes: [...PNG] },
+    );
+    await expect(
+      dialog.getByText(filename + " is stored and ready to share."),
+    ).toBeVisible();
+    await expect(dialog.getByText("must-not-replace.png")).toHaveCount(0);
+
+    releaseGifRequest?.();
+    const copyGif = dialog.getByRole("button", {
+      name: "Copy the GIF URL",
+    });
+    await expect(copyGif).toBeVisible({ timeout: 15_000 });
+
+    await copyPng.click();
+    await expect(copyPng).toHaveAttribute("data-state", /^(copied|failed)$/u);
+    await copyGif.click();
+    await expect(copyGif).toHaveAttribute("data-state", /^(copied|failed)$/u);
+
+    const detailHref = await dialog
+      .getByRole("link", { name: "View upload" })
+      .getAttribute("href");
+    expect(detailHref).toMatch(/^\/uploads\//u);
+    uploadId = detailHref?.split("/").at(-1);
+    await dialog.getByRole("link", { name: "View upload" }).click();
+    await page.waitForURL((url) => url.pathname === detailHref);
+    await expect(
+      page.getByRole("link", { name: "Download GIF" }),
+    ).toBeVisible();
+
+    await page.getByText("Delete this upload…").click();
+    await page.getByRole("button", { name: "Delete permanently" }).click();
+    await page.waitForURL((url) => url.pathname === "/dashboard");
+    uploadId = undefined;
+    expect(errors).toEqual([]);
+  } finally {
+    if (uploadId) {
+      await page.request.delete(`/api/uploads/${uploadId}`, {
+        headers: {
+          Accept: "application/json",
+          Origin: new URL(page.url()).origin,
+        },
+      });
+    }
+    releaseGifRequest?.();
+  }
+});
+
 test("signed-out documentation discloses neither prose nor the page tree", async ({
   request,
 }) => {
@@ -285,6 +502,14 @@ test("signed-out documentation discloses neither prose nor the page tree", async
     const response = await request.get(path, { maxRedirects: 0 });
     expect(response.status()).toBe(401);
   }
+});
+
+test("signed-out visitors cannot read the admin ledger", async ({ page }) => {
+  await page.goto("/admin");
+  await page.waitForURL((url) => url.pathname === "/sign-in");
+  await expect(page.getByRole("heading", { name: "Admin" })).toHaveCount(0);
+  await expect(page.getByText("Seedyn totals")).toHaveCount(0);
+  await expect(page.getByText("david@davidilie.com")).toHaveCount(0);
 });
 
 test("documentation surfaces share the authored reading order", async ({
@@ -401,22 +626,22 @@ test("a browser upload becomes a permanent GIF and can be deleted", async ({
   try {
     await page.getByRole("button", { name: "Upload", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Upload" });
-    const fileInput = dialog.getByLabel("Browse files");
-    await fileInput.focus();
+    const browseFiles = dialog.getByRole("button", { name: "Browse files" });
+    await browseFiles.focus();
     await expect
       .poll(() =>
-        dialog
-          .locator("label", { hasText: "Browse files" })
-          .evaluate((label) => getComputedStyle(label).outlineWidth),
+        browseFiles.evaluate((button) => getComputedStyle(button).outlineWidth),
       )
       .not.toBe("0px");
-    await fileInput.setInputFiles({
+    await dialog.locator('input[type="file"]').setInputFiles({
       name: filename,
       mimeType: "image/png",
       buffer: PNG,
     });
     await dialog.getByRole("button", { name: "Upload file" }).click();
-    await expect(page.getByText(`${filename} is stored.`)).toBeVisible();
+    await expect(
+      page.getByText(filename + " is stored and ready to share."),
+    ).toBeVisible();
     const copyUploadedUrl = dialog.getByRole("button", {
       name: "Copy the uploaded URL",
     });
@@ -522,6 +747,21 @@ test("a browser upload becomes a permanent GIF and can be deleted", async ({
     expect((await gifResponse.body()).subarray(0, 6).toString("ascii")).toMatch(
       /^GIF8[79]a$/,
     );
+
+    const detailUrl = page.url();
+    await page.goto("/admin");
+    const totals = page.getByRole("region", { name: "Seedyn totals" });
+    await expect(
+      totals.locator("dt", { hasText: "Uploads" }).locator(".."),
+    ).toContainText("1");
+    await expect(
+      totals.locator("dt", { hasText: "GIF variants" }).locator(".."),
+    ).toContainText("1");
+    await expect(page.locator(".recharts-wrapper")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Users", level: 2 }),
+    ).toBeVisible();
+    await page.goto(detailUrl);
 
     await page.getByText("Delete this upload…").click();
     await page.getByRole("button", { name: "Delete permanently" }).click();

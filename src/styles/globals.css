@@ -2,6 +2,7 @@
    The repository also contains `plans/` and `content/`, and letting the scan
    walk the whole worktree makes every planning document a class source. */
 @import "tailwindcss" source("../");
+@import "tw-animate-css";
 
 /* Fumadocs' structural preset, deliberately NOT its stylesheet. `preset.css`
    imports `lib/base.css`, `lib/shiki.css`, the typography plugin, and the
@@ -153,6 +154,13 @@
   --brand-muted: oklch(0.89 0.065 253);
   --brand-rule: oklch(0.78 0.09 256);
   --danger: oklch(0.45 0.16 10);
+  --overlay: oklch(0.15 0.035 260 / 0.46);
+  --dialog-shadow: oklch(0.12 0.04 260 / 0.24);
+  --dialog-shadow-near: oklch(0.12 0.04 260 / 0.14);
+  --chart-image: oklch(0.56 0.2 258);
+  --chart-video: oklch(0.63 0.16 251);
+  --chart-file: oklch(0.7 0.115 244);
+  --chart-text: oklch(0.79 0.075 238);
   --info: oklch(0.5 0.13 250);
   --success: oklch(0.48 0.12 150);
   --warning: oklch(0.55 0.13 80);
@@ -176,6 +184,13 @@
     --brand-muted: oklch(0.89 0.065 253);
     --brand-rule: oklch(0.78 0.09 256);
     --danger: oklch(0.74 0.15 10);
+    --overlay: oklch(0.07 0.025 260 / 0.72);
+    --dialog-shadow: oklch(0.03 0.02 260 / 0.58);
+    --dialog-shadow-near: oklch(0.03 0.02 260 / 0.42);
+    --chart-image: oklch(0.7 0.17 255);
+    --chart-video: oklch(0.66 0.14 248);
+    --chart-file: oklch(0.61 0.105 241);
+    --chart-text: oklch(0.53 0.07 235);
     --info: oklch(0.72 0.13 250);
     --success: oklch(0.72 0.12 150);
     --warning: oklch(0.75 0.12 80);

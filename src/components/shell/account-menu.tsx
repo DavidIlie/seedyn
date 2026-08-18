@@ -1,5 +1,6 @@
 "use client";
 
+import type { Route } from "next";
 import Link from "next/link";
 import { useSelectedLayoutSegment } from "next/navigation";
 import { useEffect, useRef } from "react";
@@ -7,6 +8,7 @@ import { useEffect, useRef } from "react";
 export type AccountIdentity = {
   name: string | null;
   email: string | null;
+  appRole: "MEMBER" | "ADMIN";
 };
 
 /**
@@ -80,7 +82,14 @@ export function AccountMenu({
           </span>
           <div className="min-w-0">
             <p className="text-muted-foreground text-xs">Signed in as</p>
-            <p className="truncate text-sm font-medium">{displayName}</p>
+            <div className="flex min-w-0 items-center gap-2">
+              <p className="truncate text-sm font-medium">{displayName}</p>
+              {identity.appRole === "ADMIN" ? (
+                <span className="border-accent/30 bg-accent/10 text-accent shrink-0 rounded border px-1.5 py-0.5 text-[9px] font-semibold tracking-wide uppercase">
+                  Admin
+                </span>
+              ) : null}
+            </div>
             {email && email !== displayName ? (
               <p className="text-muted-foreground truncate text-xs">{email}</p>
             ) : null}
@@ -100,6 +109,14 @@ export function AccountMenu({
             icon="docs"
             close={closeMenu}
           />
+          {identity.appRole === "ADMIN" ? (
+            <AccountLink
+              href="/admin"
+              label="Admin"
+              icon="admin"
+              close={closeMenu}
+            />
+          ) : null}
           {signOut}
         </div>
       </div>
@@ -113,9 +130,9 @@ function AccountLink({
   icon,
   close,
 }: {
-  href: "/api-keys" | "/docs";
+  href: Route;
   label: string;
-  icon: "key" | "docs";
+  icon: "key" | "docs" | "admin";
   close: () => void;
 }) {
   return (
@@ -130,7 +147,7 @@ function AccountLink({
   );
 }
 
-function AccountGlyph({ name }: { name: "key" | "docs" }) {
+function AccountGlyph({ name }: { name: "key" | "docs" | "admin" }) {
   if (name === "key") {
     return (
       <svg
@@ -146,6 +163,25 @@ function AccountGlyph({ name }: { name: "key" | "docs" }) {
       >
         <circle cx="5.25" cy="7" r="3" />
         <path d="m7.75 8.75 5 5M10.25 11.25l1.5-1.5" />
+      </svg>
+    );
+  }
+
+  if (name === "admin") {
+    return (
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M8 1.75 13 3.5v3.75c0 3-1.8 5.55-5 7-3.2-1.45-5-4-5-7V3.5z" />
+        <path d="m5.75 8 1.5 1.5 3-3" />
       </svg>
     );
   }

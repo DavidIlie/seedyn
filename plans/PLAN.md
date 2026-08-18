@@ -1,6 +1,6 @@
 # Seedyn — master product and architecture plan
 
-Status: **implemented local baseline; production infrastructure deferred**
+Status: **implemented local product; production infrastructure deferred**
 Date: **2026-08-18**
 
 ## 1. Product in one paragraph
@@ -148,15 +148,16 @@ holds large working sets in memory.
 
 Use a DavidApps confidential OIDC client with discovery at
 `https://id.davidapps.dev/.well-known/openid-configuration`, PKCE S256, state,
-and scopes `openid profile email`. The provider id is `davidapps`.
+nonce, and scopes `openid profile email`. The provider id is `davidapps`.
 
 Identity is the canonical `(iss, sub)` represented by Auth.js's provider and
 provider-account id, not email. Email is display/contact data. DavidApps owns
 the invite policy; Seedyn does not grow a second invitation system.
 
-The DavidApps MCP is installed, but provisioning is deferred until production
-hostname(s), callback URLs, and access semantics are locked. Its secret output
-must remain an opaque reference moved by the approved non-model secret mover.
+The invite-only DavidApps OIDC application is provisioned for
+`seedyn.dave.tips` and `seedyn.localhost:3000`. David resolves to its signed
+`admin` application role. The secret output remains an opaque reference until
+the approved non-model secret mover writes the encrypted production sink.
 
 ## 8. Persistence thesis
 
@@ -215,7 +216,9 @@ the planning and application build do not authorize them.
 - Mobile/desktop apps beyond ShareX's custom uploader.
 - Multiple storage backends or local-filesystem production storage.
 - Multi-region or multi-replica cache coordination.
-- Analytics dashboards beyond useful totals and recent activity.
+- Download/view tracking, historical deletion analytics, or identity-platform
+  user-directory analytics. The read-only admin ledger reports current Seedyn
+  metadata only.
 
 ## 11. Completion standard
 
