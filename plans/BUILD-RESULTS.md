@@ -184,6 +184,14 @@ application handoff:
     release builds before and after it. The successful clean image passed the
     full container smoke; the failed evaluator trace is retained here for the
     Next.js team rather than attributed to application code.
+16. A Docs → Dashboard client transition retains the inactive docs DOM under
+    the shared layout with `display: none !important`. A parent `:has()` selector
+    still matched that hidden branch, so Seedyn now derives its layout marker
+    from `useSelectedLayoutSegment()` instead of retained page shape. During the
+    fix, one long-running development process also kept serving the deleted
+    global selector to fresh browser pages; `document.styleSheets` confirmed the
+    stale winning rule and restarting `next dev` removed it. That HMR observation
+    has not yet been reduced to an independent reproduction.
 
 ## Explicitly deferred production work
 

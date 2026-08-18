@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 
 import { AppHeader } from "~/components/shell/app-header";
+import { RouteLayoutMarker } from "~/components/shell/route-layout-marker";
 import { SessionGate } from "~/components/shell/session-gate";
 import { UploadProvider } from "~/components/upload/upload-action";
 
@@ -30,6 +31,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </Suspense>
 
         <main id="main" className="app-main mx-auto max-w-6xl px-4 pb-20">
+          <Suspense fallback={null}>
+            <RouteLayoutMarker />
+          </Suspense>
           {children}
         </main>
       </div>

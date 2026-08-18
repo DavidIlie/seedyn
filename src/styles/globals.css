@@ -214,12 +214,10 @@
   }
 }
 
-/* The normal app shell uses a compact reading width. Fumadocs needs the
-   viewport for its sidebar/article/TOC grid, so only the docs route releases
-   that constraint. This is in the utilities layer so it can override the
-   shell's max-width utilities without `!important`. */
 @layer utilities {
-  .app-main:has(> [data-seedyn-docs]) {
+  /* The marker is owned by the shared layout, so it updates with router state
+     instead of remaining inside Next's hidden, retained page tree. */
+  .app-main:has(> [data-main-layout="docs"]) {
     max-width: none;
     padding-inline: 0;
     padding-bottom: 0;

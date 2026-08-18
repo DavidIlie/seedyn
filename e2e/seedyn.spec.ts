@@ -223,6 +223,14 @@ test("the sign-in and authenticated library shells are instant", async ({
     }
   }
 
+  // Next retains the previous route tree with `display: none !important`
+  // during a client transition. The shared route marker must return the main
+  // to product geometry even while that inactive docs tree still exists.
+  const appMain = page.locator("main.app-main");
+  await expect(appMain).toHaveCSS("padding-left", "16px");
+  await expect(appMain).toHaveCSS("padding-right", "16px");
+  await expect(appMain).toHaveCSS("max-width", "1152px");
+
   await page.getByRole("link", { name: "Seedyn library" }).focus();
   await page.keyboard.press("Tab");
   await expect(
