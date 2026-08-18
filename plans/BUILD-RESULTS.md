@@ -192,6 +192,18 @@ application handoff:
     global selector to fresh browser pages; `document.styleSheets` confirmed the
     stale winning rule and restarting `next dev` removed it. That HMR observation
     has not yet been reduced to an independent reproduction.
+17. The cache-disabled 16.3.0 server later reproduced the zero-byte listener
+    stall after 1h41m. It accepted TCP while health requests timed out, used
+    about 100% of one core, and had a 1.9 GiB physical footprint. A live macOS
+    `sample` captured 2059/2123 main-thread samples in Node's `uv_check`
+    immediate-callback path; 2027/2123 passed through V8 pending-message and
+    uncaught-exception reporting, with SWC N-API frames beneath the JavaScript
+    stack. Turbopack Tokio workers were waiting on condition variables rather
+    than spinning. The process ignored SIGINT and SIGTERM and required SIGKILL.
+    This weakens the persistence-worker hypothesis and points toward a
+    JavaScript immediate/error-reporting loop; a future recurrence should add
+    Next's internal trace and CPU-prof flags so the optimized JavaScript frames
+    have names.
 
 ## Explicitly deferred production work
 
