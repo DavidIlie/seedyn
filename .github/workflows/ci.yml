@@ -91,6 +91,9 @@ jobs:
           pnpm db:migrate
           pnpm db:seed
 
+      - run: pnpm format:check
+      - run: pnpm check
+
       - name: Start development server
         run: |
           nohup pnpm dev > "$RUNNER_TEMP/seedyn-dev.log" 2>&1 &
@@ -107,8 +110,6 @@ jobs:
             sleep 1
           done
 
-      - run: pnpm format:check
-      - run: pnpm check
       - run: pnpm test:integration
       - run: pnpm test:e2e
       - run: pnpm test:e2e:production
