@@ -16,7 +16,7 @@ export function UrlHeading({ url }: { url: string }) {
   const parsed = new URL(url);
 
   return (
-    <div className="border-accent flex flex-wrap items-center gap-3 border-l-2 py-2 pl-4">
+    <div className="border-border bg-sunken flex flex-wrap items-center gap-3 rounded-xl border p-4">
       <h1 className="min-w-0 flex-1 font-mono text-xl leading-snug break-all select-all md:text-2xl">
         <span className="text-muted-foreground font-normal">
           {parsed.protocol}
@@ -35,10 +35,10 @@ export function UrlHeadingSkeleton() {
   return (
     <div
       aria-hidden="true"
-      className="border-accent flex items-center gap-3 border-l-2 py-2 pl-4"
+      className="border-border bg-sunken flex items-center gap-3 rounded-xl border p-4"
     >
-      <div className="bg-border h-7 flex-1 rounded-sm md:h-8" />
-      <div className="border-border h-11 w-20 shrink-0 rounded-sm border md:h-9" />
+      <div className="bg-border h-7 flex-1 rounded-lg md:h-8" />
+      <div className="border-border h-11 w-20 shrink-0 rounded-lg border md:h-9" />
     </div>
   );
 }

@@ -21,7 +21,6 @@ export default function TextsPage({
       title="Texts"
       description="Plain-text uploads, served inline from the public origin."
       noun="texts"
-      uploadLabel="Upload text"
       searchParams={searchParams}
     />
   );

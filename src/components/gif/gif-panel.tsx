@@ -265,7 +265,7 @@ export function GifPanel({
   return (
     <section
       aria-labelledby="gif-heading"
-      className="border-border rounded-sm border"
+      className="border-border rounded-xl border"
     >
       <div className="border-border border-b px-4 py-3">
         <h2 id="gif-heading" className="text-sm font-medium">
@@ -366,7 +366,7 @@ export function GifPanel({
             {stage.name === "failed" ? (
               <p
                 role="alert"
-                className="border-danger text-danger rounded-sm border p-3 text-sm"
+                className="border-danger text-danger rounded-lg border p-3 text-sm"
               >
                 {stage.message}
               </p>

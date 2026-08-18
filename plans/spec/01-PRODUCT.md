@@ -69,7 +69,7 @@ signing in. They cannot browse or enumerate the library.
 3. Continue to DavidApps with PKCE.
 4. DavidApps enforces invite policy and returns the user.
 5. Auth.js creates/loads the local account and database session.
-6. Recent renders its static shell immediately, then streams user totals and
+6. Library renders its static shell immediately, then streams user totals and
    recent uploads.
 7. Empty state explains local file, paste, and HTTPS URL upload paths.
 
@@ -146,7 +146,7 @@ Recommended navigation:
 
 ```text
 Seedyn
-├── Recent
+├── Library
 ├── Images
 ├── Files
 ├── Texts
@@ -155,12 +155,12 @@ Seedyn
 ```
 
 Videos live under Files in the main navigation but receive their own kind and
-preview/treatment. A single all-uploads search can be added to Recent without
+preview/treatment. A single all-uploads search can be added to Library without
 adding another top-level page.
 
 ## V1 scope details
 
-### Recent
+### Library
 
 - total uploads and total stored bytes;
 - ten most recent uploads;

@@ -94,7 +94,7 @@ export function KeyListSkeleton({ rows = 3 }: { rows?: number }) {
             <span className="bg-border block h-4 w-1/2 rounded" />
             <span className="bg-border block h-3 w-3/4 rounded" />
           </span>
-          <span className="border-border h-11 w-20 shrink-0 rounded-sm border md:h-9" />
+          <span className="border-border h-11 w-20 shrink-0 rounded-lg border md:h-9" />
         </li>
       ))}
     </ul>

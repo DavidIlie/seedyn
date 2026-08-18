@@ -21,7 +21,6 @@ export default function ImagesPage({
       title="Images"
       description="Screenshots and other image uploads."
       noun="images"
-      uploadLabel="Upload image"
       searchParams={searchParams}
     />
   );

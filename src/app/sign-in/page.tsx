@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 
 import { activeProviderLabel } from "~/components/auth/provider";
+import { SeedynMark } from "~/components/brand/seedyn-logo";
 import { buttonPrimary } from "~/components/ui/styles";
 import { getOptionalUser } from "~/server/auth";
 
@@ -14,9 +15,9 @@ export const metadata: Metadata = { title: "Sign in" };
 export const instant = true;
 
 /**
- * The sign-in page holds no product data of any kind, so the whole card is
- * static and commits immediately. Only two things are request-dependent: whether
- * there is already a session, and whether the last attempt failed. Both stream.
+ * The sign-in page holds no product data, so its identity and explanation are
+ * static and commit immediately. Only two things are request-dependent: whether
+ * a session already exists and whether the last attempt failed. Both stream.
  */
 export default function SignInPage({
   searchParams,
@@ -24,30 +25,74 @@ export default function SignInPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-4 py-16">
-      <div>
-        <p className="font-mono text-sm font-medium tracking-[-0.02em]">
-          seedyn
-        </p>
+    <main className="grid min-h-dvh lg:grid-cols-[minmax(24rem,0.82fr)_minmax(32rem,1.18fr)]">
+      <section className="bg-background order-1 flex items-center px-6 py-8 sm:px-10 lg:order-2 lg:px-16 lg:py-12 xl:px-24">
+        <div className="w-full max-w-[25rem]">
+          <div className="mb-12 flex items-center gap-2.5 lg:hidden">
+            <SeedynMark className="text-accent size-8" />
+            <span className="font-display text-base font-semibold tracking-[-0.025em]">
+              Seedyn
+            </span>
+          </div>
 
-        <h1 className="mt-10 text-[2rem] leading-tight font-semibold tracking-[-0.025em]">
-          Files that need a URL
-        </h1>
-        <p className="text-muted-foreground mt-3 max-w-[38ch] text-[15px] leading-6">
-          Upload from the browser or any program. Seedyn stores the object and
-          gives it a permanent public-by-link URL.
-        </p>
+          <h1 className="font-display text-[2rem] leading-tight font-semibold tracking-[-0.035em]">
+            Sign in to Seedyn
+          </h1>
+          <p className="text-muted-foreground mt-3 text-[15px] leading-6">
+            Continue with the DavidApps account that has access to this private
+            library.
+          </p>
 
-        <Suspense fallback={<SignInFallback />}>
-          <SignInPanel searchParams={searchParams} />
-        </Suspense>
+          <Suspense fallback={<SignInFallback />}>
+            <SignInPanel searchParams={searchParams} />
+          </Suspense>
 
-        <p className="text-muted-foreground mt-8 text-sm leading-5">
-          Invite-only. Accounts are granted through DavidApps; there is no
-          sign-up form here.
-        </p>
-      </div>
+          <div className="border-border mt-8 flex gap-3 border-t pt-5">
+            <ShieldGlyph />
+            <p className="text-muted-foreground text-sm leading-5">
+              Invite-only access is granted through DavidApps and can be revoked
+              without changing your stored links.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-brand text-brand-foreground order-2 flex min-h-[22rem] flex-col px-6 py-7 sm:px-10 sm:py-9 lg:order-1 lg:min-h-dvh lg:px-12 lg:py-10 xl:px-16 xl:py-12">
+        <div className="hidden items-center gap-2.5 lg:flex">
+          <SeedynMark className="size-8" />
+          <span className="font-display text-base font-semibold tracking-[-0.025em]">
+            Seedyn
+          </span>
+        </div>
+
+        <div className="my-auto max-w-[34rem] py-10 lg:py-16">
+          <h2 className="font-display text-[clamp(2.35rem,5vw,4.75rem)] leading-[0.98] font-semibold tracking-[-0.055em]">
+            Upload once.
+            <br />
+            Keep the link.
+          </h2>
+          <p className="text-brand-muted mt-6 max-w-[42ch] text-[15px] leading-6 sm:text-base">
+            Put any file in one private library, then serve it from a durable
+            URL. Use the browser, an API client, or ShareX.
+          </p>
+        </div>
+
+        <ol className="border-brand-rule grid grid-cols-3 border-t pt-5 text-sm">
+          <FlowStep number="01" label="Upload" />
+          <FlowStep number="02" label="Store" />
+          <FlowStep number="03" label="Serve" />
+        </ol>
+      </section>
     </main>
+  );
+}
+
+function FlowStep({ number, label }: { number: string; label: string }) {
+  return (
+    <li className="flex items-baseline gap-2">
+      <span className="text-brand-muted font-mono text-[10px]">{number}</span>
+      <span className="font-medium">{label}</span>
+    </li>
   );
 }
 
@@ -55,7 +100,7 @@ function SignInFallback() {
   return (
     <div
       aria-hidden="true"
-      className="bg-border mt-6 h-11 rounded-sm md:h-10"
+      className="bg-border mt-7 h-11 rounded-lg md:h-10"
     />
   );
 }
@@ -75,7 +120,7 @@ async function SignInPanel({
     typeof raw === "string" ? raw : Array.isArray(raw) ? raw[0] : undefined;
 
   return (
-    <div className="mt-6 space-y-4">
+    <div className="mt-7 space-y-4">
       {code ? <SignInError code={code} /> : null}
 
       <form action={startSignIn}>
@@ -98,7 +143,7 @@ function SignInError({ code }: { code: string }) {
     <div
       role="alert"
       className={
-        "rounded-sm border p-3 text-sm " +
+        "rounded-lg border p-3 text-sm " +
         (denied
           ? "border-border text-muted-foreground"
           : "border-danger text-danger")
@@ -121,5 +166,25 @@ function SignInError({ code }: { code: string }) {
         </>
       )}
     </div>
+  );
+}
+
+function ShieldGlyph() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 18 18"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="text-accent mt-0.5 shrink-0"
+    >
+      <path d="M9 1.75 15 4v4.15c0 3.65-2.4 6.6-6 8.1-3.6-1.5-6-4.45-6-8.1V4z" />
+      <path d="m6.5 8.8 1.6 1.6 3.45-3.45" />
+    </svg>
   );
 }

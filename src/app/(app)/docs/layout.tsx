@@ -43,9 +43,9 @@ async function ProtectedDocsFrame({ children }: { children: React.ReactNode }) {
         className: "seedyn-docs-layout",
         style: {
           // Fumadocs owns a second sticky header. Its stock layout assumes it
-          // starts at the viewport edge, so include Seedyn's 56px app header in
+          // starts at the viewport edge, so include Seedyn's 64px app header in
           // every internal sticky-row calculation.
-          "--fd-docs-row-1": "calc(var(--fd-banner-height, 0px) + 3.5rem)",
+          "--fd-docs-row-1": "calc(var(--fd-banner-height, 0px) + 4rem)",
         } as CSSProperties,
       }}
     >
@@ -59,13 +59,13 @@ function DocsFrameSkeleton() {
     <div
       role="status"
       aria-label="Loading documentation"
-      className="min-h-[calc(100dvh-3.5rem)]"
+      className="min-h-[calc(100dvh-4rem)]"
     >
       <div aria-hidden="true">
-        <div className="border-border flex h-14 items-center border-b px-4 md:pl-[18.25rem]">
+        <div className="border-border flex h-14 items-center border-b px-4 md:hidden">
           <div className="bg-border h-4 w-28 rounded-sm" />
         </div>
-        <div className="grid min-h-[calc(100dvh-7rem)] md:grid-cols-[16.75rem_minmax(0,1fr)] xl:grid-cols-[16.75rem_minmax(0,56.25rem)_16.75rem]">
+        <div className="grid min-h-[calc(100dvh-7.5rem)] md:min-h-[calc(100dvh-4rem)] md:grid-cols-[16.75rem_minmax(0,1fr)] xl:grid-cols-[16.75rem_minmax(0,56.25rem)_16.75rem]">
           <aside className="border-border hidden border-r p-5 md:block">
             <div className="space-y-3">
               {Array.from({ length: 7 }, (_, index) => (

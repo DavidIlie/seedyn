@@ -15,9 +15,11 @@ export function EmptyState({
   action?: React.ReactNode;
 }) {
   return (
-    <div className={`${panelSurface} px-4 py-10 text-center`}>
-      <p className="text-sm font-medium">{title}</p>
-      <p className="text-muted-foreground mx-auto mt-1 max-w-prose text-sm">
+    <div
+      className={`${panelSurface} bg-sunken/45 border-dashed px-6 py-14 text-center`}
+    >
+      <p className="font-display text-base font-semibold">{title}</p>
+      <p className="text-muted-foreground mx-auto mt-2 max-w-[54ch] text-sm leading-6">
         {body}
       </p>
       {action ? <div className="mt-4 flex justify-center">{action}</div> : null}

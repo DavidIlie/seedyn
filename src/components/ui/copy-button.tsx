@@ -58,22 +58,29 @@ export function CopyButton({
       <button
         type="button"
         onClick={copy}
-        aria-label={label}
+        aria-label={
+          state === "idle"
+            ? label
+            : state === "copied"
+              ? `Copied. ${label.replace(/^Copy /u, "")}`
+              : `Failed. ${label}`
+        }
         data-state={state}
         className={
-          "inline-flex h-11 w-20 shrink-0 items-center justify-center rounded-sm border md:h-9 " +
+          "inline-flex h-11 w-20 shrink-0 items-center justify-center gap-1.5 rounded-lg border md:h-9 " +
           "border-border bg-panel text-sm font-medium transition-[background-color,border-color,color,transform] duration-[120ms] " +
           "ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] motion-reduce:transform-none " +
           // The label change from "Copy" to "Copied" carries the state; the
-          // border only reinforces it. Ember is not spent here — it is reserved
-          // for the primary action, focus ring, active destination, and upload
-          // URL rule, so it keeps a precise meaning.
-          "hover:bg-foreground/5 data-[state=copied]:border-foreground " +
+          // border and check only reinforce it. Blue keeps its precise meaning
+          // as a successful action and navigational affordance.
+          "hover:border-border-strong hover:bg-sunken data-[state=copied]:border-accent " +
+          "data-[state=copied]:bg-accent/10 data-[state=copied]:text-accent " +
           "data-[state=failed]:border-danger data-[state=copied]:font-semibold " +
           "data-[state=failed]:text-danger " +
           className
         }
       >
+        {state === "copied" ? <CheckGlyph /> : <CopyGlyph />}
         {LABEL[state]}
       </button>
       <span role="status" aria-live="polite" className="sr-only">
@@ -84,5 +91,40 @@ export function CopyButton({
             : ""}
       </span>
     </>
+  );
+}
+
+function CopyGlyph() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 14 14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      aria-hidden="true"
+    >
+      <rect x="4.25" y="1.75" width="7.5" height="7.5" rx="1.5" />
+      <path d="M9.75 10.25v.5c0 .83-.67 1.5-1.5 1.5h-5c-.83 0-1.5-.67-1.5-1.5v-5c0-.83.67-1.5 1.5-1.5h.5" />
+    </svg>
+  );
+}
+
+function CheckGlyph() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 14 14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m2.5 7.25 2.75 2.75 6.25-6.25" />
+    </svg>
   );
 }

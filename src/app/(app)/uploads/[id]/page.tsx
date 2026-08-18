@@ -49,7 +49,7 @@ export default function UploadDetailPage({
           href="/dashboard"
           className="text-muted-foreground hover:text-foreground text-sm"
         >
-          ← Recent
+          ← Library
         </Link>
       </div>
 
@@ -130,7 +130,7 @@ function DetailSkeleton() {
         </div>
         <div
           aria-hidden="true"
-          className="border-border h-44 rounded-sm border"
+          className="border-border h-44 rounded-xl border"
         />
       </div>
     </>

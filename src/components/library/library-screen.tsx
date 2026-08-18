@@ -8,7 +8,6 @@ import {
   type LibraryKind,
 } from "~/components/data/uploads";
 import { PageHeader } from "~/components/ui/page-header";
-import { UploadAction } from "~/components/upload/upload-action";
 import { normalizeUploadSearchQuery } from "~/lib/upload-search";
 
 import {
@@ -52,7 +51,6 @@ export function LibraryScreen({
   title,
   description,
   noun,
-  uploadLabel,
   searchParams,
 }: {
   kind: LibraryKind;
@@ -60,16 +58,11 @@ export function LibraryScreen({
   title: string;
   description: string;
   noun: string;
-  uploadLabel: string;
   searchParams: SearchParams;
 }) {
   return (
     <>
-      <PageHeader
-        title={title}
-        subtitle={description}
-        action={<UploadAction label={uploadLabel} />}
-      />
+      <PageHeader title={title} subtitle={description} />
 
       <Suspense fallback={<LibraryControlsSkeleton />}>
         <Controls path={path} searchParams={searchParams} />

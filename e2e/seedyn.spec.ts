@@ -47,7 +47,7 @@ async function signIn(page: Page) {
     ]);
     await page.goto("/dashboard");
     await expect(
-      page.getByRole("heading", { name: "Recent", exact: true }),
+      page.getByRole("heading", { name: "Library", exact: true }),
     ).toBeVisible();
     return;
   }
@@ -60,7 +60,7 @@ async function signIn(page: Page) {
     .click();
   await page.waitForURL((url) => url.pathname === "/dashboard");
   await expect(
-    page.getByRole("heading", { name: "Recent", exact: true }),
+    page.getByRole("heading", { name: "Library", exact: true }),
   ).toBeVisible();
 }
 
@@ -110,7 +110,7 @@ test("the sign-in and authenticated library shells are instant", async ({
     async () => {
       await page.goto("/sign-in");
       await expect(
-        page.getByRole("heading", { name: "Files that need a URL" }),
+        page.getByRole("heading", { name: "Sign in to Seedyn", level: 1 }),
       ).toBeVisible();
       await expect
         .poll(async () =>
@@ -124,7 +124,7 @@ test("the sign-in and authenticated library shells are instant", async ({
               [...document.styleSheets].some((sheet) =>
                 sheet.href?.includes("/_next/static/"),
               ) &&
-              bodyStyle.fontFamily.includes("IBM Plex Sans") &&
+              bodyStyle.fontFamily.includes("Onest") &&
               bodyStyle.backgroundColor !== "rgba(0, 0, 0, 0)" &&
               rootStyle.getPropertyValue("--accent").trim().length > 0 &&
               headingStyle.fontSize === "32px" &&
@@ -142,17 +142,22 @@ test("the sign-in and authenticated library shells are instant", async ({
     { baseURL },
   );
 
-  if (process.env.E2E_PRODUCTION === "true") {
-    await expect(
-      page.getByRole("button", { name: "Continue with DavidApps" }),
-    ).toBeVisible();
-  } else {
-    await expect(
-      page.getByRole("button", {
-        name: "Continue with local development sign-in",
-      }),
-    ).toBeVisible();
-  }
+  const providerButton = page.getByRole("button", {
+    name:
+      process.env.E2E_PRODUCTION === "true"
+        ? "Continue with DavidApps"
+        : "Continue with local development sign-in",
+  });
+  await expect(providerButton).toBeVisible();
+
+  await page.setViewportSize({ width: 360, height: 640 });
+  await page.goto("/sign-in");
+  await expect(providerButton).toBeVisible();
+  const providerRect = await providerButton.boundingBox();
+  expect(providerRect).not.toBeNull();
+  expect(providerRect!.y + providerRect!.height).toBeLessThanOrEqual(640);
+  await page.setViewportSize({ width: 1280, height: 800 });
+
   await signIn(page);
 
   for (const destination of [
@@ -161,7 +166,7 @@ test("the sign-in and authenticated library shells are instant", async ({
     { label: "Texts", path: "/texts", heading: "Texts" },
     { label: "API keys", path: "/api-keys", heading: "API keys" },
     { label: "Docs", path: "/docs", heading: "Seedyn" },
-    { label: "Recent", path: "/dashboard", heading: "Recent" },
+    { label: "Library", path: "/dashboard", heading: "Library" },
   ]) {
     await instant(page, async () => {
       await page
@@ -187,6 +192,31 @@ test("the sign-in and authenticated library shells are instant", async ({
       ).toBeVisible();
     }
   }
+
+  await page.getByRole("link", { name: "Seedyn library" }).focus();
+  await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("link", { name: "Library", exact: true }),
+  ).toBeFocused();
+
+  await page.setViewportSize({ width: 320, height: 800 });
+  await page.goto("/dashboard");
+  await expect(
+    page.getByRole("heading", { name: "Library", level: 1 }),
+  ).toBeVisible();
+  await expect(
+    page.locator("summary:visible").filter({ hasText: "Browse" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Upload", exact: true }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth <=
+        document.documentElement.clientWidth,
+    ),
+  ).toBe(true);
   expect(errors).toEqual([]);
 });
 
@@ -330,13 +360,34 @@ test("a browser upload becomes a permanent GIF and can be deleted", async ({
   try {
     await page.getByRole("button", { name: "Upload", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Upload" });
-    await dialog.getByLabel("Choose a file to upload").setInputFiles({
+    const fileInput = dialog.getByLabel("Browse files");
+    await fileInput.focus();
+    await expect
+      .poll(() =>
+        dialog
+          .locator("label", { hasText: "Browse files" })
+          .evaluate((label) => getComputedStyle(label).outlineWidth),
+      )
+      .not.toBe("0px");
+    await fileInput.setInputFiles({
       name: filename,
       mimeType: "image/png",
       buffer: PNG,
     });
     await dialog.getByRole("button", { name: "Upload file" }).click();
     await expect(page.getByText(`${filename} is stored.`)).toBeVisible();
+    const copyUploadedUrl = dialog.getByRole("button", {
+      name: "Copy the uploaded URL",
+    });
+    await copyUploadedUrl.click();
+    await expect(copyUploadedUrl).toHaveAttribute(
+      "data-state",
+      /^(copied|failed)$/u,
+    );
+    const visibleCopyState = (await copyUploadedUrl.textContent())?.trim();
+    const accessibleCopyState =
+      await copyUploadedUrl.getAttribute("aria-label");
+    expect(accessibleCopyState).toContain(visibleCopyState);
     await instant(page, async () => {
       await page.getByRole("link", { name: "View upload" }).click();
       await page.waitForURL((url) => url.pathname.startsWith("/uploads/"));
@@ -436,7 +487,7 @@ test("a browser upload becomes a permanent GIF and can be deleted", async ({
     await page.waitForURL((url) => url.pathname === "/dashboard");
     await expect(
       page
-        .locator('section[aria-labelledby="recent-heading"]')
+        .locator('section[aria-labelledby="latest-heading"]')
         .getByText(filename, { exact: true }),
     ).toHaveCount(0);
 

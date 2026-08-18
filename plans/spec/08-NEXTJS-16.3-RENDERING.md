@@ -77,7 +77,7 @@ navigation requires it and its browser-only caching semantics are understood.
 
 | Route           | Instant shell must contain                                         | May stream                            |
 | --------------- | ------------------------------------------------------------------ | ------------------------------------- |
-| `/dashboard`    | app header, Recent heading, Upload action, stat/list skeletons     | totals and recents                    |
+| `/dashboard`    | app header, Library heading, global Upload action, list skeletons  | totals and latest uploads             |
 | `/images`       | header, title, upload action, search/order controls, list skeleton | image rows                            |
 | `/files`        | same                                                               | file/video rows                       |
 | `/texts`        | same                                                               | text rows                             |
@@ -147,8 +147,8 @@ synchronous and minimal.
 
 ## Required instant tests
 
-- Recent document load and Sign-in → Recent transition.
-- Recent → Images/Files/Texts/API Keys/Docs.
+- Library document load and Sign-in → Library transition.
+- Library → Images/Files/Texts/API Keys/Docs.
 - Images list → upload detail and sibling upload detail.
 - Back navigation retains reasonable UI/scroll state.
 - Slow database fixture still commits destination shell immediately.

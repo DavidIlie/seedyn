@@ -75,7 +75,7 @@ above. "It is already in the scaffold" is not sufficient reason to keep it.
 ### Protected application
 
 - Sign-in page with one “Continue with DavidApps” action.
-- Recent: total objects/bytes, recent uploads, upload action.
+- Library: total objects/bytes, latest uploads, and the global upload action.
 - Images, files, and texts library views with URL-state pagination/filtering.
 - Upload detail: preview, metadata, checksum, URLs, copy/download/delete.
 - API keys: create, reveal once, download `.sxcu`, inspect last use, revoke.

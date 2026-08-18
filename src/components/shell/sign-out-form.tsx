@@ -10,7 +10,7 @@ export function SignOutForm({ className = "" }: { className?: string }) {
     <form action={signOutAction} className={className}>
       <button
         type="submit"
-        className="text-muted-foreground hover:text-foreground flex h-11 w-full items-center px-3 text-sm md:h-9 md:px-2"
+        className="text-muted-foreground hover:text-foreground flex h-11 w-full items-center rounded-lg px-3 text-sm transition-colors md:h-10 md:px-2"
       >
         Sign out
       </button>

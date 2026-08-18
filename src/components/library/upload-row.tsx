@@ -24,29 +24,26 @@ export const ROW_HEIGHT_CLASS = "h-16 md:h-14";
  */
 export function UploadRow({ upload }: { upload: SerializedUpload }) {
   const url = uploadUrl(upload);
-  const origin = `${new URL(url).origin}/`;
-  const name = `${upload.publicSlug}.${upload.extension}`;
   const lifecycle = lifecycleLabel(upload.state);
 
   return (
     <li
-      className={`relative flex ${ROW_HEIGHT_CLASS} border-border items-center gap-3 border-b px-3 last:border-b-0`}
+      className={`relative flex ${ROW_HEIGHT_CLASS} border-border hover:bg-sunken/70 focus-within:bg-sunken/70 items-center gap-3 border-b px-3 transition-colors last:border-b-0`}
     >
       <PreviewThumb upload={upload} />
 
       <span className="flex min-w-0 flex-1 flex-col justify-center">
         <Link
           href={`/uploads/${upload.id}`}
-          className="row-link flex min-w-0 items-baseline font-mono text-sm"
+          className="row-link truncate text-sm font-medium"
         >
-          {/* The origin is identical on every row and yields first; the slug and
-              extension are the identifying part and never ellipsize. */}
-          <span className="text-muted-foreground truncate">{origin}</span>
-          <span className="shrink-0">{name}</span>
+          {upload.originalName}
         </Link>
         <span className="text-muted-foreground truncate text-xs">
-          {upload.originalName} ·{" "}
-          {uploadKindLabel(upload.kind, upload.contentType)} ·{" "}
+          <span className="font-mono">
+            {upload.publicSlug}.{upload.extension}
+          </span>{" "}
+          · {uploadKindLabel(upload.kind, upload.contentType)} ·{" "}
           {formatBytes(upload.byteSize)} · {formatTimestamp(upload.createdAt)}
           {lifecycle ? (
             <>
@@ -80,12 +77,12 @@ export function UploadRowSkeleton() {
       aria-hidden="true"
       className={`flex ${ROW_HEIGHT_CLASS} border-border items-center gap-3 border-b px-3 last:border-b-0`}
     >
-      <span className="border-border bg-sunken h-10 w-10 shrink-0 rounded-sm border" />
+      <span className="border-border bg-sunken h-10 w-10 shrink-0 rounded-lg border" />
       <span className="flex min-w-0 flex-1 flex-col gap-1.5">
         <span className="bg-border block h-3.5 w-2/3 rounded" />
         <span className="bg-border block h-3 w-1/3 rounded" />
       </span>
-      <span className="border-border h-11 w-20 shrink-0 rounded-sm border md:h-9" />
+      <span className="border-border h-11 w-20 shrink-0 rounded-lg border md:h-9" />
     </li>
   );
 }

@@ -27,11 +27,11 @@ Date: **2026-08-18**
   the real contracts without exposing credentials or even the page tree to a
   signed-out request. The UI uses Fumadocs' actual layout, page, sidebar, TOC,
   search, breadcrumb, and footer primitives rather than an MDX-only imitation.
-- The application now has its own “Paper Shelf” visual language: IBM Plex,
-  near-neutral warm surfaces, one ember action color, unenclosed ledger rows,
-  literal information architecture, a borderless sign-in surface, and a
-  compact dialog-based upload flow. It was verified at 360 px and 1280 px in
-  both color schemes.
+- The application now has its own “Blue Port” identity: a custom object-to-link
+  mark, Onest/Geologica/Azeret typography, cool neutral surfaces, true cobalt
+  actions, literal Library-first information architecture, an explanatory
+  split sign-in surface, and a compact progressive upload dialog. It was
+  verified at narrow and wide widths in both color schemes.
 - Cache Components, PPR, Partial Prefetching, shared Server Component shells,
   and Next's `instant()` assertions cover sign-in, every primary destination,
   and upload detail navigation.
@@ -76,14 +76,17 @@ ShareX, MinIO, CDN, Range, HEAD,
 ETag, rejection, and >10 MiB streaming contracts. Reconciliation ended with
 zero expected, anomalous, orphaned, or missing objects.
 
-The final UI decision used the Harness Teamwork protocol with Codex as merge
+The final UI refinement used the Harness Teamwork protocol with Codex as merge
 owner, Claude Opus 5 as design director, Fable 5 as taste reviewer, and a
-GPT-5.6 edge scan. Opus proposed the “Paper Shelf” direction; Fable kept the
-warm neutral/ember/Plex system while rejecting metaphorical labels and the
-persistent inline composer; the final Opus adjudication approved literal
-“Recent”, the native upload dialog, protected Fumadocs, and 56 px ledger rows.
-All external-agent passes were advisory; the primary agent reviewed and merged
-every repository change.
+separate GPT-5.6 edge scan. Opus kept the Blue Port tokens, Library naming,
+global Upload action, URL disclosure, and Fumadocs integration while flagging
+small-mark legibility, file-picker focus, public-slug visibility, header order,
+and excess dialog containers. Fable kept the split composition but removed its
+DavidApps-like uppercase-mono grammar, simplified the mark to solid primitives,
+and flattened the dialog. The edge scan added 320 px/zoom, label-in-name,
+fallback geometry, DOM order, and stale-selector gates. All passes were
+advisory; the primary reviewed, implemented, and validated every accepted
+change.
 
 The final container smoke passed non-root UID/GID 1001, read-only root, writable
 bounded temp/cache mounts, liveness, dependency readiness, host isolation,

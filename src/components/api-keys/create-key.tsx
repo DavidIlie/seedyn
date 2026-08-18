@@ -36,7 +36,7 @@ export function CreateKey() {
 
   if (completedName !== null) {
     return (
-      <div className="border-border rounded-sm border p-4">
+      <div className="border-border rounded-xl border p-4">
         <p className="text-sm">
           <span className="font-medium">{completedName}</span> is active and
           listed below. Its key is gone from this page and cannot be shown
@@ -62,7 +62,7 @@ function CreateKeyForm({ onDismiss }: { onDismiss: (name: string) => void }) {
   return (
     <form
       action={action}
-      className="border-border space-y-4 rounded-sm border p-4"
+      className="border-border space-y-4 rounded-xl border p-4"
     >
       <div className="space-y-2">
         <label htmlFor="key-name" className={labelBase}>
@@ -120,7 +120,7 @@ function CreateKeyForm({ onDismiss }: { onDismiss: (name: string) => void }) {
       {state.status === "error" ? (
         <p
           role="alert"
-          className="border-danger text-danger rounded-sm border p-3 text-sm"
+          className="border-danger text-danger rounded-lg border p-3 text-sm"
         >
           {state.message}
         </p>
@@ -183,7 +183,7 @@ function Reveal({
   return (
     <section
       aria-labelledby="reveal-heading"
-      className="border-border space-y-4 rounded-sm border p-4"
+      className="border-border space-y-4 rounded-xl border p-4"
     >
       <div>
         <h3 id="reveal-heading" className="text-sm font-medium">
@@ -197,7 +197,7 @@ function Reveal({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <code className="border-border bg-sunken min-w-0 flex-1 rounded-sm border px-3 py-2 font-mono text-sm break-all select-all">
+        <code className="border-border bg-sunken min-w-0 flex-1 rounded-lg border px-3 py-2 font-mono text-sm break-all select-all">
           {state.rawKey}
         </code>
         <CopyButton value={state.rawKey} label="Copy the new API key" />

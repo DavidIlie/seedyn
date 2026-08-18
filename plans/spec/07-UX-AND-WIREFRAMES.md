@@ -5,10 +5,11 @@ Status: **implemented and browser-verified**
 ## Design direction
 
 The final UI intentionally does not reuse the DavidApps Auth identity. Its
-working direction is **Paper Shelf**: IBM Plex Sans/Mono, near-neutral warm
-paper/ink surfaces, hairline ledger rules, compact file-native density, and one
-ember accent reserved for primary action, focus, active navigation, and the
-canonical URL marker.
+working direction is **Blue Port**: a cool blue/ink system, Onest body type,
+Geologica display type, Azeret Mono for machine values, compact file-native
+density, and a geometric port mark showing one stored object becoming durable
+links. Blue is reserved for primary action, focus, active navigation, and
+successful link actions.
 
 It preserves the old upload server's useful categories and compatibility, not
 its ShareX-first product framing, 2021 floating-shape background, client-only
@@ -23,7 +24,7 @@ Principles:
 - no dashboard card confetti, gradients, or nested-card stacks;
 - motion communicates state/relationship and respects reduced motion;
 - every action works with keyboard and narrow viewports.
-- labels are literal (`Recent`, not `Shelf`); ShareX appears only as an
+- labels are literal (`Library`, not a metaphor); ShareX appears only as an
   integration.
 
 ## App shell
@@ -32,7 +33,7 @@ Wide layout:
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────┐
-│  seedyn         Recent  Images  Files  Texts  API Keys  Docs  Sign out │
+│  Seedyn         Library Images  Files  Texts  API Keys  Docs  Upload  Sign out │
 ├──────────────────────────────────────────────────────────────────────┤
 │                                                                      │
 │  page content                                                        │
@@ -41,15 +42,15 @@ Wide layout:
 ```
 
 - sticky background header with one-pixel border;
-- simple wordmark; logo can wait;
-- active link is unmistakable without a large pill;
-- Upload appears in page headers, not as an always-floating button.
+- the port mark and wordmark are one consistent product identity;
+- active links use a compact blue-tinted location surface plus `aria-current`;
+- Upload stays in the same command-bar position on every product route.
 
 Narrow layout:
 
 ```text
 ┌──────────────────────────┐
-│ seedyn          Upload ☰ │
+│ Seedyn          Browse Upload │
 ├──────────────────────────┤
 │ page title               │
 │ content / rows           │
@@ -61,27 +62,28 @@ The disclosure is a native accessible control. No viewport width JavaScript.
 ## Sign-in
 
 ```text
-seedyn
-
-Files that need a URL
-Upload from the browser or any program. Seedyn stores the object and
-gives it a permanent public-by-link URL.
-
-[ Continue with DavidApps ]
-
-Invite-only. Accounts are granted through DavidApps.
+┌────────────────────────────┬─────────────────────────────┐
+│ Seedyn                     │ Sign in to Seedyn           │
+│                            │ Private library access      │
+│ Upload once.               │                             │
+│ Keep the link.             │ [ Continue with DavidApps ]│
+│                            │                             │
+│ 01 Upload 02 Store 03 Serve│ DavidApps access note      │
+└────────────────────────────┴─────────────────────────────┘
 ```
 
 No local email/password fields. Errors return to a specific calm error state
 with retry. The page contains no public product dashboard data.
+On narrow screens the sign-in task appears first and the blue product
+explanation follows it, so the provider control remains above the fold.
 
-## Recent
+## Library
 
 ```text
-Recent                                                [ Upload ]
+Library                                         [global Upload]
 1,284 uploads · 8.4 GB stored
 
-Recent uploads
+Latest uploads
 ────────────────────────────────────────────────────────────
 [preview] screenshot.png        1.4 MB · 2 minutes ago [Copy]
 [FILE]    report.pdf            2.2 MB · yesterday     [Copy]
@@ -220,8 +222,9 @@ Docs pages:
 
 All colors live in one token file and Fumadocs aliases those tokens. Use the
 operating-system color scheme without a second client theme provider. The final
-palette is the same low-chroma warm ramp at two lightness ranges, with ember as
-the only brand/action hue and separate semantic tones for docs callouts.
+palette is a cool, low-chroma neutral ramp at two lightness ranges, with true
+cobalt as the only brand/action hue and separate semantic tones for docs
+callouts. It contains no gradients or decorative glow.
 
 ## Accessibility acceptance
 

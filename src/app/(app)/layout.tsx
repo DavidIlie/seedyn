@@ -18,7 +18,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="min-h-dvh">
         <a
           href="#main"
-          className="border-border bg-panel sr-only rounded-sm border px-3 py-2 text-sm focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50"
+          className="border-border bg-panel sr-only rounded-lg border px-3 py-2 text-sm focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50"
         >
           Skip to content
         </a>

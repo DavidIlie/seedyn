@@ -15,8 +15,9 @@ import { PrimaryNav } from "./primary-nav";
  * value and Cache Components refuses to let it block the static shell. The
  * header therefore renders `PrimaryNav` directly as this component's Suspense
  * fallback — every link, at full size, with nothing marked current — and the
- * active underline streams in. On a client navigation the router already knows
- * the segment, so the hook resolves synchronously and no fallback is shown.
+ * active location treatment streams in. On a client navigation the router
+ * already knows the segment, so the hook resolves synchronously and no fallback
+ * is shown.
  */
 export function CurrentRouteNav({ signOut }: { signOut: React.ReactNode }) {
   const segment = useSelectedLayoutSegment();

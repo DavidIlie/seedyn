@@ -1,5 +1,7 @@
 import { connection } from "next/server";
 
+import { UploadAction } from "~/components/upload/upload-action";
+
 import { CurrentRouteNav } from "./current-route-nav";
 import { SignOutForm } from "./sign-out-form";
 
@@ -14,7 +16,8 @@ export async function ActionBearingHeader() {
   return (
     <>
       <CurrentRouteNav signOut={<SignOutForm />} />
-      <SignOutForm className="hidden md:block" />
+      <UploadAction className="lg:ml-auto" />
+      <SignOutForm className="hidden lg:block" />
     </>
   );
 }

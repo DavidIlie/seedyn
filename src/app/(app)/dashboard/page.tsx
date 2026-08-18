@@ -16,7 +16,7 @@ import { EmptyState } from "~/components/ui/empty-state";
 import { PageHeader } from "~/components/ui/page-header";
 import { UploadAction } from "~/components/upload/upload-action";
 
-export const metadata: Metadata = { title: "Recent" };
+export const metadata: Metadata = { title: "Library" };
 
 /**
  * Heading, one muted total, ten real rows.
@@ -31,23 +31,22 @@ export default function DashboardPage() {
   return (
     <>
       <PageHeader
-        title="Recent"
+        title="Library"
         subtitle={
           <Suspense fallback={<TotalsFallback />}>
             <Totals />
           </Suspense>
         }
-        action={<UploadAction />}
       />
 
-      <section aria-labelledby="recent-heading">
-        <h2 id="recent-heading" className="pb-3 text-sm font-medium">
-          Recent uploads
+      <section aria-labelledby="latest-heading">
+        <h2 id="latest-heading" className="pb-3 text-sm font-medium">
+          Latest uploads
         </h2>
         <Suspense
           fallback={<UploadListSkeleton rows={DASHBOARD_RECENT_COUNT} />}
         >
-          <Recent />
+          <LatestUploads />
         </Suspense>
       </section>
     </>
@@ -75,7 +74,7 @@ async function Totals() {
   );
 }
 
-async function Recent() {
+async function LatestUploads() {
   const user = await requireSessionUser();
   const uploads = await listRecentUploads(user.id, DASHBOARD_RECENT_COUNT);
 
@@ -84,6 +83,7 @@ async function Recent() {
       <EmptyState
         title="Nothing uploaded yet"
         body="Upload a local file, paste one, or fetch an eligible HTTPS URL. Every completed object gets a permanent link."
+        action={<UploadAction label="Choose a file" tone="quiet" />}
       />
     );
   }

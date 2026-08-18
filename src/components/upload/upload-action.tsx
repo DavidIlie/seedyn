@@ -124,9 +124,11 @@ function Progress({
 export function UploadAction({
   className = "",
   label = "Upload",
+  tone = "primary",
 }: {
   className?: string;
   label?: string;
+  tone?: "primary" | "quiet";
 }) {
   const openDialog = useContext(UploadDialogContext);
   if (!openDialog) {
@@ -137,8 +139,9 @@ export function UploadAction({
     <button
       type="button"
       onClick={() => openDialog()}
-      className={`${buttonPrimary} ${className}`}
+      className={`${tone === "primary" ? buttonPrimary : buttonQuiet} ${className}`}
     >
+      <UploadArrow />
       {label}
     </button>
   );
@@ -386,10 +389,13 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
           closeDialog();
         }}
         onClose={() => setOpen(false)}
-        className="border-border bg-panel text-foreground backdrop:bg-foreground/30 m-auto max-h-[calc(100dvh-2rem)] w-[min(34rem,calc(100vw-2rem))] overflow-hidden rounded-sm border p-0"
+        className="border-border bg-panel text-foreground backdrop:bg-foreground/35 m-auto max-h-[calc(100dvh-2rem)] w-[min(34rem,calc(100vw-2rem))] overflow-hidden rounded-xl border p-0"
       >
         <div className="border-border flex h-14 items-center justify-between border-b px-4">
-          <h2 id={dialogTitleId} className="text-base font-medium">
+          <h2
+            id={dialogTitleId}
+            className="font-display text-base font-semibold"
+          >
             Upload
           </h2>
           <button type="button" onClick={closeDialog} className={buttonCompact}>
@@ -454,17 +460,17 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
                   if (file) chooseFile(file);
                 }}
                 className={
-                  "rounded-sm border border-dashed p-4 " +
+                  "rounded-xl border border-dashed px-5 py-6 text-center transition-colors " +
                   (dragging ? "border-accent bg-sunken" : "border-border")
                 }
               >
-                <p className="text-muted-foreground text-sm">
-                  Drop a file here, paste one, or choose it below.
+                <p className="font-display text-sm font-semibold">
+                  Drop a file here
                 </p>
-                <div className="mt-3">
-                  <label htmlFor={fileInputId} className="sr-only">
-                    Choose a file to upload
-                  </label>
+                <p className="text-muted-foreground mt-1 text-sm">
+                  You can also paste a file from your clipboard.
+                </p>
+                <div className="mt-4 flex justify-center">
                   <input
                     ref={fileInput}
                     id={fileInputId}
@@ -474,13 +480,19 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
                       const file = event.target.files?.item(0);
                       if (file) chooseFile(file);
                     }}
-                    className="file:border-border file:bg-background file:text-foreground block w-full text-sm file:mr-3 file:h-11 file:rounded-sm file:border file:px-3 file:text-sm md:file:h-9"
+                    className="peer sr-only"
                   />
+                  <label
+                    htmlFor={fileInputId}
+                    className={`${buttonQuiet} peer-focus-visible:outline-accent peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2`}
+                  >
+                    Browse files
+                  </label>
                 </div>
               </div>
 
               {phase.name === "selected" ? (
-                <div className="border-border flex flex-wrap items-center justify-between gap-3 rounded-sm border p-3">
+                <div className="border-border flex flex-wrap items-center justify-between gap-3 border-t pt-4">
                   <p className="min-w-0 text-sm">
                     <span className="block truncate font-medium">
                       {phase.file.name}
@@ -501,7 +513,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
               ) : null}
 
               {busy ? (
-                <div className="border-border space-y-3 rounded-sm border p-3">
+                <div className="border-border space-y-3 border-t pt-4">
                   <Progress
                     loaded={phase.loaded}
                     total={phase.total}
@@ -521,41 +533,54 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
                 </div>
               ) : null}
 
-              <form onSubmit={ingestUrl} className="space-y-2">
-                <label htmlFor={urlInputId} className={labelBase}>
-                  Or fetch an HTTPS URL
-                </label>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <input
-                    id={urlInputId}
-                    type="url"
-                    inputMode="url"
-                    placeholder="https://example.com/image.png"
-                    value={urlValue}
-                    disabled={busy}
-                    onChange={(event) => setUrlValue(event.target.value)}
-                    aria-describedby={urlHintId}
-                    className={`${inputBase} min-w-0 flex-1`}
-                  />
-                  <button
-                    type="submit"
-                    disabled={busy || urlValue.trim().length === 0}
-                    className={`${buttonQuiet} w-full sm:w-auto`}
+              <details className="border-border group border-t">
+                <summary className="flex h-11 cursor-pointer list-none items-center justify-between text-sm font-medium [&::-webkit-details-marker]:hidden">
+                  Import from an HTTPS URL
+                  <span
+                    aria-hidden="true"
+                    className="text-muted-foreground text-lg leading-none transition-transform duration-150 group-open:rotate-45 motion-reduce:transform-none"
                   >
-                    Fetch
-                  </button>
-                </div>
-                <p id={urlHintId} className="text-muted-foreground text-sm">
-                  Your browser downloads the file directly, with no cookies and
-                  no referrer. Sites that do not allow cross-origin reads will
-                  refuse.
-                </p>
-              </form>
+                    +
+                  </span>
+                </summary>
+                <form
+                  onSubmit={ingestUrl}
+                  className="border-border space-y-2 border-t pt-4"
+                >
+                  <label htmlFor={urlInputId} className={labelBase}>
+                    HTTPS URL
+                  </label>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <input
+                      id={urlInputId}
+                      type="url"
+                      inputMode="url"
+                      placeholder="https://example.com/image.png"
+                      value={urlValue}
+                      disabled={busy}
+                      onChange={(event) => setUrlValue(event.target.value)}
+                      aria-describedby={urlHintId}
+                      className={`${inputBase} min-w-0 flex-1`}
+                    />
+                    <button
+                      type="submit"
+                      disabled={busy || urlValue.trim().length === 0}
+                      className={`${buttonQuiet} w-full sm:w-auto`}
+                    >
+                      Import
+                    </button>
+                  </div>
+                  <p id={urlHintId} className="text-muted-foreground text-sm">
+                    The browser fetches it without cookies or a referrer. The
+                    remote site must allow cross-origin reads.
+                  </p>
+                </form>
+              </details>
 
               {phase.name === "failed" ? (
                 <p
                   role="alert"
-                  className="border-danger text-danger rounded-sm border p-3 text-sm"
+                  className="border-danger text-danger rounded-lg border p-3 text-sm"
                 >
                   {phase.message}
                 </p>
@@ -565,5 +590,23 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         </div>
       </dialog>
     </UploadDialogContext.Provider>
+  );
+}
+
+function UploadArrow() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M8 11V2.75M4.75 6 8 2.75 11.25 6M2.5 10.5v2.75h11V10.5" />
+    </svg>
   );
 }
