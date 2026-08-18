@@ -3,6 +3,10 @@ import { describe, expect, it } from "vitest";
 import nextConfig from "../../next.config.mjs";
 
 describe("application Content Security Policy", () => {
+  it("does not restore the unstable Turbopack development cache", () => {
+    expect(nextConfig.experimental?.turbopackFileSystemCacheForDev).toBe(false);
+  });
+
   it("allows user-selected HTTPS fetches without widening executable sources", async () => {
     const rules = await nextConfig.headers?.();
     const appRule = rules?.find(

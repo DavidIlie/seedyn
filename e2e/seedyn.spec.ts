@@ -109,6 +109,24 @@ test("the sign-in and authenticated library shells are instant", async ({
       await expect(
         page.getByRole("heading", { name: "Your private upload library" }),
       ).toBeVisible();
+      await expect
+        .poll(async () =>
+          page.evaluate(() => {
+            const heading = document.querySelector("h1");
+            if (!heading) return false;
+            const bodyStyle = getComputedStyle(document.body);
+            const headingStyle = getComputedStyle(heading);
+            return (
+              [...document.styleSheets].some((sheet) =>
+                sheet.href?.includes("/_next/static/"),
+              ) &&
+              bodyStyle.fontFamily.includes("Geist") &&
+              headingStyle.fontSize === "24px" &&
+              headingStyle.fontWeight === "600"
+            );
+          }),
+        )
+        .toBe(true);
       await expect(
         page.getByRole("button", {
           name: "Continue with local development sign-in",

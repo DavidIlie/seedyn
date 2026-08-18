@@ -86,6 +86,11 @@ const config = {
         : ["seedyn.dave.tips"],
       bodySizeLimit: "256kb",
     },
+    // Next 16.3 enables this persistent cache by default. On this project it
+    // grows to roughly 1 GiB and can restore a state where next dev spins a CPU
+    // core while accepting connections but returning no HTTP bytes. Keep
+    // Turbopack itself; disable only the unstable cross-restart dev cache.
+    turbopackFileSystemCacheForDev: false,
   },
   async headers() {
     return [

@@ -56,7 +56,7 @@ pnpm build
 docker build --tag seedyn:local .
 ```
 
-`pnpm check` passed 33 test files / 233 tests. Both development and standalone
+`pnpm check` passed 33 test files / 234 tests. Both development and standalone
 production browser matrices passed seven cases, including sensitive Server
 Actions staying inert without JavaScript, one-time key/download/revoke, a real
 PNG upload, browser worker GIF conversion, permanent original/GIF retrieval,
@@ -85,11 +85,14 @@ threat model/config is checked in.
 These are retained for framework-team investigation rather than hidden by the
 application handoff:
 
-1. After an earlier successful `@next/playwright instant()` development suite,
-   `next dev --turbopack` pinned a CPU core, accepted TCP connections, and stopped
-   answering HTTP until restart. The expanded clean suites did not reproduce it;
-   later hangs occurred only when `next build` and `next dev` concurrently wrote
-   the same `.next` directory and are not evidence of the original condition.
+1. After successful `@next/playwright instant()` suites, `next dev --turbopack`
+   twice pinned a CPU core, accepted TCP connections, and returned no HTTP bytes;
+   a stylesheet request therefore left the browser showing raw HTML. Next 16.3's
+   default dev filesystem cache had grown to 1.0 GiB. Seedyn now disables only
+   `turbopackFileSystemCacheForDev`, keeps Turbopack itself, and asserts computed
+   styles in E2E. The same process subsequently survived 30 styled navigation
+   runs plus 1,290 page/CSS/health requests across the prior failure window,
+   remained at 0.1% CPU, and touched no persistent-cache files.
 2. An otherwise static Server Action form required `await connection()` before
    Auth.js/action-reference work to avoid Cache Components prerender crypto
    behavior, making the action-bearing header stream instead of join the shell.
