@@ -39,6 +39,9 @@ export default defineConfig({
     command: production ? "pnpm build && pnpm start:standalone" : "pnpm dev",
     url: `http://127.0.0.1:${port}/api/healthz`,
     reuseExistingServer: production ? false : reuseDevelopmentServer,
-    timeout: 120_000,
+    // A cold standalone build on the shared CI runner can take longer than the
+    // development server startup. Keep the tighter feedback loop for dev E2E,
+    // while giving the production build enough time to become healthy.
+    timeout: production ? 300_000 : 120_000,
   },
 });
