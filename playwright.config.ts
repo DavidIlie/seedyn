@@ -37,7 +37,7 @@ export default defineConfig({
   ],
   webServer: {
     command: production ? "pnpm build && pnpm start:standalone" : "pnpm dev",
-    url: `http://seedyn.localhost:${port}/api/healthz`,
+    url: `http://127.0.0.1:${port}/api/healthz`,
     reuseExistingServer: production ? false : reuseDevelopmentServer,
     timeout: 120_000,
   },
