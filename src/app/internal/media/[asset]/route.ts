@@ -59,6 +59,7 @@ function unavailable(
   headers.set("Access-Control-Allow-Origin", "*");
   headers.set("Content-Security-Policy", MEDIA_CONTENT_SECURITY_POLICY);
   headers.set("Cross-Origin-Resource-Policy", "cross-origin");
+  headers.set("Referrer-Policy", "no-referrer");
   headers.set("X-Content-Type-Options", "nosniff");
   return new Response(null, {
     status,
@@ -416,7 +417,11 @@ export async function POST(
   if (!media.passwordHash) {
     return new Response(null, {
       status: 303,
-      headers: { "Cache-Control": "no-store", Location: publicPath },
+      headers: {
+        "Cache-Control": "no-store",
+        Location: publicPath,
+        "Referrer-Policy": "no-referrer",
+      },
     });
   }
 
@@ -477,6 +482,7 @@ export async function POST(
   const headers = new Headers({
     "Cache-Control": "private, no-store, max-age=0",
     Location: publicPath,
+    "Referrer-Policy": "no-referrer",
     Vary: "Cookie, Authorization",
   });
   headers.append(

@@ -31,6 +31,7 @@ function unavailable(): Response {
     headers: {
       "Cache-Control": "private, no-store",
       "Content-Security-Policy": PREVIEW_CSP,
+      "Referrer-Policy": "no-referrer",
       "X-Content-Type-Options": "nosniff",
     },
   });
@@ -51,6 +52,7 @@ function previewHeaders(input: {
     "Content-Security-Policy": PREVIEW_CSP,
     "Content-Type": input.contentType,
     "Cross-Origin-Resource-Policy": "same-origin",
+    "Referrer-Policy": "no-referrer",
     Vary: "Cookie, Range",
     "X-Content-Type-Options": "nosniff",
   });
@@ -156,6 +158,7 @@ async function serve(
           "Cache-Control": "private, no-store",
           "Content-Range": `bytes */${totalLength}`,
           "Content-Security-Policy": PREVIEW_CSP,
+          "Referrer-Policy": "no-referrer",
           "X-Content-Type-Options": "nosniff",
         },
       });

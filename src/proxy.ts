@@ -40,6 +40,30 @@ const MEDIA_HOSTS = new Set(
         : "i.dave.tips,i.localhost"),
   ),
 );
+const APP_CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${process.env.NODE_ENV === "production" ? "" : " 'unsafe-eval'"}`,
+  "style-src 'self' 'unsafe-inline'",
+  `img-src 'self' data: blob: ${MEDIA_DOMAIN_CATALOG.origins.join(" ")}`,
+  `media-src 'self' blob: ${MEDIA_DOMAIN_CATALOG.origins.join(" ")}`,
+  // Fetching a user-supplied URL is an explicit upload workflow. Script,
+  // style, frame, worker, and form destinations stay independently bounded.
+  `connect-src 'self' blob: ${MEDIA_DOMAIN_CATALOG.origins.join(" ")} https:`,
+  "worker-src 'self' blob:",
+  "font-src 'self' data:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self' https://id.davidapps.dev",
+  "frame-ancestors 'none'",
+].join("; ");
+const MEDIA_CONTENT_SECURITY_POLICY = [
+  "sandbox allow-forms allow-same-origin",
+  "default-src 'none'",
+  "style-src 'unsafe-inline'",
+  "form-action 'self'",
+  "base-uri 'none'",
+  "frame-ancestors 'none'",
+].join("; ");
 const LIVENESS_PATH = "/api/healthz";
 const READINESS_PATH = "/api/readyz";
 const INTERNAL_MEDIA_REWRITE_HEADER = "x-seedyn-internal-media-rewrite";
@@ -77,6 +101,27 @@ function unavailable(status: 404 | 421): NextResponse {
       "X-Content-Type-Options": "nosniff",
     },
   });
+}
+
+function withSecurityPolicy(
+  response: NextResponse,
+  policy: "app" | "media",
+): NextResponse {
+  response.headers.set(
+    "Content-Security-Policy",
+    policy === "app"
+      ? APP_CONTENT_SECURITY_POLICY
+      : MEDIA_CONTENT_SECURITY_POLICY,
+  );
+  response.headers.set(
+    "Referrer-Policy",
+    policy === "app" ? "strict-origin-when-cross-origin" : "no-referrer",
+  );
+  return response;
+}
+
+function routeOwnsContentSecurityPolicy(pathname: string): boolean {
+  return /^\/api\/admin\/uploads\/[^/]+\/content\/?$/u.test(pathname);
 }
 
 export function proxy(request: NextRequest): NextResponse {
@@ -122,7 +167,10 @@ export function proxy(request: NextRequest): NextResponse {
     // segments at the host boundary so malformed and ambiguous paths are a
     // bounded 404 in both development and production.
     if (hasEncodedDocsSegment(pathname)) return unavailable(404);
-    return NextResponse.next();
+    // This authenticated byte-serving route authors a stricter sandbox CSP.
+    // Do not replace it with the application document policy.
+    if (routeOwnsContentSecurityPolicy(pathname)) return NextResponse.next();
+    return withSecurityPolicy(NextResponse.next(), "app");
   }
 
   if (pathname.startsWith("/internal/media/")) {
@@ -134,7 +182,7 @@ export function proxy(request: NextRequest): NextResponse {
   // into the root-level immutable asset parser below.
   if (pathname.startsWith("/s3/")) {
     return request.method === "GET" || request.method === "HEAD"
-      ? NextResponse.next()
+      ? withSecurityPolicy(NextResponse.next(), "media")
       : unavailable(404);
   }
 
@@ -154,7 +202,10 @@ export function proxy(request: NextRequest): NextResponse {
   const forwarded = new Headers(request.headers);
   forwarded.delete(VERIFIED_MEDIA_REWRITE_HEADER);
   forwarded.set(INTERNAL_MEDIA_REWRITE_HEADER, INTERNAL_MEDIA_REWRITE_TOKEN);
-  return NextResponse.rewrite(destination, { request: { headers: forwarded } });
+  return withSecurityPolicy(
+    NextResponse.rewrite(destination, { request: { headers: forwarded } }),
+    "media",
+  );
 }
 
 export const config = {
