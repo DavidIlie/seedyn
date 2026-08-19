@@ -58,6 +58,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/run-command-with-next-env.mjs ./scripts/run-command-with-next-env.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/production-env-preflight.mjs ./scripts/production-env-preflight.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/start-production.mjs ./scripts/start-production.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/src/lib/media-domains.js ./src/lib/media-domains.js
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
