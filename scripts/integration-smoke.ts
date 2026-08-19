@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import sharp from "sharp";
+import { Agent } from "undici";
 
 import { env } from "~/env";
 import { createApiKey } from "~/server/api-keys/service";
@@ -18,6 +19,28 @@ function invariant(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
 
+const LOOPBACK_DISPATCHER = new Agent({
+  connect: {
+    lookup: (_hostname, _options, callback) => {
+      callback(null, [{ address: "127.0.0.1", family: 4 }]);
+    },
+  },
+});
+
+function fetchLocal(
+  input: string | URL,
+  init?: RequestInit,
+): Promise<Response> {
+  const url = new URL(input);
+  if (url.hostname !== "localhost" && !url.hostname.endsWith(".localhost")) {
+    return fetch(url, init);
+  }
+  return fetch(url, {
+    ...init,
+    dispatcher: LOOPBACK_DISPATCHER,
+  } as RequestInit & { dispatcher: Agent });
+}
+
 async function postUpload(input: {
   path: string;
   field: string;
@@ -28,7 +51,7 @@ async function postUpload(input: {
 }): Promise<Record<string, unknown>> {
   const form = new FormData();
   form.set(input.field, input.body, input.filename);
-  const response = await fetch(new URL(input.path, env.APP_URL), {
+  const response = await fetchLocal(new URL(input.path, env.APP_URL), {
     method: "POST",
     headers: { Authorization: input.authorization },
     body: form,
@@ -95,7 +118,7 @@ async function main(): Promise<void> {
       canonical.url === canonical.message,
       "Canonical URL aliases differ",
     );
-    const media = await fetch(canonical.url);
+    const media = await fetchLocal(canonical.url);
     invariant(media.status === 200, "Public media GET failed");
     invariant(
       (await media.text()) === "Seedyn integration text",
@@ -103,16 +126,16 @@ async function main(): Promise<void> {
     );
     const etag = media.headers.get("etag");
     invariant(etag, "Public media ETag is missing");
-    const conditional = await fetch(canonical.url, {
+    const conditional = await fetchLocal(canonical.url, {
       headers: { "If-None-Match": etag },
     });
     invariant(conditional.status === 304, "Conditional media GET failed");
-    const range = await fetch(canonical.url, {
+    const range = await fetchLocal(canonical.url, {
       headers: { Range: "bytes=0-5" },
     });
     invariant(range.status === 206, "Public media range failed");
     invariant((await range.text()) === "Seedyn", "Range bytes differ");
-    const head = await fetch(canonical.url, { method: "HEAD" });
+    const head = await fetchLocal(canonical.url, { method: "HEAD" });
     invariant(head.status === 200, "Public media HEAD failed");
     invariant(
       head.headers.get("content-length") === "23",
@@ -227,14 +250,14 @@ async function main(): Promise<void> {
     });
     invariant(largeFileRow, "Large upload row is missing");
     uploadIds.push(largeFileRow.id);
-    const largeHead = await fetch(largeFile.message, { method: "HEAD" });
+    const largeHead = await fetchLocal(largeFile.message, { method: "HEAD" });
     invariant(largeHead.status === 200, "Large public media HEAD failed");
     invariant(
       largeHead.headers.get("content-length") === String(largeBytes.byteLength),
       "Large upload length differs",
     );
 
-    const queryKey = await fetch(
+    const queryKey = await fetchLocal(
       new URL(
         `/api/upload?key=sdn_live_AAAAAAAA_${"A".repeat(43)}`,
         env.APP_URL,
@@ -281,7 +304,7 @@ async function main(): Promise<void> {
   }
   for (const url of publicUrls) {
     try {
-      const response = await fetch(url);
+      const response = await fetchLocal(url);
       await response.body?.cancel();
       if (response.status === 404) continue;
       cleanupFailure ??= new Error(
