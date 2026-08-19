@@ -146,6 +146,7 @@ model Upload {
   kind            UploadKind
   state           UploadState        @default(READY)
   originalName    String
+  textLanguage    String?
   extension       String
   contentType     String
   disposition     ContentDisposition

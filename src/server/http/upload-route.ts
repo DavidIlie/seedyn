@@ -159,8 +159,8 @@ export async function handleMachineUpload(
     file = await parseMultipartUpload(request, {
       permittedFileFields: new Set([route.fileField]),
       permittedScalarFields: route.legacy
-        ? new Set(["filename"])
-        : new Set(["kind", "filename"]),
+        ? new Set(["filename", "textLanguage"])
+        : new Set(["kind", "filename", "textLanguage"]),
       maxFileBytes: maximum,
     });
     const forcedKind = route.legacy
@@ -175,7 +175,10 @@ export async function handleMachineUpload(
       );
     }
 
-    const classification = await classifyUpload(file);
+    const classification = await classifyUpload(file, {
+      forcedKind,
+      textLanguage: file.fields.textLanguage,
+    });
     assertClassificationSize(file, classification);
     assertForcedUploadKind(classification, forcedKind);
     const authoritativeScope = routeScope ?? requiredScope(classification.kind);

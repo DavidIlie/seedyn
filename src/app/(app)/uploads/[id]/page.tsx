@@ -18,6 +18,7 @@ import {
   UploadPreview,
   UploadPreviewSkeleton,
 } from "~/components/detail/upload-preview";
+import { TextReadView } from "~/components/detail/text-read-view";
 import {
   UrlHeading,
   UrlHeadingSkeleton,
@@ -80,7 +81,11 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
 
       <div className="mt-6 grid gap-6 md:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="space-y-6">
-          <UploadPreview upload={upload} url={url} />
+          {upload.kind === "TEXT" && upload.state === "READY" ? (
+            <TextReadView upload={upload} userId={user.id} />
+          ) : (
+            <UploadPreview upload={upload} url={url} />
+          )}
           <div>
             <h2 className="pb-3 text-sm font-medium">Details</h2>
             <MetadataList upload={upload} />

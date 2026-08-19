@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 
+import { QueryProvider } from "~/components/data/query-provider";
 import { AppHeader } from "~/components/shell/app-header";
 import { RouteLayoutMarker } from "~/components/shell/route-layout-marker";
 import { SessionGate } from "~/components/shell/session-gate";
@@ -15,28 +16,30 @@ import { UploadProvider } from "~/components/upload/upload-action";
  */
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <UploadProvider>
-      <div className="min-h-dvh">
-        <a
-          href="#main"
-          className="border-border bg-panel sr-only rounded-lg border px-3 py-2 text-sm focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50"
-        >
-          Skip to content
-        </a>
+    <QueryProvider>
+      <UploadProvider>
+        <div className="min-h-dvh">
+          <a
+            href="#main"
+            className="border-border bg-panel sr-only rounded-lg border px-3 py-2 text-sm focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50"
+          >
+            Skip to content
+          </a>
 
-        <AppHeader />
+          <AppHeader />
 
-        <Suspense fallback={null}>
-          <SessionGate />
-        </Suspense>
-
-        <main id="main" className="app-main mx-auto max-w-6xl px-4 pb-20">
           <Suspense fallback={null}>
-            <RouteLayoutMarker />
+            <SessionGate />
           </Suspense>
-          {children}
-        </main>
-      </div>
-    </UploadProvider>
+
+          <main id="main" className="app-main mx-auto max-w-6xl px-4 pb-20">
+            <Suspense fallback={null}>
+              <RouteLayoutMarker />
+            </Suspense>
+            {children}
+          </main>
+        </div>
+      </UploadProvider>
+    </QueryProvider>
   );
 }

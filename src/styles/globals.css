@@ -244,6 +244,40 @@
 }
 
 @layer components {
+  .text-editor .cm-editor {
+    background: var(--panel);
+    color: var(--foreground);
+  }
+
+  .text-editor .cm-gutters {
+    background: var(--sunken);
+    color: var(--muted-foreground);
+    border-color: var(--border);
+  }
+
+  .text-editor .cm-activeLine,
+  .text-editor .cm-activeLineGutter {
+    background: color-mix(in oklab, var(--accent) 8%, transparent);
+  }
+
+  .text-editor .cm-focused {
+    outline: none;
+  }
+
+  .text-editor .cm-content {
+    caret-color: var(--accent);
+  }
+
+  .text-reader pre {
+    min-width: max-content;
+    padding: 1rem;
+    background: var(--panel) !important;
+  }
+
+  .text-reader code {
+    font-family: var(--font-mono);
+  }
+
   /* Row-level navigation without nesting interactive elements: the row is the
      positioning context, the single anchor grows an overlay to cover it, and
      any real control inside the row lifts above that overlay. This keeps one

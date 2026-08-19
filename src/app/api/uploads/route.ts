@@ -1,3 +1,9 @@
+import {
+  decodeCursor,
+  listUploadsByKind,
+  publicUrl,
+} from "~/components/data/uploads";
+import { auth } from "~/server/auth";
 import { authorizeBrowserMutation } from "~/server/http/browser-mutation";
 import { domainErrorResponse } from "~/server/http/errors";
 import { contentLengthIsPermitted, safeJsonError } from "~/server/http/request";
@@ -14,7 +20,6 @@ import { createUpload } from "~/server/uploads/service";
 
 export const maxDuration = 120;
 export const DELETE = uploadMethodNotAllowed;
-export const GET = uploadMethodNotAllowed;
 export const HEAD = uploadMethodNotAllowed;
 export const OPTIONS = uploadOptions;
 export const PATCH = uploadMethodNotAllowed;
@@ -24,6 +29,60 @@ function requestedKind(value: string | undefined): ForcedUploadKind | null {
   if (value === undefined || value === "auto") return "auto";
   if (value === "image" || value === "file" || value === "text") return value;
   return null;
+}
+
+export async function GET(request: Request): Promise<Response> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return Response.json(
+      {
+        error: { code: "unauthenticated", message: "Sign in to view uploads." },
+      },
+      { status: 401, headers: { "Cache-Control": "private, no-store" } },
+    );
+  }
+  const params = new URL(request.url).searchParams;
+  const kind = params.get("kind");
+  if (kind !== "images" && kind !== "files" && kind !== "texts") {
+    return Response.json(
+      {
+        error: {
+          code: "invalid_input",
+          message: "The upload kind is invalid.",
+        },
+      },
+      { status: 400, headers: { "Cache-Control": "private, no-store" } },
+    );
+  }
+  const order = params.get("order") === "oldest" ? "oldest" : "newest";
+  const limitValue = Number(params.get("limit") ?? "12");
+  const limit = Number.isSafeInteger(limitValue)
+    ? Math.min(50, Math.max(1, limitValue))
+    : 12;
+  const page = await listUploadsByKind({
+    userId: session.user.id,
+    kind,
+    query: params.get("q") ?? undefined,
+    order,
+    cursor: decodeCursor(params.get("cursor") ?? undefined),
+    limit,
+  });
+  return Response.json(
+    {
+      ...page,
+      items: page.items.map((upload) =>
+        Object.assign({}, upload, {
+          url: publicUrl(upload.publicSlug, upload.extension),
+        }),
+      ),
+    },
+    {
+      headers: {
+        "Cache-Control": "private, no-store",
+        Vary: "Cookie",
+      },
+    },
+  );
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -43,7 +102,7 @@ export async function POST(request: Request): Promise<Response> {
   try {
     file = await parseMultipartUpload(request, {
       permittedFileFields: new Set(["file"]),
-      permittedScalarFields: new Set(["kind", "filename"]),
+      permittedScalarFields: new Set(["kind", "filename", "textLanguage"]),
       maxFileBytes: UPLOAD_LIMITS.generic,
     });
     const forcedKind = requestedKind(file.fields.kind);

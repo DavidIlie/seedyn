@@ -19,6 +19,7 @@ type UploadLike = {
   kind: string;
   state: string;
   originalName: string;
+  textLanguage: string | null;
   extension: string;
   contentType: string;
   disposition: string;
@@ -52,6 +53,7 @@ export type SerializedUpload = {
   kind: string;
   state: string;
   originalName: string;
+  textLanguage: string | null;
   extension: string;
   contentType: string;
   disposition: string;
@@ -88,6 +90,7 @@ export function serializeUpload(value: UploadLike): SerializedUpload {
     kind: value.kind,
     state: value.state,
     originalName: value.originalName,
+    textLanguage: value.textLanguage,
     extension: value.extension,
     contentType: value.contentType,
     disposition: value.disposition,

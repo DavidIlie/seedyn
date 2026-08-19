@@ -151,7 +151,11 @@ export async function createUpload(
 ) {
   const { store, audit } = dependencies(injected);
   const classification =
-    input.classification ?? (await classifyUpload(input.file));
+    input.classification ??
+    (await classifyUpload(input.file, {
+      forcedKind: input.forcedKind,
+      textLanguage: input.file.fields.textLanguage,
+    }));
   // Keep validation in the service even when a route reuses its precomputed
   // classification for scope authorization.
   assertClassificationSize(input.file, classification);
@@ -249,6 +253,7 @@ export async function createUpload(
           originalName: sanitizeOriginalName(
             input.file.originalName || input.file.fields.filename || "upload",
           ),
+          textLanguage: classification.textLanguage,
           extension: classification.extension,
           contentType: classification.contentType,
           disposition: classification.disposition,

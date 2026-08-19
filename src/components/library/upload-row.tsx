@@ -25,15 +25,18 @@ export function UploadRow({
   upload,
   url,
   privacy = false,
+  wrapper = "li",
 }: {
   upload: SerializedUpload;
   url: string;
   privacy?: boolean;
+  wrapper?: "li" | "div";
 }) {
   const lifecycle = lifecycleLabel(upload.state);
+  const Wrapper = wrapper;
 
   return (
-    <li
+    <Wrapper
       className={`relative flex ${ROW_HEIGHT_CLASS} border-border hover:bg-sunken/70 focus-within:bg-sunken/70 items-center gap-3 border-b px-3 transition-colors last:border-b-0`}
     >
       <PreviewThumb upload={upload} url={url} privacy={privacy} />
@@ -69,7 +72,7 @@ export function UploadRow({
       <span className="row-control">
         <CopyButton value={url} label={`Copy URL for ${upload.originalName}`} />
       </span>
-    </li>
+    </Wrapper>
   );
 }
 

@@ -29,3 +29,21 @@ currently reserved by an upload. Administrators are unlimited and can raise a
 member's limit from the admin user ledger. Browser, API, and ShareX uploads all
 use the same race-safe quota enforcement and return
 `storage_quota_exceeded` when the next object would cross the limit.
+
+## Text and code
+
+Open **Texts → New text** to write in the CodeMirror editor or load a local
+UTF-8 text file before publishing it. Seedyn records an allowlisted language and
+keeps a browser-local draft until creation succeeds. The authenticated detail
+page uses Shiki for a bounded, syntax-highlighted read view.
+
+The permanent `i.dave.tips` URL is the raw consumable form. Source extensions
+are preserved, but every text object is deliberately served as
+`text/plain; charset=utf-8` with `nosniff` and the media-origin sandbox policy;
+HTML, SVG, XML, and JavaScript are never promoted to executable browser MIME
+types.
+
+Images, files, and texts use cursor-backed infinite loading. The initial page
+is server-rendered and retains real next-page links without JavaScript. Once
+hydrated, TanStack Query appends pages; TanStack Table owns table-mode rows and
+TanStack Virtual bounds compact-list DOM size for large result sets.

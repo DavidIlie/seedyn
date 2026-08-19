@@ -66,9 +66,11 @@ documentation.
 The two public origins terminate at this same process. They are origin roles,
 not separate apps, deployments, repositories, or services.
 
-The existing tRPC and TanStack Query plumbing is removed unless implementation
-uncovers a concrete interaction that cannot be expressed cleanly with the model
-above. "It is already in the scaffold" is not sufficient reason to keep it.
+TanStack Query is reserved for the concrete client-side infinite-list seam: the
+server-rendered first page seeds the client, and authenticated cursor requests
+append further pages. TanStack Table owns table-mode row models and TanStack
+Virtual bounds the compact-list DOM after the loaded result set grows large.
+All database reads, ownership filters, sorting, and cursors remain server-side.
 
 ## 4. Product surfaces
 
@@ -76,7 +78,11 @@ above. "It is already in the scaffold" is not sufficient reason to keep it.
 
 - Sign-in page with one “Continue with DavidApps” action.
 - Library: total objects/bytes, latest uploads, and the global upload action.
-- Images, files, and texts library views with URL-state pagination/filtering.
+- Images, files, and texts library views with URL-state filtering,
+  progressively enhanced cursor pagination, table/card/compact presentation,
+  and privacy mode.
+- Text/code composer with CodeMirror file import and browser draft recovery,
+  plus an owned Shiki read view and permanent raw URL.
 - Upload detail: preview, metadata, checksum, URLs, copy/download/delete.
 - API keys: create, reveal once, download `.sxcu`, inspect last use, revoke.
 - Docs: browser uploads, the general upload API, keys/scopes, serving semantics,

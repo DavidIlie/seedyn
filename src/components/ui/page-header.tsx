@@ -24,7 +24,9 @@ export function PageHeader({
           <div className="text-muted-foreground mt-1 text-sm">{subtitle}</div>
         ) : null}
       </div>
-      {action ? <div className="hidden shrink-0 md:block">{action}</div> : null}
+      {action ? (
+        <div className="w-full shrink-0 sm:w-auto">{action}</div>
+      ) : null}
     </div>
   );
 }

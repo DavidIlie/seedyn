@@ -12,6 +12,7 @@ export type ForcedUploadKind = "auto" | "image" | "file" | "text";
 
 export type ClassifiedUpload = {
   kind: UploadKindValue;
+  textLanguage: string | null;
   extension: string;
   contentType: string;
   disposition: DispositionValue;
@@ -20,6 +21,102 @@ export type ClassifiedUpload = {
   durationMs: number | null;
   frameCount: number | null;
 };
+
+const TEXT_LANGUAGES = {
+  bash: "sh",
+  c: "c",
+  cpp: "cpp",
+  csharp: "cs",
+  css: "css",
+  go: "go",
+  html: "html",
+  javascript: "js",
+  java: "java",
+  json: "json",
+  kotlin: "kt",
+  markdown: "md",
+  php: "php",
+  plaintext: "txt",
+  python: "py",
+  ruby: "rb",
+  rust: "rs",
+  sql: "sql",
+  swift: "swift",
+  toml: "toml",
+  tsx: "tsx",
+  typescript: "ts",
+  xml: "xml",
+  yaml: "yaml",
+} as const;
+
+const TEXT_LANGUAGE_ALIASES = new Map<string, keyof typeof TEXT_LANGUAGES>([
+  ["bash", "bash"],
+  ["sh", "bash"],
+  ["shell", "bash"],
+  ["c", "c"],
+  ["cc", "cpp"],
+  ["cpp", "cpp"],
+  ["cxx", "cpp"],
+  ["cs", "csharp"],
+  ["csharp", "csharp"],
+  ["css", "css"],
+  ["go", "go"],
+  ["html", "html"],
+  ["js", "javascript"],
+  ["javascript", "javascript"],
+  ["java", "java"],
+  ["json", "json"],
+  ["kt", "kotlin"],
+  ["kotlin", "kotlin"],
+  ["md", "markdown"],
+  ["markdown", "markdown"],
+  ["php", "php"],
+  ["plain", "plaintext"],
+  ["plaintext", "plaintext"],
+  ["text", "plaintext"],
+  ["txt", "plaintext"],
+  ["py", "python"],
+  ["python", "python"],
+  ["rb", "ruby"],
+  ["ruby", "ruby"],
+  ["rs", "rust"],
+  ["rust", "rust"],
+  ["sql", "sql"],
+  ["swift", "swift"],
+  ["toml", "toml"],
+  ["tsx", "tsx"],
+  ["ts", "typescript"],
+  ["typescript", "typescript"],
+  ["xml", "xml"],
+  ["yaml", "yaml"],
+  ["yml", "yaml"],
+]);
+
+function textMetadata(
+  originalName: string,
+  requestedLanguage: string | undefined,
+): { extension: string; textLanguage: string } {
+  const requested = requestedLanguage?.trim().toLowerCase();
+  if (requestedLanguage !== undefined && !requested) {
+    throw new DomainError("invalid_input", {
+      message: "The text language is invalid.",
+    });
+  }
+  const filenameExtension = originalName
+    .toLowerCase()
+    .match(/\.([a-z0-9]{1,10})$/)?.[1];
+  const candidate = requested ?? filenameExtension ?? "plaintext";
+  const language = TEXT_LANGUAGE_ALIASES.get(candidate);
+  if (!language) {
+    if (requested) {
+      throw new DomainError("invalid_input", {
+        message: "The text language is not supported.",
+      });
+    }
+    return { extension: "txt", textLanguage: "plaintext" };
+  }
+  return { extension: TEXT_LANGUAGES[language], textLanguage: language };
+}
 
 const SAFE_IMAGES = new Map<string, { extension: string; contentType: string }>(
   [
@@ -123,10 +220,27 @@ async function rasterMetadata(path: string): Promise<{
 
 export async function classifyUpload(
   file: ParsedUploadFile,
+  options?: { forcedKind?: ForcedUploadKind; textLanguage?: string },
 ): Promise<ClassifiedUpload> {
   if (file.byteSize === 0) {
+    if (options?.forcedKind === "text") {
+      return {
+        kind: "TEXT",
+        ...textMetadata(
+          file.originalName || file.fields.filename || "upload",
+          options.textLanguage,
+        ),
+        contentType: "text/plain; charset=utf-8",
+        disposition: "INLINE",
+        width: null,
+        height: null,
+        durationMs: null,
+        frameCount: null,
+      };
+    }
     return {
       kind: "FILE",
+      textLanguage: null,
       extension: "bin",
       contentType: "application/octet-stream",
       disposition: "ATTACHMENT",
@@ -156,6 +270,7 @@ export async function classifyUpload(
       const metadata = await rasterMetadata(file.path);
       return {
         kind: "IMAGE",
+        textLanguage: null,
         ...image,
         disposition: "INLINE",
         ...metadata,
@@ -166,6 +281,7 @@ export async function classifyUpload(
     if (video) {
       return {
         kind: "VIDEO",
+        textLanguage: null,
         ...video,
         disposition: "INLINE",
         width: null,
@@ -179,6 +295,7 @@ export async function classifyUpload(
     // binary format remain downloadable but never render inline.
     return {
       kind: "FILE",
+      textLanguage: null,
       extension: /^[a-z0-9]{1,10}$/.test(detected.ext) ? detected.ext : "bin",
       contentType: "application/octet-stream",
       disposition: "ATTACHMENT",
@@ -191,9 +308,10 @@ export async function classifyUpload(
 
   if (await isStrictPlainText(file.path)) {
     const unsafe = unsafeTextFormat(file.sniffPrefix);
-    if (unsafe) {
+    if (unsafe && options?.forcedKind !== "text") {
       return {
         kind: "FILE",
+        textLanguage: null,
         extension: unsafe.extension,
         contentType: "application/octet-stream",
         disposition: "ATTACHMENT",
@@ -205,7 +323,10 @@ export async function classifyUpload(
     }
     return {
       kind: "TEXT",
-      extension: "txt",
+      ...textMetadata(
+        file.originalName || file.fields.filename || "upload",
+        options?.textLanguage,
+      ),
       contentType: "text/plain; charset=utf-8",
       disposition: "INLINE",
       width: null,
@@ -217,6 +338,7 @@ export async function classifyUpload(
 
   return {
     kind: "FILE",
+    textLanguage: null,
     extension: "bin",
     contentType: "application/octet-stream",
     disposition: "ATTACHMENT",

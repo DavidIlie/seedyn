@@ -1,8 +1,16 @@
 "use client";
 
+import {
+  coreFeatures,
+  createCoreRowModel,
+  tableFeatures,
+  useTable,
+  type ColumnDef,
+} from "@tanstack/react-table";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { Eye, EyeOff, LayoutGrid, List, TableProperties } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   formatBytes,
@@ -17,10 +25,23 @@ import type { SerializedUpload } from "~/server/uploads/serialization";
 import { UploadRow } from "./upload-row";
 
 type ViewMode = "list" | "table" | "grid";
-type PresentedUpload = SerializedUpload & { url: string };
+export type PresentedUpload = SerializedUpload & { url: string };
 
 const VIEW_KEY = "seedyn.library.view";
 const PRIVACY_KEY = "seedyn.library.privacy";
+const VIRTUALIZE_AFTER = 48;
+
+const TABLE_FEATURES = tableFeatures({
+  ...coreFeatures,
+  coreRowModel: createCoreRowModel(),
+});
+
+const TABLE_COLUMNS = [
+  { accessorKey: "originalName", header: "Name" },
+  { accessorKey: "kind", header: "Type" },
+  { accessorKey: "byteSize", header: "Size" },
+  { accessorKey: "createdAt", header: "Uploaded" },
+] satisfies ColumnDef<typeof TABLE_FEATURES, PresentedUpload>[];
 
 const VIEWS = [
   { value: "list", label: "Compact", icon: List },
@@ -96,16 +117,7 @@ export function LibraryPresentation({ items }: { items: PresentedUpload[] }) {
       </div>
 
       {view === "list" ? (
-        <ul className="border-border bg-panel overflow-hidden rounded-xl border">
-          {items.map((upload) => (
-            <UploadRow
-              key={upload.id}
-              upload={upload}
-              url={upload.url}
-              privacy={privacy}
-            />
-          ))}
-        </ul>
+        <CompactUploadList items={items} privacy={privacy} />
       ) : view === "table" ? (
         <UploadTable items={items} privacy={privacy} />
       ) : (
@@ -122,6 +134,13 @@ function UploadTable({
   items: PresentedUpload[];
   privacy: boolean;
 }) {
+  const columns = useMemo(() => TABLE_COLUMNS, []);
+  const table = useTable({
+    features: TABLE_FEATURES,
+    columns,
+    data: items,
+  });
+
   return (
     <div className="border-border bg-panel overflow-x-auto rounded-xl border">
       <table className="w-full min-w-[47rem] text-left text-sm">
@@ -136,44 +155,126 @@ function UploadTable({
           </tr>
         </thead>
         <tbody>
-          {items.map((upload) => (
-            <tr
-              key={upload.id}
-              className="border-border hover:bg-sunken/60 border-b transition-colors last:border-b-0"
-            >
-              <td className="px-3 py-2">
-                <MediaPreview upload={upload} privacy={privacy} compact />
-              </td>
-              <td className="max-w-72 px-3 py-2">
-                <Link
-                  href={`/uploads/${upload.id}`}
-                  className="hover:text-accent block truncate font-medium"
-                >
-                  {upload.originalName}
-                </Link>
-                <span className="text-muted-foreground block truncate font-mono text-[0.6875rem]">
-                  {upload.publicSlug}.{upload.extension}
-                </span>
-              </td>
-              <td className="text-muted-foreground px-3 py-2">
-                {uploadKindLabel(upload.kind, upload.contentType)}
-              </td>
-              <td className="px-3 py-2 tabular-nums">
-                {formatBytes(upload.byteSize)}
-              </td>
-              <td className="text-muted-foreground px-3 py-2 text-xs tabular-nums">
-                {formatTimestamp(upload.createdAt)}
-              </td>
-              <td className="px-3 py-2 text-right">
-                <CopyButton
-                  value={upload.url}
-                  label={`Copy URL for ${upload.originalName}`}
-                />
-              </td>
-            </tr>
-          ))}
+          {table.getRowModel().rows.map((row) => {
+            const upload = row.original;
+            return (
+              <tr
+                key={row.id}
+                className="border-border hover:bg-sunken/60 border-b transition-colors last:border-b-0"
+              >
+                <td className="px-3 py-2">
+                  <MediaPreview upload={upload} privacy={privacy} compact />
+                </td>
+                <td className="max-w-72 px-3 py-2">
+                  <Link
+                    href={`/uploads/${upload.id}`}
+                    className="hover:text-accent block truncate font-medium"
+                  >
+                    {upload.originalName}
+                  </Link>
+                  <span className="text-muted-foreground block truncate font-mono text-[0.6875rem]">
+                    {upload.publicSlug}.{upload.extension}
+                  </span>
+                </td>
+                <td className="text-muted-foreground px-3 py-2">
+                  {uploadKindLabel(upload.kind, upload.contentType)}
+                </td>
+                <td className="px-3 py-2 tabular-nums">
+                  {formatBytes(upload.byteSize)}
+                </td>
+                <td className="text-muted-foreground px-3 py-2 text-xs tabular-nums">
+                  {formatTimestamp(upload.createdAt)}
+                </td>
+                <td className="px-3 py-2 text-right">
+                  <CopyButton
+                    value={upload.url}
+                    label={`Copy URL for ${upload.originalName}`}
+                  />
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function CompactUploadList({
+  items,
+  privacy,
+}: {
+  items: PresentedUpload[];
+  privacy: boolean;
+}) {
+  if (items.length <= VIRTUALIZE_AFTER) {
+    return (
+      <ul className="border-border bg-panel overflow-hidden rounded-xl border">
+        {items.map((upload) => (
+          <UploadRow
+            key={upload.id}
+            upload={upload}
+            url={upload.url}
+            privacy={privacy}
+          />
+        ))}
+      </ul>
+    );
+  }
+
+  return <VirtualCompactUploadList items={items} privacy={privacy} />;
+}
+
+function VirtualCompactUploadList({
+  items,
+  privacy,
+}: {
+  items: PresentedUpload[];
+  privacy: boolean;
+}) {
+  const viewport = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => viewport.current,
+    estimateSize: () => 64,
+    getItemKey: (index) => items[index]?.id ?? index,
+    overscan: 8,
+  });
+
+  return (
+    <div
+      ref={viewport}
+      role="region"
+      aria-label="Virtualized uploads"
+      className="border-border bg-panel max-h-[min(70dvh,48rem)] overflow-auto rounded-xl border"
+    >
+      <div
+        role="list"
+        className="relative w-full"
+        style={{ height: virtualizer.getTotalSize() }}
+      >
+        {virtualizer.getVirtualItems().map((virtualRow) => {
+          const upload = items[virtualRow.index];
+          if (!upload) return null;
+          return (
+            <div
+              key={upload.id}
+              ref={virtualizer.measureElement}
+              data-index={virtualRow.index}
+              role="listitem"
+              className="absolute top-0 left-0 w-full"
+              style={{ transform: `translateY(${virtualRow.start}px)` }}
+            >
+              <UploadRow
+                upload={upload}
+                url={upload.url}
+                privacy={privacy}
+                wrapper="div"
+              />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

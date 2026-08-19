@@ -5,12 +5,15 @@ import {
   decodeCursor,
   listUploadsByKind,
   PAGE_SIZE,
+  publicUrl,
   readLibraryTrend,
   type LibraryKind,
 } from "~/components/data/uploads";
 import { PageHeader } from "~/components/ui/page-header";
 import { normalizeUploadSearchQuery } from "~/lib/upload-search";
 import { readStorageQuota } from "~/server/storage/quota";
+
+import { InfiniteUploadLibrary } from "./infinite-upload-library";
 
 import {
   LibraryControls,
@@ -20,7 +23,6 @@ import {
 import {
   LibraryEmpty,
   LibraryPagination,
-  UploadList,
   UploadListSkeleton,
 } from "./upload-list";
 import { LibraryTrendChart } from "./library-trend-chart";
@@ -55,6 +57,7 @@ export function LibraryScreen({
   description,
   noun,
   searchParams,
+  action,
 }: {
   kind: LibraryKind;
   path: LibraryPath;
@@ -62,10 +65,11 @@ export function LibraryScreen({
   description: string;
   noun: string;
   searchParams: SearchParams;
+  action?: React.ReactNode;
 }) {
   return (
     <>
-      <PageHeader title={title} subtitle={description} />
+      <PageHeader title={title} subtitle={description} action={action} />
 
       <Suspense fallback={<LibraryTrendSkeleton />}>
         <Trends kind={kind} noun={noun} />
@@ -163,14 +167,27 @@ async function Rows({
   }
 
   return (
-    <>
-      <UploadList items={page.items} />
-      <LibraryPagination
-        basePath={path}
-        page={page}
-        params={carried}
-        atStart={!cursor}
-      />
-    </>
+    <InfiniteUploadLibrary
+      kind={kind}
+      query={query}
+      order={order}
+      initialCursor={rawCursor || null}
+      initialPage={{
+        ...page,
+        items: page.items.map((upload) => ({
+          ...upload,
+          url: publicUrl(upload.publicSlug, upload.extension),
+        })),
+      }}
+      fallbackNextHref={
+        page.nextCursor
+          ? `${path}?${new URLSearchParams({
+              ...Object.fromEntries(carried),
+              cursor: page.nextCursor,
+            }).toString()}`
+          : null
+      }
+      backToNewestHref={cursor ? `${path}?${carried.toString()}` : null}
+    />
   );
 }
