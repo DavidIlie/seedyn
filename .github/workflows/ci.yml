@@ -100,7 +100,7 @@ jobs:
 
       - name: Start integration server
         run: |
-          nohup pnpm dev > "$RUNNER_TEMP/seedyn-dev.log" 2>&1 &
+          nohup node scripts/dev.mjs > "$RUNNER_TEMP/seedyn-dev.log" 2>&1 &
           echo "$!" > "$RUNNER_TEMP/seedyn-dev.pid"
           for attempt in {1..60}; do
             if curl --fail --silent --max-time 2 \
@@ -123,7 +123,10 @@ jobs:
           dev_pid=$(<"$RUNNER_TEMP/seedyn-dev.pid")
           kill -TERM "$dev_pid" 2>/dev/null || exit 0
           for attempt in {1..30}; do
-            if ! kill -0 "$dev_pid" 2>/dev/null; then exit 0; fi
+            if ! curl --fail --silent --max-time 1 \
+              http://127.0.0.1:3000/api/healthz >/dev/null; then
+              exit 0
+            fi
             sleep 1
           done
           tail -n 200 "$RUNNER_TEMP/seedyn-dev.log"
