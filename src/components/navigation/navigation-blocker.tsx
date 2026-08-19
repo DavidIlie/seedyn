@@ -117,22 +117,6 @@ export function GuardedLink({
     <Link
       href={href}
       {...props}
-      onClick={(event) => {
-        props.onClick?.(event);
-        if (
-          event.defaultPrevented ||
-          !blocked ||
-          event.button !== 0 ||
-          event.metaKey ||
-          event.ctrlKey ||
-          event.shiftKey ||
-          event.altKey
-        ) {
-          return;
-        }
-        event.preventDefault();
-        requestNavigation(href);
-      }}
       onNavigate={(event) => {
         props.onNavigate?.(event);
         if (!blocked) return;
