@@ -10,16 +10,14 @@ credentials.
 
 ## Generate an S3 credential
 
-1. Open **API keys** in Seedyn.
-2. Create a named key for the app or device, such as **Shottr on David laptop**,
-   and choose its media domain.
-3. Find that key in the list and select **Enable S3**.
-4. Copy the **Access Key ID** and **Secret Access Key** from the one-time reveal.
-5. Keep the reveal open until both values are saved in the client.
+1. Open **API keys** and select **New key**.
+2. Choose **Shottr**, name the device, and select **Create key**.
+3. Copy the complete setup or each field from the one-time reveal.
+4. Keep the reveal open until Shottr is configured, then select **I saved it**.
 
 The S3 credential is separate from the HTTP API key. Its secret cannot be shown
-again; use **Rotate S3** on the same key if you lose it. Revoking the parent API
-key disables both credentials.
+again; open **Manage** and use **Rotate credential** if you lose it. Revoking
+the parent API key disables both credentials.
 
 ## Shottr configuration
 
@@ -32,6 +30,7 @@ Use the values from the one-time reveal:
 | Secret key         | The generated Seedyn S3 secret key               |
 | Bucket             | `seedyn`                                         |
 | Service            | `Other`                                          |
+| Region             | `auto`                                           |
 | Endpoint           | `https://seedyn.dave.tips`                       |
 | Key prefix         | Optional, for example `screenshots/david-laptop` |
 | Link sharing       | `Generate Public Bucket URL`                     |
@@ -40,6 +39,10 @@ Use the values from the one-time reveal:
 For example, name the API key **Shottr on David laptop**. Seedyn generates the
 identifier `shottr-on-david-laptop`, and library/admin audit views show the
 Name while retaining that immutable identifier in the upload record.
+
+Select **Test Connection** after saving the fields. Shottr verifies the setup by
+uploading a temporary text object and deleting it again. Both operations should
+succeed; an ordinary screenshot upload then uses the same signed upload path.
 
 ## Request shape
 
@@ -74,6 +77,9 @@ The endpoint supports only:
 - `HeadObject` for an object owned by the credential's account.
 - `DeleteObject` for an object owned by the credential's account.
 
+Shottr's connection test performs a temporary `PutObject` followed by
+`DeleteObject`. Ordinary screenshot uploads perform `PutObject`.
+
 It does not expose bucket listing, bucket creation, ACLs, object tagging,
 temporary AWS credentials, virtual-hosted bucket names, or multipart upload.
 Shottr does not use those operations. Large general-purpose S3 clients should
@@ -99,10 +105,12 @@ the same object.
 Seedyn requires signed `host`, `x-amz-date`, and `x-amz-content-sha256` headers.
 Shottr also signs its `content-type`; ordinary SigV4 clients may leave that
 metadata header unsigned because Seedyn never trusts it for classification. The
-complete payload is bounded, streamed to a private temporary file, hashed, and
-compared with the signed SHA-256 value before the upload service receives it.
-Requests outside the clock-skew window, chunked payload signing, unsupported
-`x-amz-*` headers, or invalid signatures receive standard S3 XML errors.
+complete uploaded payload is bounded, streamed to a private temporary file,
+hashed, and compared with the signed SHA-256 value before the upload service
+receives it. Seedyn also accepts S3's `UNSIGNED-PAYLOAD` marker for Shottr's
+bodyless cleanup `DeleteObject`; it is never accepted for uploads. Requests
+outside the clock-skew window, chunked payload signing, unsupported `x-amz-*`
+headers, or invalid signatures receive standard S3 XML errors.
 
 Revoking the named API key stops both HTTP and S3 uploads. Existing public
 media links remain independent of the credential secret.
