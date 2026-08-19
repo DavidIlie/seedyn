@@ -21,6 +21,12 @@ type UploadLike = {
   originalName: string;
   textLanguage: string | null;
   passwordHash?: string | null;
+  origin: SerializedUploadOrigin;
+  apiKeyIdSnapshot: string | null;
+  apiKeyNameSnapshot: string | null;
+  clientLabelSnapshot: string | null;
+  s3ObjectKey: string | null;
+  s3PublicNamespaceSnapshot: string | null;
   extension: string;
   contentType: string;
   disposition: string;
@@ -32,6 +38,56 @@ type UploadLike = {
   updatedAt: Date;
   variants?: readonly VariantLike[];
 };
+
+export type SerializedUploadOrigin =
+  | "LEGACY_UNKNOWN"
+  | "BROWSER"
+  | "HTTP"
+  | "SHAREX"
+  | "S3";
+
+export type SerializedUploadProvenance = {
+  origin: SerializedUploadOrigin;
+  credential: {
+    id: string;
+    name: string;
+    clientLabel: string | null;
+  } | null;
+  s3: { objectKey: string; publicNamespace: string } | null;
+};
+
+type UploadProvenanceLike = Pick<
+  UploadLike,
+  | "origin"
+  | "apiKeyIdSnapshot"
+  | "apiKeyNameSnapshot"
+  | "clientLabelSnapshot"
+  | "s3ObjectKey"
+  | "s3PublicNamespaceSnapshot"
+>;
+
+export function serializeUploadProvenance(
+  value: UploadProvenanceLike,
+): SerializedUploadProvenance {
+  return {
+    origin: value.origin,
+    credential:
+      value.apiKeyIdSnapshot && value.apiKeyNameSnapshot
+        ? {
+            id: value.apiKeyIdSnapshot,
+            name: value.apiKeyNameSnapshot,
+            clientLabel: value.clientLabelSnapshot,
+          }
+        : null,
+    s3:
+      value.s3ObjectKey && value.s3PublicNamespaceSnapshot
+        ? {
+            objectKey: value.s3ObjectKey,
+            publicNamespace: value.s3PublicNamespaceSnapshot,
+          }
+        : null,
+  };
+}
 
 export type SerializedVariant = {
   id: string;
@@ -56,6 +112,7 @@ export type SerializedUpload = {
   originalName: string;
   textLanguage: string | null;
   passwordProtected: boolean;
+  provenance: SerializedUploadProvenance;
   extension: string;
   contentType: string;
   disposition: string;
@@ -94,6 +151,7 @@ export function serializeUpload(value: UploadLike): SerializedUpload {
     originalName: value.originalName,
     textLanguage: value.textLanguage,
     passwordProtected: Boolean(value.passwordHash),
+    provenance: serializeUploadProvenance(value),
     extension: value.extension,
     contentType: value.contentType,
     disposition: value.disposition,

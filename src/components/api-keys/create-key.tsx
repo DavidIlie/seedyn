@@ -13,6 +13,7 @@ import {
 import { API_KEY_SCOPES, type ApiKeyScope } from "~/server/api-keys/constants";
 
 import { createApiKeyAction, type CreateKeyState } from "./actions";
+import { S3CredentialControl } from "./s3-credential-control";
 
 /**
  * Create a key, then show it exactly once.
@@ -79,6 +80,24 @@ function CreateKeyForm({ onDismiss }: { onDismiss: (name: string) => void }) {
         />
         <p id="key-name-hint" className="text-muted-foreground text-sm">
           Names are unique per account and appear in the list below.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <label htmlFor="key-client-label" className={labelBase}>
+          Device label <span className="text-muted-foreground">(optional)</span>
+        </label>
+        <input
+          id="key-client-label"
+          name="clientLabel"
+          maxLength={80}
+          placeholder="David laptop"
+          aria-describedby="key-client-label-hint"
+          className={`${inputBase} sm:max-w-xs`}
+        />
+        <p id="key-client-label-hint" className="text-muted-foreground text-sm">
+          Future uploads keep a snapshot such as “Shottr — David laptop”, even
+          if you rename this label later.
         </p>
       </div>
 
@@ -215,6 +234,14 @@ function Reveal({
           I saved it
         </button>
       </div>
+
+      <S3CredentialControl
+        apiKeyId={state.id}
+        accessKeyId={null}
+        enabledAt={null}
+        publicBaseUrl={null}
+        publicNamespace={null}
+      />
     </section>
   );
 }

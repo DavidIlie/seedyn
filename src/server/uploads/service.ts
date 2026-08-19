@@ -49,6 +49,82 @@ type UploadServiceDependencies = {
   audit?: (event: AuditEvent) => void;
 };
 
+export type UploadCredentialProvenance = {
+  id: string;
+  name: string;
+  clientLabel: string | null;
+};
+
+/**
+ * New uploads must declare their ingress explicitly. Existing pre-migration
+ * rows alone use LEGACY_UNKNOWN. S3 aliases are part of the same write so a
+ * later key revocation or history prune cannot orphan a public URL.
+ */
+export type UploadProvenance =
+  | { origin: "BROWSER" }
+  | {
+      origin: "HTTP" | "SHAREX";
+      credential: UploadCredentialProvenance;
+    }
+  | {
+      origin: "S3";
+      credential: UploadCredentialProvenance;
+      s3: { objectKey: string; publicNamespace: string };
+    };
+
+function uploadProvenanceFields(provenance: UploadProvenance) {
+  if (provenance.origin === "BROWSER") {
+    return {
+      origin: provenance.origin,
+      apiKeyIdSnapshot: null,
+      apiKeyNameSnapshot: null,
+      clientLabelSnapshot: null,
+      s3ObjectKey: null,
+      s3PublicNamespaceSnapshot: null,
+    } as const;
+  }
+
+  const credential = provenance.credential;
+  if (
+    credential.id.length === 0 ||
+    credential.id.length > 128 ||
+    credential.name.length === 0 ||
+    credential.name.length > 64 ||
+    (credential.clientLabel !== null && credential.clientLabel.length > 80)
+  ) {
+    throw new DomainError("invalid_input");
+  }
+
+  if (provenance.origin !== "S3") {
+    return {
+      origin: provenance.origin,
+      apiKeyIdSnapshot: credential.id,
+      apiKeyNameSnapshot: credential.name,
+      clientLabelSnapshot: credential.clientLabel,
+      s3ObjectKey: null,
+      s3PublicNamespaceSnapshot: null,
+    } as const;
+  }
+
+  if (
+    provenance.s3.objectKey.length === 0 ||
+    Buffer.byteLength(provenance.s3.objectKey, "utf8") > 1_024 ||
+    provenance.s3.objectKey.includes("\0") ||
+    !/^[A-Za-z0-9_-]{16,128}$/u.test(provenance.s3.publicNamespace)
+  ) {
+    throw new DomainError("invalid_input");
+  }
+
+  return {
+    origin: provenance.origin,
+    apiKeyIdSnapshot: credential.id,
+    apiKeyNameSnapshot: credential.name,
+    clientLabelSnapshot: credential.clientLabel,
+    s3ObjectKey: provenance.s3.objectKey,
+    s3PublicNamespaceSnapshot: provenance.s3.publicNamespace,
+  } as const;
+}
+
 const defaultAudit = (event: AuditEvent) => {
   // Only application-generated identifiers and bounded categories are emitted.
   // Uploaded filenames, bodies, authorization, and storage credentials are absent.
@@ -142,6 +218,7 @@ export async function createUpload(
   input: {
     userId: string;
     file: ParsedUploadFile;
+    provenance: UploadProvenance;
     /** A classification produced from this exact immutable temporary file. */
     classification?: ClassifiedUpload;
     forcedKind?: ForcedUploadKind;
@@ -150,6 +227,7 @@ export async function createUpload(
   injected?: UploadServiceDependencies,
 ) {
   const { store, audit } = dependencies(injected);
+  const provenanceFields = uploadProvenanceFields(input.provenance);
   const classification =
     input.classification ??
     (await classifyUpload(input.file, {
@@ -254,6 +332,7 @@ export async function createUpload(
             input.file.originalName || input.file.fields.filename || "upload",
           ),
           textLanguage: classification.textLanguage,
+          ...provenanceFields,
           extension: classification.extension,
           contentType: classification.contentType,
           disposition: classification.disposition,
@@ -724,6 +803,9 @@ export async function deleteOwnedUpload(
           select: { id: true },
         });
         if (stillExists) throw new DomainError("database_unavailable");
+        // Another idempotent DELETE already removed this row and accounted for
+        // its bytes. Never decrement the user's storage counter twice.
+        return;
       }
       const releasedBytes = row.variants.reduce(
         (total, variant) => total + variant.byteSize,

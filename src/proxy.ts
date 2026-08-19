@@ -112,6 +112,15 @@ export function proxy(request: NextRequest): NextResponse {
     return unavailable(404);
   }
 
+  // Public S3 aliases resolve through their own media-host-only Route Handler.
+  // Keep non-read methods hidden at this boundary and do not feed these paths
+  // into the root-level immutable asset parser below.
+  if (pathname.startsWith("/s3/")) {
+    return request.method === "GET" || request.method === "HEAD"
+      ? NextResponse.next()
+      : unavailable(404);
+  }
+
   if (!new Set(["GET", "HEAD", "OPTIONS"]).has(request.method)) {
     return unavailable(404);
   }
@@ -133,9 +142,10 @@ export function proxy(request: NextRequest): NextResponse {
 
 export const config = {
   // Next clones every non-GET/HEAD body before Proxy runs. Upload routes and
-  // exact root media assets own the same host checks in their handlers and
-  // bypass Proxy, keeping multipart uploads streaming and password form bodies
-  // under the media route's strict 2 KiB reader rather than a framework clone.
+  // the S3-compatible bucket surface, and exact root media assets own the same
+  // host checks in their handlers and bypass Proxy. This keeps upload bodies
+  // streaming and password form bodies under the media route's strict 2 KiB
+  // reader rather than a framework clone.
   matcher:
-    "/((?!api/files/?$|api/images/?$|api/texts/?$|api/upload/?$|api/uploads/?$|api/uploads/[^/]+/gif/?$|[A-Za-z0-9_-]{22,64}\\.[a-z0-9]{1,10}/?$).*)",
+    "/((?!api/files/?$|api/images/?$|api/texts/?$|api/upload/?$|api/uploads/?$|api/uploads/[^/]+/gif/?$|seedyn(?:/|$)|[A-Za-z0-9_-]{22,64}\\.[a-z0-9]{1,10}/?$).*)",
 };

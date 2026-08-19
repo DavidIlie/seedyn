@@ -4,6 +4,11 @@ import { Prisma } from "@prisma/client";
 
 import { db } from "~/server/db";
 import { DEFAULT_MEMBER_STORAGE_LIMIT_BYTES } from "~/server/storage/quota";
+import {
+  serializeUploadProvenance,
+  type SerializedUploadOrigin,
+  type SerializedUploadProvenance,
+} from "~/server/uploads/serialization";
 
 import { requireAdmin } from "./authorization";
 import {
@@ -18,6 +23,12 @@ import {
 
 export type AdminKindTotal = {
   kind: AdminUploadKind;
+  count: number;
+  byteSize: string;
+};
+
+export type AdminOriginTotal = {
+  origin: SerializedUploadOrigin;
   count: number;
   byteSize: string;
 };
@@ -45,6 +56,7 @@ export type AdminRecentUpload = {
   state: "READY" | "DELETING" | "DELETE_FAILED";
   byteSize: string;
   createdAt: string;
+  provenance: SerializedUploadProvenance;
   owner: { name: string | null; email: string | null };
 };
 
@@ -62,6 +74,7 @@ export type AdminInsights = {
   };
   daily: DailyUploadPoint[];
   kinds: AdminKindTotal[];
+  origins: AdminOriginTotal[];
   users: AdminUserRow[];
   recentUploads: AdminRecentUpload[];
 };
@@ -71,6 +84,14 @@ type UserVariantAggregate = {
   count: bigint;
   byteSize: bigint;
 };
+
+const ADMIN_UPLOAD_ORIGINS = [
+  "BROWSER",
+  "HTTP",
+  "SHAREX",
+  "S3",
+  "LEGACY_UNKNOWN",
+] as const satisfies readonly SerializedUploadOrigin[];
 
 function decimal(value: bigint | null | undefined): string {
   return (value ?? BigInt(0)).toString(10);
@@ -104,6 +125,7 @@ export async function loadAdminInsights(
     failedUploads,
     failedVariants,
     kindRows,
+    originRows,
     dailyRows,
     users,
     uploadsByUser,
@@ -125,6 +147,11 @@ export async function loadAdminInsights(
     db.uploadVariant.count({ where: { state: "DELETE_FAILED" } }),
     db.upload.groupBy({
       by: ["kind"],
+      _count: { _all: true },
+      _sum: { byteSize: true },
+    }),
+    db.upload.groupBy({
+      by: ["origin"],
       _count: { _all: true },
       _sum: { byteSize: true },
     }),
@@ -181,6 +208,12 @@ export async function loadAdminInsights(
         state: true,
         byteSize: true,
         createdAt: true,
+        origin: true,
+        apiKeyIdSnapshot: true,
+        apiKeyNameSnapshot: true,
+        clientLabelSnapshot: true,
+        s3ObjectKey: true,
+        s3PublicNamespaceSnapshot: true,
         user: { select: { name: true, email: true } },
       },
     }),
@@ -202,6 +235,9 @@ export async function loadAdminInsights(
     keysByUser.map((row) => [row.userId, row._count._all] as const),
   );
   const kindByName = new Map(kindRows.map((row) => [row.kind, row] as const));
+  const originByName = new Map(
+    originRows.map((row) => [row.origin, row] as const),
+  );
   const originalByteSize = uploadTotals._sum.byteSize ?? BigInt(0);
   const variantByteSize = variantTotals._sum.byteSize ?? BigInt(0);
 
@@ -222,6 +258,14 @@ export async function loadAdminInsights(
       const row = kindByName.get(kind);
       return {
         kind,
+        count: row?._count._all ?? 0,
+        byteSize: decimal(row?._sum.byteSize),
+      };
+    }),
+    origins: ADMIN_UPLOAD_ORIGINS.map((origin) => {
+      const row = originByName.get(origin);
+      return {
+        origin,
         count: row?._count._all ?? 0,
         byteSize: decimal(row?._sum.byteSize),
       };
@@ -259,6 +303,7 @@ export async function loadAdminInsights(
       state: upload.state,
       byteSize: upload.byteSize.toString(10),
       createdAt: upload.createdAt.toISOString(),
+      provenance: serializeUploadProvenance(upload),
       owner: upload.user,
     })),
   };

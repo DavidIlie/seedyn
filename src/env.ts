@@ -29,6 +29,7 @@ export const env = createEnv({
     AUTH_SECRET: optionalSecret,
     AUTH_DAVIDAPPS_ID: optionalSecret,
     AUTH_DAVIDAPPS_SECRET: optionalSecret,
+    S3_MASTER_SECRET: z.string().min(32).optional(),
     DATABASE_URL: z.url(),
     REDIS_URL: z.url(),
     MINIO_URL: z.string().min(1),

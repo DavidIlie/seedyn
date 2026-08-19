@@ -7,6 +7,10 @@ import {
   uploadKindLabel,
 } from "~/components/lib/format";
 import { CopyButton } from "~/components/ui/copy-button";
+import {
+  UploadOriginBadge,
+  uploadProvenanceLabel,
+} from "~/components/upload/origin-badge";
 import type { SerializedUpload } from "~/server/uploads/serialization";
 
 import { PreviewThumb } from "./preview-thumb";
@@ -42,18 +46,31 @@ export function UploadRow({
       <PreviewThumb upload={upload} url={url} privacy={privacy} />
 
       <span className="flex min-w-0 flex-1 flex-col justify-center">
-        <Link
-          href={`/uploads/${upload.id}`}
-          className="row-link truncate text-sm font-medium"
-        >
-          {upload.originalName}
-        </Link>
+        <span className="flex min-w-0 items-center gap-2">
+          <Link
+            href={`/uploads/${upload.id}`}
+            className="row-link min-w-0 truncate text-sm font-medium"
+          >
+            {upload.originalName}
+          </Link>
+          <UploadOriginBadge
+            provenance={upload.provenance}
+            className="hidden max-w-52 shrink sm:inline-flex"
+          />
+        </span>
         <span className="text-muted-foreground truncate text-xs">
-          <span className="font-mono">
-            {upload.publicSlug}.{upload.extension}
+          <span className="sm:hidden">
+            {uploadProvenanceLabel(upload.provenance)} ·{" "}
+            {uploadKindLabel(upload.kind, upload.contentType)} ·{" "}
+            {formatBytes(upload.byteSize)}
           </span>{" "}
-          · {uploadKindLabel(upload.kind, upload.contentType)} ·{" "}
-          {formatBytes(upload.byteSize)} · {formatTimestamp(upload.createdAt)}
+          <span className="hidden sm:inline">
+            <span className="font-mono">
+              {upload.publicSlug}.{upload.extension}
+            </span>{" "}
+            · {uploadKindLabel(upload.kind, upload.contentType)} ·{" "}
+            {formatBytes(upload.byteSize)} · {formatTimestamp(upload.createdAt)}
+          </span>
           {lifecycle ? (
             <>
               {" · "}

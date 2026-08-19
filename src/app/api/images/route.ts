@@ -16,6 +16,6 @@ export async function POST(request: Request): Promise<Response> {
   return handleMachineUpload(request, {
     fileField: "image",
     forcedKind: "image",
-    legacy: true,
+    origin: "SHAREX",
   });
 }

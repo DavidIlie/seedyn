@@ -32,7 +32,7 @@ import { createUpload } from "~/server/uploads/service";
 type MachineUploadRoute = {
   fileField: "file" | "image" | "text";
   forcedKind: ForcedUploadKind;
-  legacy: boolean;
+  origin: "HTTP" | "SHAREX";
 };
 
 function requiredScope(kind: UploadKindValue): ApiKeyScope {
@@ -42,7 +42,7 @@ function requiredScope(kind: UploadKindValue): ApiKeyScope {
 }
 
 function fixedLegacyScope(route: MachineUploadRoute): ApiKeyScope | null {
-  if (!route.legacy || route.forcedKind === "auto") return null;
+  if (route.origin !== "SHAREX" || route.forcedKind === "auto") return null;
   if (route.forcedKind === "image") return "upload:image";
   if (route.forcedKind === "text") return "upload:text";
   return "upload:file";
@@ -81,7 +81,7 @@ export async function handleMachineUpload(
 
   const candidate = parseApiKeyAuthorization(
     request.headers.get("authorization"),
-    { allowLegacyRaw: route.legacy },
+    { allowLegacyRaw: route.origin === "SHAREX" },
   );
   if (!candidate) {
     return safeJsonError(
@@ -158,14 +158,16 @@ export async function handleMachineUpload(
   try {
     file = await parseMultipartUpload(request, {
       permittedFileFields: new Set([route.fileField]),
-      permittedScalarFields: route.legacy
-        ? new Set(["filename", "textLanguage"])
-        : new Set(["kind", "filename", "textLanguage"]),
+      permittedScalarFields:
+        route.origin === "SHAREX"
+          ? new Set(["filename", "textLanguage"])
+          : new Set(["kind", "filename", "textLanguage"]),
       maxFileBytes: maximum,
     });
-    const forcedKind = route.legacy
-      ? route.forcedKind
-      : requestedKind(file.fields.kind);
+    const forcedKind =
+      route.origin === "SHAREX"
+        ? route.forcedKind
+        : requestedKind(file.fields.kind);
     if (!forcedKind) {
       return safeJsonError(
         400,
@@ -194,13 +196,21 @@ export async function handleMachineUpload(
     const result = await createUpload({
       userId: key.userId,
       file,
+      provenance: {
+        origin: route.origin,
+        credential: {
+          id: key.id,
+          name: key.name,
+          clientLabel: key.clientLabel,
+        },
+      },
       classification,
       forcedKind,
       signal: request.signal,
     });
     const headers = successRateLimitHeaders(uploadLimit);
     headers.set("Cache-Control", "no-store");
-    if (route.legacy) {
+    if (route.origin === "SHAREX") {
       return Response.json({ message: result.url }, { status: 200, headers });
     }
     return Response.json(

@@ -1,0 +1,104 @@
+---
+title: Shottr and S3
+description: Upload from Shottr through Seedyn's narrow S3-compatible endpoint.
+---
+
+Seedyn implements the small S3 surface that Shottr uses. Objects still enter the
+normal Seedyn library, count toward the account's quota, keep upload provenance,
+and are stored in the private MinIO bucket. Seedyn never exposes MinIO
+credentials.
+
+## Operator prerequisite
+
+The deployment must provide a stable, randomly generated `S3_MASTER_SECRET` of
+at least 32 characters. Seedyn derives each client signing secret from it and
+never stores that client secret in Postgres. If the variable is absent, the S3
+route fails closed and the key page cannot enable S3. Replacing the master
+secret invalidates every issued S3 credential, so rotate client credentials in
+the UI after any intentional master-secret rotation.
+
+## Shottr configuration
+
+Create a named API key for the device, enable its S3 credential, and use the
+values shown by Seedyn:
+
+| Shottr field       | Value                                                                    |
+| ------------------ | ------------------------------------------------------------------------ |
+| Upload destination | `S3 (Amazon, Cloudflare, Backblaze, etc.)`                               |
+| Access key         | The generated Seedyn S3 access key                                       |
+| Secret key         | The generated Seedyn S3 secret key                                       |
+| Bucket             | `seedyn`                                                                 |
+| Service            | `Other`                                                                  |
+| Endpoint           | `https://seedyn.dave.tips`                                               |
+| Key prefix         | Optional, for example `screenshots/david-laptop`                         |
+| Link sharing       | `Generate Public Bucket URL`                                             |
+| Public Bucket URL  | The credential-specific `https://i.dave.tips/s3/...` URL shown by Seedyn |
+
+For example, name the API key **Shottr** and set its device label to **David
+laptop**. Library and admin audit views then show **S3 · Shottr — David
+laptop**, so each upload can be traced to its exact client credential.
+
+## Request shape
+
+Shottr sends an AWS Signature Version 4 request directly to Seedyn:
+
+```http
+PUT /seedyn/screenshots/david-laptop/SCR-20260819-abcd.png
+Host: seedyn.dave.tips
+Authorization: AWS4-HMAC-SHA256 Credential=...
+Content-Type: application/octet-stream
+Content-Length: ...
+X-Amz-Content-Sha256: ...
+X-Amz-Date: ...
+```
+
+The media type is intentionally generic because Shottr sends
+`application/octet-stream`. Seedyn classifies the verified file bytes rather
+than trusting that header.
+
+Shottr constructs the copied link from the Public Bucket URL and object key.
+That `i.dave.tips` alias resolves through Seedyn's normal media delivery path,
+so later password protection and deletion continue to work.
+
+## Supported S3 operations
+
+The endpoint supports only:
+
+- `PutObject` as one signed, create-once request. Repeating the same key and
+  bytes is idempotent; different bytes at an existing key return a conflict.
+- `HeadBucket` for the fixed `seedyn` bucket.
+- `HeadObject` for an object owned by the credential's account.
+- `DeleteObject` for an object owned by the credential's account.
+
+It does not expose bucket listing, bucket creation, ACLs, object tagging,
+temporary AWS credentials, virtual-hosted bucket names, or multipart upload.
+Shottr does not use those operations. Large general-purpose S3 clients should
+use Seedyn's HTTP upload API instead.
+
+Seedyn links are intentionally immutable, so this narrow endpoint does not
+implement S3 overwrite semantics. Keep Shottr's default timestamp-based
+generated filenames (and a device-specific prefix if useful) rather than a
+single literal filename that would be reused.
+
+## Key restrictions
+
+Object keys are ASCII paths made from letters, numbers, `.`, `_`, and `-`.
+Empty path segments and `.` or `..` segments are rejected. Keep Shottr's key
+prefix simple, such as `screenshots/macbook`.
+
+The restriction keeps Signature Version 4 canonical paths unambiguous through
+the application proxy and prevents two differently encoded paths from naming
+the same object.
+
+## Security behavior
+
+Seedyn requires signed `host`, `x-amz-date`, and `x-amz-content-sha256` headers.
+Shottr also signs its `content-type`; ordinary SigV4 clients may leave that
+metadata header unsigned because Seedyn never trusts it for classification. The
+complete payload is bounded, streamed to a private temporary file, hashed, and
+compared with the signed SHA-256 value before the upload service receives it.
+Requests outside the clock-skew window, chunked payload signing, unsupported
+`x-amz-*` headers, or invalid signatures receive standard S3 XML errors.
+
+Revoking the named API key stops both HTTP and S3 uploads. Existing public
+media links remain independent of the credential secret.

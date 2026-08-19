@@ -7,9 +7,16 @@ import {
   ApiKeyInputError,
   isApiKeyScope,
   revokeApiKey,
+  updateApiKeyClientLabel,
   type ApiKeyScope,
 } from "~/server/api-keys";
 import { expiryDateFromChoice } from "~/server/api-keys/expiry";
+import {
+  describeS3Credential,
+  rotateS3Credential,
+  S3CredentialConfigurationError,
+  S3CredentialInputError,
+} from "~/server/api-keys/s3-credentials";
 import { authorizeServerActionMutation } from "~/server/http/browser-mutation";
 
 /**
@@ -27,6 +34,7 @@ export type CreateKeyState =
   | { status: "error"; message: string }
   | {
       status: "created";
+      id: string;
       name: string;
       prefix: string;
       scopes: ApiKeyScope[];
@@ -50,6 +58,7 @@ export async function createApiKeyAction(
   }
 
   const name = formData.get("name");
+  const clientLabel = formData.get("clientLabel");
   if (typeof name !== "string" || name.trim().length === 0) {
     return {
       status: "error",
@@ -75,6 +84,7 @@ export async function createApiKeyAction(
     const created = await createApiKey({
       userId: authorization.userId,
       name,
+      clientLabel: typeof clientLabel === "string" ? clientLabel : null,
       scopes,
       expiresAt,
     });
@@ -85,6 +95,7 @@ export async function createApiKeyAction(
 
     return {
       status: "created",
+      id: created.id,
       name: created.name,
       prefix: created.prefix,
       scopes: created.scopes,
@@ -99,6 +110,126 @@ export async function createApiKeyAction(
         error instanceof ApiKeyInputError
           ? error.message
           : "The key could not be created. Try again.",
+    };
+  }
+}
+
+export type UpdateKeyLabelState =
+  | { status: "idle" }
+  | { status: "saved"; message: string }
+  | { status: "error"; message: string };
+
+export type S3CredentialState =
+  | { status: "idle" }
+  | { status: "error"; message: string }
+  | {
+      status: "revealed";
+      accessKeyId: string;
+      /** Returned once by this mutation and never persisted in Postgres. */
+      secretAccessKey: string;
+      bucket: string;
+      endpoint: string;
+      publicBaseUrl: string;
+      publicNamespace: string;
+    };
+
+const API_KEY_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+
+export async function rotateS3CredentialAction(
+  _previous: S3CredentialState,
+  formData: FormData,
+): Promise<S3CredentialState> {
+  const authorization = await authorizeServerActionMutation();
+  if (authorization instanceof Response) {
+    return {
+      status: "error",
+      message:
+        authorization.status === 429
+          ? "Too many credential changes. Wait a moment."
+          : "Your session or request origin could not be verified.",
+    };
+  }
+
+  const apiKeyId = formData.get("apiKeyId");
+  if (typeof apiKeyId !== "string" || !API_KEY_ID.test(apiKeyId)) {
+    return { status: "error", message: "The API key is invalid." };
+  }
+
+  try {
+    const credential = await rotateS3Credential({
+      apiKeyId,
+      userId: authorization.userId,
+    });
+    const display = describeS3Credential(credential.publicNamespace);
+    refresh();
+    return {
+      status: "revealed",
+      accessKeyId: credential.accessKeyId,
+      secretAccessKey: credential.secretAccessKey,
+      ...display,
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message:
+        error instanceof S3CredentialInputError ||
+        error instanceof S3CredentialConfigurationError
+          ? error.message
+          : "The S3 credential could not be created. Try again.",
+    };
+  }
+}
+
+export async function updateApiKeyClientLabelAction(
+  _previous: UpdateKeyLabelState,
+  formData: FormData,
+): Promise<UpdateKeyLabelState> {
+  const authorization = await authorizeServerActionMutation();
+  if (authorization instanceof Response) {
+    return {
+      status: "error",
+      message:
+        authorization.status === 429
+          ? "Too many key changes. Wait a moment."
+          : "Your session or request origin could not be verified.",
+    };
+  }
+
+  const apiKeyId = formData.get("apiKeyId");
+  const clientLabel = formData.get("clientLabel");
+  if (
+    typeof apiKeyId !== "string" ||
+    apiKeyId.length === 0 ||
+    apiKeyId.length > 128 ||
+    typeof clientLabel !== "string"
+  ) {
+    return { status: "error", message: "The label could not be saved." };
+  }
+
+  try {
+    const updated = await updateApiKeyClientLabel({
+      userId: authorization.userId,
+      apiKeyId,
+      clientLabel,
+    });
+    if (!updated) {
+      return { status: "error", message: "The API key was not found." };
+    }
+    refresh();
+    return {
+      status: "saved",
+      message: clientLabel.trim()
+        ? "Device label saved."
+        : "Device label removed.",
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message:
+        error instanceof ApiKeyInputError
+          ? error.message
+          : "The label could not be saved.",
     };
   }
 }

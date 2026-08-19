@@ -27,6 +27,7 @@ import {
   uploadKindLabel,
 } from "~/components/lib/format";
 import { CopyButton } from "~/components/ui/copy-button";
+import { UploadOriginBadge } from "~/components/upload/origin-badge";
 import type { SerializedUpload } from "~/server/uploads/serialization";
 
 import { UploadRow } from "./upload-row";
@@ -46,6 +47,7 @@ const TABLE_FEATURES = tableFeatures({
 const TABLE_COLUMNS = [
   { accessorKey: "originalName", header: "Name" },
   { accessorKey: "kind", header: "Type" },
+  { accessorKey: "provenance", header: "Source" },
   { accessorKey: "byteSize", header: "Size" },
   { accessorKey: "createdAt", header: "Uploaded" },
 ] satisfies ColumnDef<typeof TABLE_FEATURES, PresentedUpload>[];
@@ -156,6 +158,7 @@ function UploadTable({
             <th className="w-16 px-3 py-2.5 font-medium">Preview</th>
             <th className="px-3 py-2.5 font-medium">Name</th>
             <th className="px-3 py-2.5 font-medium">Type</th>
+            <th className="px-3 py-2.5 font-medium">Source</th>
             <th className="px-3 py-2.5 font-medium">Size</th>
             <th className="px-3 py-2.5 font-medium">Uploaded</th>
             <th className="w-24 px-3 py-2.5 text-right font-medium">URL</th>
@@ -193,6 +196,9 @@ function UploadTable({
                 </td>
                 <td className="text-muted-foreground px-3 py-2">
                   {uploadKindLabel(upload.kind, upload.contentType)}
+                </td>
+                <td className="max-w-60 px-3 py-2">
+                  <UploadOriginBadge provenance={upload.provenance} />
                 </td>
                 <td className="px-3 py-2 tabular-nums">
                   {formatBytes(upload.byteSize)}
@@ -333,9 +339,12 @@ function UploadCards({
                 ) : null}
               </div>
               <div className="row-control flex items-center justify-between gap-3">
-                <span className="text-muted-foreground truncate text-[0.6875rem] tabular-nums">
-                  {formatTimestamp(upload.createdAt).replace(" UTC", "")}
-                </span>
+                <div className="flex min-w-0 items-center gap-2">
+                  <UploadOriginBadge provenance={upload.provenance} />
+                  <span className="text-muted-foreground hidden truncate text-[0.6875rem] tabular-nums sm:inline">
+                    {formatTimestamp(upload.createdAt).replace(" UTC", "")}
+                  </span>
+                </div>
                 <CopyButton
                   value={upload.url}
                   label={`Copy URL for ${upload.originalName}`}

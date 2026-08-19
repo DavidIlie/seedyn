@@ -7,9 +7,14 @@ import {
   formatTimestamp,
   uploadKindLabel,
 } from "~/components/lib/format";
+import {
+  UploadOriginBadge,
+  uploadOriginLabel,
+} from "~/components/upload/origin-badge";
 import type {
   AdminInsights,
   AdminKindTotal,
+  AdminOriginTotal,
   AdminRecentUpload,
   AdminUserRow,
 } from "~/server/admin/insights";
@@ -84,7 +89,10 @@ export function AdminLedger({ insights }: { insights: AdminInsights }) {
           </div>
         </section>
 
-        <StorageByType kinds={insights.kinds} />
+        <div className="space-y-5">
+          <StorageByType kinds={insights.kinds} />
+          <UploadSources origins={insights.origins} />
+        </div>
       </div>
 
       <UserLedger users={insights.users} />
@@ -258,6 +266,47 @@ function StorageByType({ kinds }: { kinds: AdminKindTotal[] }) {
           );
         })}
       </div>
+    </section>
+  );
+}
+
+function UploadSources({ origins }: { origins: AdminOriginTotal[] }) {
+  const total = origins.reduce((sum, origin) => sum + origin.count, 0);
+  return (
+    <section
+      aria-labelledby="sources-heading"
+      className="border-border bg-panel rounded-xl border"
+    >
+      <div className="border-border border-b px-5 py-4">
+        <h2
+          id="sources-heading"
+          className="font-display text-base font-semibold"
+        >
+          Upload sources
+        </h2>
+        <p className="text-muted-foreground mt-1 text-sm">
+          Durable ingress audit across stored originals.
+        </p>
+      </div>
+      <dl className="divide-border divide-y px-5">
+        {origins.map((origin) => (
+          <div
+            key={origin.origin}
+            className="flex items-baseline justify-between gap-3 py-3 text-sm"
+          >
+            <dt className="font-medium">{uploadOriginLabel(origin.origin)}</dt>
+            <dd className="text-muted-foreground text-right tabular-nums">
+              {origin.count.toLocaleString("en-US")}
+              {total > 0
+                ? ` · ${Math.round((origin.count / total) * 100)}%`
+                : ""}
+              <span className="block text-[0.6875rem]">
+                {formatBytes(origin.byteSize)}
+              </span>
+            </dd>
+          </div>
+        ))}
+      </dl>
     </section>
   );
 }
@@ -506,6 +555,7 @@ function RecentUploadRow({ upload }: { upload: AdminRecentUpload }) {
         <p className="text-muted-foreground mt-0.5 truncate text-xs">
           {owner} · {uploadKindLabel(upload.kind, upload.contentType)}
         </p>
+        <UploadOriginBadge provenance={upload.provenance} className="mt-1.5" />
       </div>
       <div className="text-muted-foreground flex shrink-0 items-center justify-between gap-4 text-xs sm:block sm:text-right">
         <p>{formatBytes(upload.byteSize)}</p>

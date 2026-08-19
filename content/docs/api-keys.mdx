@@ -21,6 +21,12 @@ creating another. Upload throttling has both source-address and account-wide
 ceilings shared across all keys, so creating extra keys or using extra source
 addresses cannot multiply the account's request allowance without bound.
 
+Each key also has an optional device label. A key named **Shottr** with the
+device label **David laptop** appears on future uploads as
+**Shottr — David laptop**. The label is account-managed metadata: upload
+requests cannot choose or override it, and changing it does not rewrite old
+upload history.
+
 The key page shows at most the 100 most recent active and inactive keys. Seedyn
 keeps recent revocation and expiry history for troubleshooting, and during
 later key creation removes inactive history after 90 days or when that bounded
@@ -30,6 +36,11 @@ retained during cleanup.
 Machine requests authenticate a key first, then authorize the required upload
 scope from the server-classified bytes. Authentication alone never grants an
 operation.
+
+Completed uploads snapshot the key id, key name, device label, and ingress
+protocol. Those safe audit fields remain useful after the key is renamed,
+revoked, expired, or removed from bounded key history. Seedyn never snapshots
+the raw key, digest, Authorization header, source address, or User-Agent.
 
 Key creation and revocation controls enable after the page hydrates. This avoids
 creating an unrecoverable one-time secret in a JavaScript-disabled browser,

@@ -44,13 +44,25 @@ enum VariantState {
   DELETE_FAILED
 }
 
+enum UploadOrigin {
+  LEGACY_UNKNOWN
+  BROWSER
+  HTTP
+  SHAREX
+  S3
+}
+
 model ApiKey {
   id         String   @id
   userId     String
   name       String
+  clientLabel String?
   prefix     String
   secretHash Bytes    @unique
   scopes     String[]
+  s3AccessKeyId String? @unique
+  s3PublicNamespace String? @unique
+  s3EnabledAt DateTime?
   createdAt  DateTime @default(now())
   lastUsedAt DateTime?
   expiresAt  DateTime?
@@ -69,6 +81,12 @@ model Upload {
   kind           UploadKind
   state          UploadState @default(READY)
   originalName   String
+  origin         UploadOrigin @default(LEGACY_UNKNOWN)
+  apiKeyIdSnapshot String?
+  apiKeyNameSnapshot String?
+  clientLabelSnapshot String?
+  s3ObjectKey String?
+  s3PublicNamespaceSnapshot String?
   passwordHash   String?
   passwordVersion Int       @default(0)
   extension      String
@@ -88,6 +106,9 @@ model Upload {
 
   @@index([userId, createdAt(sort: Desc), id(sort: Desc)])
   @@index([userId, kind, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([origin, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([userId, apiKeyIdSnapshot, createdAt(sort: Desc), id(sort: Desc)])
+  @@unique([s3PublicNamespaceSnapshot, s3ObjectKey])
 }
 
 model UploadVariant {
@@ -129,6 +150,14 @@ model StorageReservation {
 `passwordVersion` increments on every set/change/remove operation and is bound
 into short-lived signed media grants. GIF variants inherit their parent
 upload's password boundary rather than storing a second credential.
+
+`Upload.origin` and the credential snapshot fields form a durable ingestion
+audit record. New code always supplies an explicit origin; only records created
+before the migration use `LEGACY_UNKNOWN`. Snapshot ids are deliberately not
+foreign keys because inactive API-key rows are pruned. Names and device labels
+therefore remain historical facts after rename, revoke, expiry, or deletion.
+The S3 object key and public namespace snapshot keep a public alias resolvable
+without retaining the signing credential.
 
 `User.storageUsedBytes` and `User.storageReservedBytes` are non-negative
 materialized counters. `User.storageLimitBytes = null` means the 5 GB member
@@ -225,6 +254,8 @@ already above a newly lowered limit keeps existing objects but cannot add more.
 ## Data not stored
 
 - Raw API keys, ID/access tokens, MinIO credentials, or presigned URLs.
+- Authorization headers, source addresses, User-Agent strings, or S3 signing
+  secrets in upload provenance.
 - Arbitrary EXIF/GPS metadata extracted into searchable columns.
 - Uploaded text bodies in PostgreSQL.
 - Browser conversion working files or logs.

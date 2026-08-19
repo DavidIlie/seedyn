@@ -117,6 +117,7 @@ export async function POST(request: Request): Promise<Response> {
     const result = await createUpload({
       userId: authorization.userId,
       file,
+      provenance: { origin: "BROWSER" },
       forcedKind,
       signal: request.signal,
     });

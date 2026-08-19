@@ -11,8 +11,10 @@ import {
   type ApiKeyScope,
 } from "./constants";
 import { generateApiKey, hashApiKey, parseApiKey } from "./key-format";
+import { describeS3Credential } from "./s3-credentials";
 
 const API_KEY_NAME_MAX_LENGTH = 64;
+const API_KEY_CLIENT_LABEL_MAX_LENGTH = 80;
 const MAX_ACTIVE_API_KEYS_PER_USER = 10;
 const MAX_API_KEY_HISTORY_PER_USER = 100;
 const INACTIVE_API_KEY_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
@@ -28,6 +30,7 @@ export class ApiKeyInputError extends Error {
 export interface CreateApiKeyInput {
   userId: string;
   name: string;
+  clientLabel?: string | null;
   scopes: readonly string[];
   expiresAt?: Date | null;
 }
@@ -35,6 +38,7 @@ export interface CreateApiKeyInput {
 export interface CreatedApiKey {
   id: string;
   name: string;
+  clientLabel: string | null;
   prefix: string;
   scopes: ApiKeyScope[];
   createdAt: Date;
@@ -45,7 +49,12 @@ export interface CreatedApiKey {
 export interface ApiKeySummary {
   id: string;
   name: string;
+  clientLabel: string | null;
   prefix: string;
+  s3AccessKeyId: string | null;
+  s3EnabledAt: Date | null;
+  s3PublicNamespace: string | null;
+  s3PublicBaseUrl: string | null;
   scopes: ApiKeyScope[];
   createdAt: Date;
   lastUsedAt: Date | null;
@@ -56,6 +65,8 @@ export interface ApiKeySummary {
 export interface AuthenticatedApiKey {
   id: string;
   userId: string;
+  name: string;
+  clientLabel: string | null;
   prefix: string;
   scopes: ApiKeyScope[];
 }
@@ -77,6 +88,42 @@ function normalizeApiKeyName(name: string): string {
     );
   }
 
+  return normalized;
+}
+
+/**
+ * A label is display-only credential metadata, never caller-supplied request
+ * attribution. Reject invisible direction controls so an owner cannot create a
+ * misleading key label in the library or admin ledger.
+ */
+export function normalizeApiKeyClientLabel(
+  value: string | null | undefined,
+): string | null {
+  if (value === null || value === undefined) return null;
+  const normalized = value.normalize("NFC").trim().replace(/\s+/gu, " ");
+  if (normalized.length === 0) return null;
+
+  const unsafe = Array.from(normalized).some((character) => {
+    const code = character.codePointAt(0) ?? 0;
+    return (
+      code <= 0x1f ||
+      (code >= 0x7f && code <= 0x9f) ||
+      code === 0x061c ||
+      code === 0x200e ||
+      code === 0x200f ||
+      (code >= 0x202a && code <= 0x202e) ||
+      (code >= 0x2066 && code <= 0x2069)
+    );
+  });
+
+  if (
+    Array.from(normalized).length > API_KEY_CLIENT_LABEL_MAX_LENGTH ||
+    unsafe
+  ) {
+    throw new ApiKeyInputError(
+      "Client label must be at most 80 safe characters",
+    );
+  }
   return normalized;
 }
 
@@ -156,6 +203,7 @@ export async function createApiKey(
   input: CreateApiKeyInput,
 ): Promise<CreatedApiKey> {
   const name = normalizeApiKeyName(input.name);
+  const clientLabel = normalizeApiKeyClientLabel(input.clientLabel);
   let scopes: ApiKeyScope[];
   try {
     scopes = normalizeApiKeyScopes(input.scopes);
@@ -201,6 +249,7 @@ export async function createApiKey(
             id,
             userId: input.userId,
             name,
+            clientLabel,
             prefix: generated.displayPrefix,
             secretHash: generated.secretHash,
             scopes,
@@ -209,6 +258,7 @@ export async function createApiKey(
           select: {
             id: true,
             name: true,
+            clientLabel: true,
             prefix: true,
             scopes: true,
             createdAt: true,
@@ -243,7 +293,11 @@ export async function listApiKeys(userId: string): Promise<ApiKeySummary[]> {
     select: {
       id: true,
       name: true,
+      clientLabel: true,
       prefix: true,
+      s3AccessKeyId: true,
+      s3EnabledAt: true,
+      s3PublicNamespace: true,
       scopes: true,
       createdAt: true,
       lastUsedAt: true,
@@ -255,13 +309,33 @@ export async function listApiKeys(userId: string): Promise<ApiKeySummary[]> {
   return rows.map((row) => ({
     id: row.id,
     name: row.name,
+    clientLabel: row.clientLabel,
     prefix: row.prefix,
+    s3AccessKeyId: row.s3AccessKeyId,
+    s3EnabledAt: row.s3EnabledAt,
+    s3PublicNamespace: row.s3PublicNamespace,
+    s3PublicBaseUrl: row.s3PublicNamespace
+      ? describeS3Credential(row.s3PublicNamespace).publicBaseUrl
+      : null,
     scopes: knownScopes(row.scopes),
     createdAt: row.createdAt,
     lastUsedAt: row.lastUsedAt,
     expiresAt: row.expiresAt,
     revokedAt: row.revokedAt,
   }));
+}
+
+export async function updateApiKeyClientLabel(input: {
+  userId: string;
+  apiKeyId: string;
+  clientLabel: string | null;
+}): Promise<boolean> {
+  const clientLabel = normalizeApiKeyClientLabel(input.clientLabel);
+  const result = await db.apiKey.updateMany({
+    where: { id: input.apiKeyId, userId: input.userId },
+    data: { clientLabel },
+  });
+  return result.count === 1;
 }
 
 export async function revokeApiKey(
@@ -290,6 +364,8 @@ export async function resolveApiKeyIdentity(
     select: {
       id: true,
       userId: true,
+      name: true,
+      clientLabel: true,
       prefix: true,
       scopes: true,
       expiresAt: true,
@@ -320,6 +396,8 @@ export async function resolveApiKeyIdentity(
   return {
     id: row.id,
     userId: row.userId,
+    name: row.name,
+    clientLabel: row.clientLabel,
     prefix: row.prefix,
     scopes,
   };
