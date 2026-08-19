@@ -93,8 +93,8 @@ function S3CredentialDialog({
   }
 
   return (
-    <div className="border-border bg-sunken/45 mt-3 rounded-lg border p-3">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="border-border mt-3 border-t pt-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="flex items-center gap-2 text-sm font-medium">
             {enabled ? (
@@ -105,7 +105,7 @@ function S3CredentialDialog({
                 className="text-muted-foreground size-4"
               />
             )}
-            S3 upload credential
+            Shottr / S3
             <span
               className={
                 "rounded-full border px-2 py-0.5 text-[0.625rem] font-semibold tracking-wide uppercase " +
@@ -117,17 +117,17 @@ function S3CredentialDialog({
               {enabled ? "Enabled" : "Not enabled"}
             </span>
           </p>
-          <p className="text-muted-foreground mt-1 text-xs">
-            {enabled
-              ? "The secret is hidden. Rotate only when you can update the client immediately."
-              : "Generate a separate Access Key ID and one-time Secret Access Key for Shottr or another compatible S3 client."}
-          </p>
+          {enabled ? (
+            <p className="text-muted-foreground mt-1 truncate font-mono text-xs">
+              {accessKeyId}
+            </p>
+          ) : null}
         </div>
 
         <Dialog open={open} onOpenChange={changeOpen}>
           <DialogTrigger asChild>
             <button type="button" className={buttonCompact}>
-              {enabled ? "Rotate S3" : "Enable S3"}
+              {enabled ? "Rotate credential" : "Set up Shottr"}
             </button>
           </DialogTrigger>
           <DialogContent
@@ -155,12 +155,10 @@ function S3CredentialDialog({
       </div>
 
       {enabled ? (
-        <dl className="border-border mt-3 grid gap-2 border-t pt-3 text-xs sm:grid-cols-2">
+        <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
           <SafeFact label="Access Key ID" value={accessKeyId!} code copy />
-          <SafeFact label="Enabled" value={enabledAt!} />
-          <SafeFact label="Namespace" value={publicNamespace!} code />
           <SafeFact
-            label="Public bucket URL"
+            label="Public Bucket URL"
             value={publicBaseUrl!}
             code
             copy
@@ -171,7 +169,7 @@ function S3CredentialDialog({
         href="/docs/s3-shottr"
         className="text-accent mt-3 inline-flex text-xs font-medium underline-offset-4 hover:underline"
       >
-        Shottr setup guide
+        Shottr guide
       </Link>
     </div>
   );
@@ -192,12 +190,12 @@ function CredentialConfirmation({
     <>
       <DialogHeader>
         <DialogTitle>
-          {enabled ? "Rotate the S3 credential?" : "Enable S3 uploads?"}
+          {enabled ? "Rotate this credential?" : "Set up Shottr / S3?"}
         </DialogTitle>
         <DialogDescription>
           {enabled
-            ? "Rotation immediately replaces the Access Key ID and Secret Access Key used by Shottr. Existing public media links keep working."
-            : "Seedyn will create an Access Key ID and show its Secret Access Key once for client setup."}
+            ? "The current client disconnects immediately. Existing media links keep working."
+            : "Seedyn creates an Access Key and shows its secret once."}
         </DialogDescription>
       </DialogHeader>
 
@@ -207,10 +205,7 @@ function CredentialConfirmation({
             aria-hidden="true"
             className="text-danger mt-0.5 size-4 shrink-0"
           />
-          <p>
-            The current S3 credential will stop authenticating as soon as you
-            rotate it. Keep this dialog open until the replacement is saved.
-          </p>
+          <p>Save the replacement before closing this dialog.</p>
         </div>
       ) : null}
 
@@ -232,8 +227,8 @@ function CredentialConfirmation({
         <form action={action}>
           <input type="hidden" name="apiKeyId" value={apiKeyId} />
           <HydratedSubmitButton
-            label={enabled ? "Rotate credential" : "Enable and reveal"}
-            pendingLabel={enabled ? "Rotating…" : "Enabling…"}
+            label={enabled ? "Rotate credential" : "Create credential"}
+            pendingLabel={enabled ? "Rotating…" : "Creating…"}
             className={buttonPrimary}
           />
         </form>
@@ -253,17 +248,25 @@ function CredentialReveal({
   useEffect(() => {
     headingRef.current?.focus();
   }, []);
+  const setup = [
+    "Access key: " + state.accessKeyId,
+    "Secret key: " + state.secretAccessKey,
+    "Bucket: " + state.bucket,
+    "Service: Other",
+    "Region: auto",
+    "Endpoint: " + state.endpoint,
+    "Link sharing: Generate Public Bucket URL",
+    "Public Bucket URL: " + state.publicBaseUrl,
+  ].join("\n");
 
   return (
     <>
       <DialogHeader>
         <DialogTitle ref={headingRef} tabIndex={-1}>
-          Save the S3 credential now
+          Save this credential
         </DialogTitle>
         <DialogDescription>
-          The Secret Access Key is shown only in this action result. Closing
-          this dialog destroys the reveal; recovering it requires another
-          rotation.
+          Shown once. Rotating it later disconnects the current client.
         </DialogDescription>
       </DialogHeader>
 
@@ -276,13 +279,18 @@ function CredentialReveal({
           aria-hidden="true"
           className="text-danger mt-0.5 size-4 shrink-0"
         />
-        <p>
-          Treat both key values as secrets. Do not paste them into chat, logs,
-          issue trackers, or a URL.
-        </p>
+        <p>Save the secret before continuing.</p>
       </div>
 
-      <dl className="space-y-3">
+      <div className="flex justify-end">
+        <CopyButton
+          value={setup}
+          label="Copy complete client setup"
+          text="Copy setup"
+        />
+      </div>
+
+      <dl className="grid gap-3 sm:grid-cols-2">
         <CredentialValue label="Access Key ID" value={state.accessKeyId} />
         <CredentialValue
           label="Secret Access Key"
@@ -290,16 +298,17 @@ function CredentialReveal({
         />
         <CredentialValue label="Bucket" value={state.bucket} />
         <CredentialValue label="Endpoint" value={state.endpoint} />
+        <CredentialValue label="Service" value="Other" />
+        <CredentialValue label="Region" value="auto" />
         <CredentialValue
           label="Public Bucket URL"
           value={state.publicBaseUrl}
         />
+        <CredentialValue
+          label="Link sharing"
+          value="Generate Public Bucket URL"
+        />
       </dl>
-
-      <p className="text-muted-foreground text-xs">
-        Public namespace:{" "}
-        <code className="font-mono">{state.publicNamespace}</code>
-      </p>
 
       <DialogFooter>
         <button type="button" className={buttonPrimary} onClick={onSaved}>

@@ -24,11 +24,14 @@ const LABEL: Record<CopyState, string> = {
 export function CopyButton({
   value,
   label,
+  text,
   className = "",
 }: {
   value: string;
   /** Accessible name, e.g. "Copy URL for screenshot.png". */
   label: string;
+  /** Optional visible idle label for a primary copy action. */
+  text?: string;
   className?: string;
 }) {
   const [state, setState] = useState<CopyState>("idle");
@@ -67,7 +70,8 @@ export function CopyButton({
         }
         data-state={state}
         className={
-          "inline-flex h-11 w-20 shrink-0 items-center justify-center gap-1.5 rounded-lg border md:h-9 " +
+          "inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border md:h-9 " +
+          (text ? "min-w-20 px-3 " : "w-20 ") +
           "border-border bg-panel text-sm font-medium transition-[background-color,border-color,color,transform] duration-[120ms] " +
           "ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] motion-reduce:transform-none " +
           // The label change from "Copy" to "Copied" carries the state; the
@@ -81,7 +85,7 @@ export function CopyButton({
         }
       >
         {state === "copied" ? <CheckGlyph /> : <CopyGlyph />}
-        {LABEL[state]}
+        {state === "idle" && text ? text : LABEL[state]}
       </button>
       <span role="status" aria-live="polite" className="sr-only">
         {state === "copied"

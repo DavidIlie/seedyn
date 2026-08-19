@@ -20,6 +20,12 @@ import {
 } from "~/server/api-keys/s3-credentials";
 import { authorizeServerActionMutation } from "~/server/http/browser-mutation";
 
+import {
+  isClientPresetId,
+  presetNeedsS3,
+  type ClientPresetId,
+} from "./client-presets";
+
 /**
  * API-key mutations.
  *
@@ -40,8 +46,18 @@ export type CreateKeyState =
       slug: string;
       prefix: string;
       scopes: ApiKeyScope[];
+      preset: ClientPresetId;
       /** Present in this response only. Never persisted, never re-fetchable. */
       rawKey: string;
+      s3Credential: null | {
+        accessKeyId: string;
+        secretAccessKey: string;
+        bucket: string;
+        endpoint: string;
+        publicBaseUrl: string;
+        publicNamespace: string;
+      };
+      s3Error: string | null;
     };
 
 export async function createApiKeyAction(
@@ -61,11 +77,15 @@ export async function createApiKeyAction(
 
   const name = formData.get("name");
   const mediaDomain = formData.get("mediaDomain");
+  const presetValue = formData.get("preset");
   if (typeof name !== "string" || name.trim().length === 0) {
     return {
       status: "error",
       message: "Give the key a name you will recognise.",
     };
+  }
+  if (!isClientPresetId(presetValue)) {
+    return { status: "error", message: "Choose a client to connect." };
   }
 
   const scopes = formData
@@ -91,8 +111,38 @@ export async function createApiKeyAction(
       expiresAt,
     });
 
+    let s3Credential: Extract<
+      CreateKeyState,
+      { status: "created" }
+    >["s3Credential"] = null;
+    let s3Error: string | null = null;
+    if (presetNeedsS3(presetValue)) {
+      try {
+        const credential = await rotateS3Credential({
+          apiKeyId: created.id,
+          userId: authorization.userId,
+        });
+        const display = describeS3Credential(
+          credential.publicNamespace,
+          credential.mediaDomain,
+          credential.userDefaultMediaDomain,
+        );
+        s3Credential = {
+          accessKeyId: credential.accessKeyId,
+          secretAccessKey: credential.secretAccessKey,
+          ...display,
+        };
+      } catch (error) {
+        s3Error =
+          error instanceof S3CredentialInputError ||
+          error instanceof S3CredentialConfigurationError
+            ? error.message
+            : "The S3 credential could not be created.";
+      }
+    }
+
     // The list below is server-rendered, so re-read it rather than splicing a
-    // row in on the client.
+    // row in on the client. Refresh after the optional S3 credential exists.
     refresh();
 
     return {
@@ -102,7 +152,10 @@ export async function createApiKeyAction(
       slug: created.slug,
       prefix: created.prefix,
       scopes: created.scopes,
+      preset: presetValue,
       rawKey: created.rawKey,
+      s3Credential,
+      s3Error,
     };
   } catch (error) {
     // `createApiKey` throws on a duplicate name, a bad name, or an unknown

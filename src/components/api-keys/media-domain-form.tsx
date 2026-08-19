@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 
 import { HydratedSubmitButton } from "~/components/ui/hydrated-submit-button";
-import { buttonCompact, inputBase } from "~/components/ui/styles";
+import { buttonCompact, inputBase, labelBase } from "~/components/ui/styles";
 import type { MediaDomainChoice } from "~/server/media/origin-preferences";
 
 import {
@@ -26,29 +26,31 @@ export function KeyMediaDomainForm({
   );
 
   return (
-    <form action={action} className="mt-2 flex flex-wrap items-center gap-2">
+    <form action={action} className="space-y-2">
       <input type="hidden" name="apiKeyId" value={apiKeyId} />
-      <label htmlFor={`key-domain-${apiKeyId}`} className="sr-only">
-        Media domain for future uploads
+      <label htmlFor={`key-domain-${apiKeyId}`} className={labelBase}>
+        Link domain
       </label>
-      <select
-        id={`key-domain-${apiKeyId}`}
-        name="mediaDomain"
-        defaultValue={mediaDomain ?? ""}
-        className={`${inputBase} max-w-64`}
-      >
-        <option value="">Account default</option>
-        {mediaDomains.map((domain) => (
-          <option key={domain.id} value={domain.id}>
-            {domain.host}
-          </option>
-        ))}
-      </select>
-      <HydratedSubmitButton
-        label="Save domain"
-        pendingLabel="Saving…"
-        className={buttonCompact}
-      />
+      <div className="flex gap-2">
+        <select
+          id={`key-domain-${apiKeyId}`}
+          name="mediaDomain"
+          defaultValue={mediaDomain ?? ""}
+          className={inputBase}
+        >
+          <option value="">Account default</option>
+          {mediaDomains.map((domain) => (
+            <option key={domain.id} value={domain.id}>
+              {domain.host}
+            </option>
+          ))}
+        </select>
+        <HydratedSubmitButton
+          label="Save"
+          pendingLabel="Saving…"
+          className={buttonCompact}
+        />
+      </div>
       {state.status !== "idle" ? (
         <span
           role={state.status === "error" ? "alert" : "status"}
