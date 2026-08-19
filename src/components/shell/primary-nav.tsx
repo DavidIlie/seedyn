@@ -72,7 +72,7 @@ export function PrimaryNav({
         </summary>
         <nav
           aria-label="Primary"
-          className="border-border bg-panel absolute top-full right-0 z-50 mt-2 w-64 rounded-xl border p-1.5"
+          className="border-border bg-panel fixed top-[4.5rem] right-4 left-4 z-50 rounded-xl border p-1.5 min-[480px]:absolute min-[480px]:top-full min-[480px]:right-0 min-[480px]:left-auto min-[480px]:mt-2 min-[480px]:w-64"
         >
           <ul>
             {NAV_DESTINATIONS.map((destination) => {

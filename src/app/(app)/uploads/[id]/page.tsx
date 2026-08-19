@@ -81,7 +81,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
     <>
       <UrlHeading url={url} />
 
-      <div className="mt-6 grid gap-6 md:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="space-y-6">
           {upload.kind === "TEXT" && upload.state === "READY" ? (
             <TextReadView upload={upload} userId={user.id} />
@@ -112,7 +112,11 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
             contentType={upload.contentType}
             extension={upload.extension}
             sourceUrl={url}
-            storedGifUrl={gif ? publicUrl(gif.publicSlug, gif.extension) : null}
+            storedGifUrl={
+              gif
+                ? publicUrl(gif.publicSlug, gif.extension, upload.mediaOrigin)
+                : null
+            }
             storedGifBytes={gif?.byteSize ?? null}
             passwordProtected={upload.passwordProtected}
           />
@@ -139,7 +143,7 @@ function DetailSkeleton() {
   return (
     <>
       <UrlHeadingSkeleton />
-      <div className="mt-6 grid gap-6 md:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="space-y-6">
           <UploadPreviewSkeleton />
           <div>

@@ -1,10 +1,14 @@
 import { isIP } from "node:net";
 
+import {
+  parseMediaDomainCatalog,
+  resolveMediaHostAllowlist,
+} from "../src/lib/media-domains.js";
+
 const required = [
   "APP_URL",
   "CDN_URL",
   "APP_HOSTS",
-  "MEDIA_HOSTS",
   "DATABASE_URL",
   "REDIS_URL",
   "MINIO_URL",
@@ -76,9 +80,21 @@ export function assertProductionEnvironment() {
   const port = process.env.MINIO_PORT ?? "";
   const proxyHops = process.env.TRUSTED_PROXY_HOPS ?? "";
   const secure = (process.env.MINIO_SECURE ?? "").toLowerCase();
+  let mediaDomainsValid = true;
+  try {
+    const mediaDomainCatalog = parseMediaDomainCatalog({
+      fallbackOrigin: process.env.CDN_URL ?? "",
+      serialized: process.env.MEDIA_DOMAINS,
+    });
+    resolveMediaHostAllowlist(mediaDomainCatalog, process.env.MEDIA_HOSTS);
+  } catch {
+    mediaDomainsValid = false;
+  }
+
   if (
     !validOrigin(process.env.APP_URL) ||
     !validOrigin(process.env.CDN_URL) ||
+    !mediaDomainsValid ||
     !validUrl(process.env.DATABASE_URL) ||
     !validUrl(process.env.REDIS_URL) ||
     !/^\d{1,5}$/u.test(port) ||

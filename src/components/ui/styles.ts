@@ -39,6 +39,7 @@ export const inputBase =
 export const panelSurface =
   "overflow-hidden rounded-xl border border-border bg-panel";
 
-export const labelBase = "text-sm font-medium text-foreground";
+export const labelBase =
+  "block max-w-full text-sm font-medium text-foreground break-words";
 
 export const hintText = "text-sm text-muted-foreground";

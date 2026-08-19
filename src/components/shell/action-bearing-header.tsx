@@ -20,7 +20,7 @@ export async function ActionBearingHeader() {
   return (
     <>
       <CurrentRouteNav />
-      <UploadAction className="lg:ml-auto" />
+      <UploadAction className="lg:ml-auto" compactOnNarrow />
       {user ? (
         <AccountMenu
           identity={{

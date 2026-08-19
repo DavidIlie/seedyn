@@ -6,12 +6,14 @@ import { KeyList, KeyListSkeleton } from "~/components/api-keys/key-list";
 import { requireSessionUser } from "~/components/data/session";
 import { PageHeader } from "~/components/ui/page-header";
 import { listApiKeys } from "~/server/api-keys";
+import { listMediaDomainChoices } from "~/server/media/origin-preferences";
 
 export const metadata: Metadata = { title: "API keys" };
 
 export const instant = true;
 
 export default function ApiKeysPage() {
+  const mediaDomains = listMediaDomainChoices();
   return (
     <>
       <PageHeader
@@ -30,7 +32,7 @@ export default function ApiKeysPage() {
             that key to generate its separate Access Key ID and one-time Secret
             Access Key.
           </p>
-          <CreateKey />
+          <CreateKey mediaDomains={mediaDomains} />
         </section>
 
         <section aria-labelledby="keys-heading">
@@ -38,7 +40,7 @@ export default function ApiKeysPage() {
             Your keys
           </h2>
           <Suspense fallback={<KeyListSkeleton />}>
-            <Keys />
+            <Keys mediaDomains={mediaDomains} />
           </Suspense>
         </section>
       </div>
@@ -46,8 +48,12 @@ export default function ApiKeysPage() {
   );
 }
 
-async function Keys() {
+async function Keys({
+  mediaDomains,
+}: {
+  mediaDomains: ReturnType<typeof listMediaDomainChoices>;
+}) {
   const user = await requireSessionUser();
   const keys = await listApiKeys(user.id);
-  return <KeyList keys={keys} />;
+  return <KeyList keys={keys} mediaDomains={mediaDomains} />;
 }

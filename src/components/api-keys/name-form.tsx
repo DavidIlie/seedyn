@@ -5,39 +5,36 @@ import { useActionState } from "react";
 import { HydratedSubmitButton } from "~/components/ui/hydrated-submit-button";
 import { buttonCompact, inputBase } from "~/components/ui/styles";
 
-import {
-  updateApiKeyClientLabelAction,
-  type UpdateKeyLabelState,
-} from "./actions";
+import { updateApiKeyNameAction, type UpdateKeyNameState } from "./actions";
 
-export function ClientLabelForm({
+export function KeyNameForm({
   apiKeyId,
-  clientLabel,
+  name,
 }: {
   apiKeyId: string;
-  clientLabel: string | null;
+  name: string;
 }) {
-  const [state, action] = useActionState<UpdateKeyLabelState, FormData>(
-    updateApiKeyClientLabelAction,
+  const [state, action] = useActionState<UpdateKeyNameState, FormData>(
+    updateApiKeyNameAction,
     { status: "idle" },
   );
 
   return (
     <form action={action} className="mt-2 flex flex-wrap items-center gap-2">
       <input type="hidden" name="apiKeyId" value={apiKeyId} />
-      <label htmlFor={`client-label-${apiKeyId}`} className="sr-only">
-        Device label
+      <label htmlFor={`key-name-${apiKeyId}`} className="sr-only">
+        Credential name
       </label>
       <input
-        id={`client-label-${apiKeyId}`}
-        name="clientLabel"
+        id={`key-name-${apiKeyId}`}
+        name="name"
+        required
         maxLength={80}
-        defaultValue={clientLabel ?? ""}
-        placeholder="Device label"
-        className={`${inputBase} max-w-56`}
+        defaultValue={name}
+        className={`${inputBase} max-w-64`}
       />
       <HydratedSubmitButton
-        label="Save label"
+        label="Save name"
         pendingLabel="Saving…"
         className={buttonCompact}
       />

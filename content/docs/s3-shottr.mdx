@@ -11,7 +11,8 @@ credentials.
 ## Generate an S3 credential
 
 1. Open **API keys** in Seedyn.
-2. Create a named key for the app or device, such as **Shottr — David laptop**.
+2. Create a named key for the app or device, such as **Shottr on David laptop**,
+   and choose its media domain.
 3. Find that key in the list and select **Enable S3**.
 4. Copy the **Access Key ID** and **Secret Access Key** from the one-time reveal.
 5. Keep the reveal open until both values are saved in the client.
@@ -24,21 +25,21 @@ key disables both credentials.
 
 Use the values from the one-time reveal:
 
-| Shottr field       | Value                                                                    |
-| ------------------ | ------------------------------------------------------------------------ |
-| Upload destination | `S3 (Amazon, Cloudflare, Backblaze, etc.)`                               |
-| Access key         | The generated Seedyn S3 access key                                       |
-| Secret key         | The generated Seedyn S3 secret key                                       |
-| Bucket             | `seedyn`                                                                 |
-| Service            | `Other`                                                                  |
-| Endpoint           | `https://seedyn.dave.tips`                                               |
-| Key prefix         | Optional, for example `screenshots/david-laptop`                         |
-| Link sharing       | `Generate Public Bucket URL`                                             |
-| Public Bucket URL  | The credential-specific `https://i.dave.tips/s3/...` URL shown by Seedyn |
+| Shottr field       | Value                                            |
+| ------------------ | ------------------------------------------------ |
+| Upload destination | `S3 (Amazon, Cloudflare, Backblaze, etc.)`       |
+| Access key         | The generated Seedyn S3 access key               |
+| Secret key         | The generated Seedyn S3 secret key               |
+| Bucket             | `seedyn`                                         |
+| Service            | `Other`                                          |
+| Endpoint           | `https://seedyn.dave.tips`                       |
+| Key prefix         | Optional, for example `screenshots/david-laptop` |
+| Link sharing       | `Generate Public Bucket URL`                     |
+| Public Bucket URL  | The credential-specific URL shown by Seedyn      |
 
-For example, name the API key **Shottr** and set its device label to **David
-laptop**. Library and admin audit views then show **S3 · Shottr — David
-laptop**, so each upload can be traced to its exact client credential.
+For example, name the API key **Shottr on David laptop**. Seedyn generates the
+identifier `shottr-on-david-laptop`, and library/admin audit views show the
+Name while retaining that immutable identifier in the upload record.
 
 ## Request shape
 
@@ -59,8 +60,9 @@ The media type is intentionally generic because Shottr sends
 than trusting that header.
 
 Shottr constructs the copied link from the Public Bucket URL and object key.
-That `i.dave.tips` alias resolves through Seedyn's normal media delivery path,
-so later password protection and deletion continue to work.
+That alias uses the API key's selected media domain and resolves through
+Seedyn's normal media delivery path, so later password protection and deletion
+continue to work.
 
 ## Supported S3 operations
 

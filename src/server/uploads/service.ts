@@ -2,7 +2,6 @@ import "server-only";
 
 import { Prisma } from "@prisma/client";
 
-import { env } from "~/env";
 import { db } from "~/server/db";
 import {
   escapePostgresLikePattern,
@@ -14,6 +13,10 @@ import {
 } from "~/lib/public-slug";
 import { gifVariantObjectKey, originalObjectKey } from "~/server/storage/keys";
 import { objectStore } from "~/server/storage/minio";
+import {
+  publicMediaUrl,
+  validMediaOrigin,
+} from "~/server/media/origin-preferences";
 import type { ObjectStore } from "~/server/storage/object-store";
 import {
   decrementUsedStorage,
@@ -56,7 +59,7 @@ type UploadServiceDependencies = {
 export type UploadCredentialProvenance = {
   id: string;
   name: string;
-  clientLabel: string | null;
+  slug: string;
 };
 
 /**
@@ -82,6 +85,7 @@ function uploadProvenanceFields(provenance: UploadProvenance) {
       origin: provenance.origin,
       apiKeyIdSnapshot: null,
       apiKeyNameSnapshot: null,
+      apiKeySlugSnapshot: null,
       clientLabelSnapshot: null,
       s3ObjectKey: null,
       s3PublicNamespaceSnapshot: null,
@@ -93,8 +97,9 @@ function uploadProvenanceFields(provenance: UploadProvenance) {
     credential.id.length === 0 ||
     credential.id.length > 128 ||
     credential.name.length === 0 ||
-    credential.name.length > 64 ||
-    (credential.clientLabel !== null && credential.clientLabel.length > 80)
+    credential.name.length > 80 ||
+    !/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(credential.slug) ||
+    credential.slug.length > 64
   ) {
     throw new DomainError("invalid_input");
   }
@@ -104,7 +109,8 @@ function uploadProvenanceFields(provenance: UploadProvenance) {
       origin: provenance.origin,
       apiKeyIdSnapshot: credential.id,
       apiKeyNameSnapshot: credential.name,
-      clientLabelSnapshot: credential.clientLabel,
+      apiKeySlugSnapshot: credential.slug,
+      clientLabelSnapshot: null,
       s3ObjectKey: null,
       s3PublicNamespaceSnapshot: null,
     } as const;
@@ -123,7 +129,8 @@ function uploadProvenanceFields(provenance: UploadProvenance) {
     origin: provenance.origin,
     apiKeyIdSnapshot: credential.id,
     apiKeyNameSnapshot: credential.name,
-    clientLabelSnapshot: credential.clientLabel,
+    apiKeySlugSnapshot: credential.slug,
+    clientLabelSnapshot: null,
     s3ObjectKey: provenance.s3.objectKey,
     s3PublicNamespaceSnapshot: provenance.s3.publicNamespace,
   } as const;
@@ -159,11 +166,6 @@ async function releaseQuotaReservation(input: {
       errorCategory: safeErrorCategory(error),
     });
   }
-}
-
-function publicUrl(publicSlug: string, extension: string): string {
-  const base = env.CDN_URL.endsWith("/") ? env.CDN_URL : `${env.CDN_URL}/`;
-  return new URL(`${publicSlug}.${extension}`, base).toString();
 }
 
 function databaseError(error: unknown): DomainError {
@@ -299,19 +301,19 @@ export async function changeOwnedUploadPublicSlug(input: {
       await lockPublicSlug(transaction, publicSlug);
       const owned = await transaction.upload.findFirst({
         where: { id: input.uploadId, userId: input.userId },
-        select: { id: true, extension: true },
+        select: { id: true, extension: true, mediaOrigin: true },
       });
       if (!owned) throw new DomainError("not_found");
       await assertPublicSlugAvailable(transaction, publicSlug, owned.id);
       return transaction.upload.update({
         where: { id: owned.id },
         data: { publicSlug },
-        select: { publicSlug: true, extension: true },
+        select: { publicSlug: true, extension: true, mediaOrigin: true },
       });
     });
     return {
       ...upload,
-      url: publicUrl(upload.publicSlug, upload.extension),
+      url: publicMediaUrl(upload),
     };
   } catch (error) {
     throw databaseError(error);
@@ -349,11 +351,17 @@ export async function createUpload(
     classification?: ClassifiedUpload;
     forcedKind?: ForcedUploadKind;
     publicSlug?: string;
+    mediaOrigin: string;
     signal?: AbortSignal;
   },
   injected?: UploadServiceDependencies,
 ) {
   const { store, audit } = dependencies(injected);
+  if (!validMediaOrigin(input.mediaOrigin)) {
+    throw new DomainError("invalid_input", {
+      message: "Choose a configured media domain.",
+    });
+  }
   const provenanceFields = uploadProvenanceFields(input.provenance);
   const classification =
     input.classification ??
@@ -470,6 +478,7 @@ export async function createUpload(
             input.file.originalName || input.file.fields.filename || "upload",
           ),
           textLanguage: classification.textLanguage,
+          mediaOrigin: input.mediaOrigin,
           ...provenanceFields,
           extension: classification.extension,
           contentType: classification.contentType,
@@ -491,7 +500,11 @@ export async function createUpload(
     });
     return {
       upload: serializeUpload(upload),
-      url: publicUrl(publicSlug, classification.extension),
+      url: publicMediaUrl({
+        publicSlug,
+        extension: classification.extension,
+        mediaOrigin: input.mediaOrigin,
+      }),
     };
   } catch (error) {
     await compensateObject({
@@ -639,12 +652,12 @@ export async function createGifVariant(
   injected?: UploadServiceDependencies,
 ) {
   const { store, audit } = dependencies(injected);
-  let source: { id: string; kind: string } | null;
+  let source: { id: string; kind: string; mediaOrigin: string | null } | null;
   let winner: Awaited<ReturnType<typeof db.uploadVariant.findFirst>>;
   try {
     source = await db.upload.findFirst({
       where: { id: input.uploadId, userId: input.userId, state: "READY" },
-      select: { id: true, kind: true },
+      select: { id: true, kind: true, mediaOrigin: true },
     });
     winner = await db.uploadVariant.findFirst({
       where: {
@@ -665,7 +678,11 @@ export async function createGifVariant(
   if (winner) {
     return {
       variant: serializeVariant(winner),
-      url: publicUrl(winner.publicSlug, winner.extension),
+      url: publicMediaUrl({
+        publicSlug: winner.publicSlug,
+        extension: winner.extension,
+        mediaOrigin: source.mediaOrigin,
+      }),
       created: false,
     };
   }
@@ -789,7 +806,11 @@ export async function createGifVariant(
     });
     return {
       variant: serializeVariant(variant),
-      url: publicUrl(publicSlug, "gif"),
+      url: publicMediaUrl({
+        publicSlug,
+        extension: "gif",
+        mediaOrigin: source.mediaOrigin,
+      }),
       created: true,
     };
   } catch (error) {
@@ -823,7 +844,11 @@ export async function createGifVariant(
       if (existing) {
         return {
           variant: serializeVariant(existing),
-          url: publicUrl(existing.publicSlug, existing.extension),
+          url: publicMediaUrl({
+            publicSlug: existing.publicSlug,
+            extension: existing.extension,
+            mediaOrigin: source.mediaOrigin,
+          }),
           created: false,
         };
       }

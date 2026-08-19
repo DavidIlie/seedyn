@@ -1,5 +1,10 @@
 import { isIP } from "node:net";
 
+import {
+  isPublicMediaExtension,
+  isPublicMediaSlug,
+} from "~/lib/media-domains.js";
+
 export type OriginRole = "app" | "media" | "unknown";
 
 // This is a request provenance marker, not a credential. Proxy sets it only
@@ -7,7 +12,7 @@ export type OriginRole = "app" | "media" | "unknown";
 // rejected before Route Handler dispatch.
 export const VERIFIED_MEDIA_REWRITE_HEADER = "x-seedyn-verified-media-rewrite";
 
-const MEDIA_PATH = /^\/([A-Za-z0-9_-]{22,64})\.([a-z0-9]{1,10})$/;
+const MEDIA_PATH = /^\/([A-Za-z0-9_-]{3,64})\.([a-z0-9]{1,10})$/u;
 
 function validPort(value: string | undefined): boolean {
   return (
@@ -67,5 +72,8 @@ export function parsePublicMediaPath(
 ): { slug: string; extension: string } | null {
   const match = MEDIA_PATH.exec(pathname);
   if (!match?.[1] || !match[2]) return null;
+  if (!isPublicMediaSlug(match[1]) || !isPublicMediaExtension(match[2])) {
+    return null;
+  }
   return { slug: match[1], extension: match[2] };
 }

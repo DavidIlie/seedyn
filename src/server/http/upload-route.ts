@@ -4,6 +4,7 @@ import { parseApiKeyAuthorization } from "~/server/api-keys/authorization";
 import type { ApiKeyScope } from "~/server/api-keys/constants";
 import { resolveApiKeyIdentity } from "~/server/api-keys/service";
 import { domainErrorResponse } from "~/server/http/errors";
+import { resolveMediaDomainPreference } from "~/server/media/origin-preferences";
 import {
   checkAuthenticatedUploadRateLimit,
   checkAuthenticationRateLimit,
@@ -195,13 +196,17 @@ export async function handleMachineUpload(
 
     const result = await createUpload({
       userId: key.userId,
+      mediaOrigin: resolveMediaDomainPreference(
+        key.mediaDomain,
+        key.userDefaultMediaDomain,
+      ).origin,
       file,
       provenance: {
         origin: route.origin,
         credential: {
           id: key.id,
           name: key.name,
-          clientLabel: key.clientLabel,
+          slug: key.slug,
         },
       },
       classification,

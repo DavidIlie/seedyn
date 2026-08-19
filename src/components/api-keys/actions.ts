@@ -7,7 +7,8 @@ import {
   ApiKeyInputError,
   isApiKeyScope,
   revokeApiKey,
-  updateApiKeyClientLabel,
+  updateApiKeyMediaDomain,
+  updateApiKeyName,
   type ApiKeyScope,
 } from "~/server/api-keys";
 import { expiryDateFromChoice } from "~/server/api-keys/expiry";
@@ -36,6 +37,7 @@ export type CreateKeyState =
       status: "created";
       id: string;
       name: string;
+      slug: string;
       prefix: string;
       scopes: ApiKeyScope[];
       /** Present in this response only. Never persisted, never re-fetchable. */
@@ -58,7 +60,7 @@ export async function createApiKeyAction(
   }
 
   const name = formData.get("name");
-  const clientLabel = formData.get("clientLabel");
+  const mediaDomain = formData.get("mediaDomain");
   if (typeof name !== "string" || name.trim().length === 0) {
     return {
       status: "error",
@@ -84,7 +86,7 @@ export async function createApiKeyAction(
     const created = await createApiKey({
       userId: authorization.userId,
       name,
-      clientLabel: typeof clientLabel === "string" ? clientLabel : null,
+      mediaDomain: typeof mediaDomain === "string" ? mediaDomain : null,
       scopes,
       expiresAt,
     });
@@ -97,6 +99,7 @@ export async function createApiKeyAction(
       status: "created",
       id: created.id,
       name: created.name,
+      slug: created.slug,
       prefix: created.prefix,
       scopes: created.scopes,
       rawKey: created.rawKey,
@@ -114,10 +117,12 @@ export async function createApiKeyAction(
   }
 }
 
-export type UpdateKeyLabelState =
+export type UpdateKeyNameState =
   | { status: "idle" }
   | { status: "saved"; message: string }
   | { status: "error"; message: string };
+
+export type UpdateKeyDomainState = UpdateKeyNameState;
 
 export type S3CredentialState =
   | { status: "idle" }
@@ -161,7 +166,11 @@ export async function rotateS3CredentialAction(
       apiKeyId,
       userId: authorization.userId,
     });
-    const display = describeS3Credential(credential.publicNamespace);
+    const display = describeS3Credential(
+      credential.publicNamespace,
+      credential.mediaDomain,
+      credential.userDefaultMediaDomain,
+    );
     refresh();
     return {
       status: "revealed",
@@ -181,10 +190,10 @@ export async function rotateS3CredentialAction(
   }
 }
 
-export async function updateApiKeyClientLabelAction(
-  _previous: UpdateKeyLabelState,
+export async function updateApiKeyNameAction(
+  _previous: UpdateKeyNameState,
   formData: FormData,
-): Promise<UpdateKeyLabelState> {
+): Promise<UpdateKeyNameState> {
   const authorization = await authorizeServerActionMutation();
   if (authorization instanceof Response) {
     return {
@@ -197,21 +206,21 @@ export async function updateApiKeyClientLabelAction(
   }
 
   const apiKeyId = formData.get("apiKeyId");
-  const clientLabel = formData.get("clientLabel");
+  const name = formData.get("name");
   if (
     typeof apiKeyId !== "string" ||
     apiKeyId.length === 0 ||
     apiKeyId.length > 128 ||
-    typeof clientLabel !== "string"
+    typeof name !== "string"
   ) {
-    return { status: "error", message: "The label could not be saved." };
+    return { status: "error", message: "The name could not be saved." };
   }
 
   try {
-    const updated = await updateApiKeyClientLabel({
+    const updated = await updateApiKeyName({
       userId: authorization.userId,
       apiKeyId,
-      clientLabel,
+      name,
     });
     if (!updated) {
       return { status: "error", message: "The API key was not found." };
@@ -219,9 +228,7 @@ export async function updateApiKeyClientLabelAction(
     refresh();
     return {
       status: "saved",
-      message: clientLabel.trim()
-        ? "Device label saved."
-        : "Device label removed.",
+      message: "Name saved. The identifier stays unchanged.",
     };
   } catch (error) {
     return {
@@ -229,7 +236,60 @@ export async function updateApiKeyClientLabelAction(
       message:
         error instanceof ApiKeyInputError
           ? error.message
-          : "The label could not be saved.",
+          : "The name could not be saved.",
+    };
+  }
+}
+
+export async function updateApiKeyMediaDomainAction(
+  _previous: UpdateKeyDomainState,
+  formData: FormData,
+): Promise<UpdateKeyDomainState> {
+  const authorization = await authorizeServerActionMutation();
+  if (authorization instanceof Response) {
+    return {
+      status: "error",
+      message:
+        authorization.status === 429
+          ? "Too many key changes. Wait a moment."
+          : "Your session or request origin could not be verified.",
+    };
+  }
+
+  const apiKeyId = formData.get("apiKeyId");
+  const mediaDomain = formData.get("mediaDomain");
+  if (
+    typeof apiKeyId !== "string" ||
+    apiKeyId.length === 0 ||
+    apiKeyId.length > 128 ||
+    typeof mediaDomain !== "string"
+  ) {
+    return { status: "error", message: "The media domain could not be saved." };
+  }
+
+  try {
+    const updated = await updateApiKeyMediaDomain({
+      userId: authorization.userId,
+      apiKeyId,
+      mediaDomain,
+    });
+    if (!updated) {
+      return { status: "error", message: "The API key was not found." };
+    }
+    refresh();
+    return {
+      status: "saved",
+      message: mediaDomain
+        ? "Future uploads will use this domain."
+        : "Future uploads will follow the account default.",
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message:
+        error instanceof ApiKeyInputError
+          ? error.message
+          : "The media domain could not be saved.",
     };
   }
 }

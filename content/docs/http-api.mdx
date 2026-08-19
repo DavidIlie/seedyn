@@ -29,6 +29,9 @@ The canonical endpoint returns HTTP 201:
 }
 ```
 
+The returned origin follows the API key's **Media domain** setting, then the
+account default. Changing either setting affects future uploads only.
+
 Errors are JSON with `error.code`, `error.message`, and a safe request id.
 Rate-limit responses include `Retry-After`. Dependency failure before body
 parsing returns a safe 503.

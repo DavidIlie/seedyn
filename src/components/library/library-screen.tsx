@@ -176,7 +176,11 @@ async function Rows({
         ...page,
         items: page.items.map((upload) => ({
           ...upload,
-          url: publicUrl(upload.publicSlug, upload.extension),
+          url: publicUrl(
+            upload.publicSlug,
+            upload.extension,
+            upload.mediaOrigin,
+          ),
         })),
       }}
       fallbackNextHref={

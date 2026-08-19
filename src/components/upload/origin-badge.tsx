@@ -21,9 +21,7 @@ export function uploadProvenanceLabel(
   const origin = uploadOriginLabel(provenance.origin);
   const credential = provenance.credential;
   if (!credential) return origin;
-  return credential.clientLabel
-    ? `${origin} · ${credential.name} — ${credential.clientLabel}`
-    : `${origin} · ${credential.name}`;
+  return `${origin} · ${credential.name}`;
 }
 
 export function UploadOriginBadge({

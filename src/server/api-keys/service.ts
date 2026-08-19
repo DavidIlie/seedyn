@@ -3,7 +3,9 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 
+import { apiKeySlugBase } from "~/lib/api-key-slug";
 import { db } from "~/server/db";
+import { validMediaDomainId } from "~/server/media/origin-preferences";
 
 import {
   isApiKeyScope,
@@ -13,8 +15,7 @@ import {
 import { generateApiKey, hashApiKey, parseApiKey } from "./key-format";
 import { describeS3Credential } from "./s3-credentials";
 
-const API_KEY_NAME_MAX_LENGTH = 64;
-const API_KEY_CLIENT_LABEL_MAX_LENGTH = 80;
+const API_KEY_NAME_MAX_LENGTH = 80;
 const MAX_ACTIVE_API_KEYS_PER_USER = 10;
 const MAX_API_KEY_HISTORY_PER_USER = 100;
 const INACTIVE_API_KEY_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
@@ -30,7 +31,7 @@ export class ApiKeyInputError extends Error {
 export interface CreateApiKeyInput {
   userId: string;
   name: string;
-  clientLabel?: string | null;
+  mediaDomain?: string | null;
   scopes: readonly string[];
   expiresAt?: Date | null;
 }
@@ -38,7 +39,8 @@ export interface CreateApiKeyInput {
 export interface CreatedApiKey {
   id: string;
   name: string;
-  clientLabel: string | null;
+  slug: string;
+  mediaDomain: string | null;
   prefix: string;
   scopes: ApiKeyScope[];
   createdAt: Date;
@@ -49,7 +51,8 @@ export interface CreatedApiKey {
 export interface ApiKeySummary {
   id: string;
   name: string;
-  clientLabel: string | null;
+  slug: string;
+  mediaDomain: string | null;
   prefix: string;
   s3AccessKeyId: string | null;
   s3EnabledAt: Date | null;
@@ -66,43 +69,15 @@ export interface AuthenticatedApiKey {
   id: string;
   userId: string;
   name: string;
-  clientLabel: string | null;
+  slug: string;
+  mediaDomain: string | null;
+  userDefaultMediaDomain: string | null;
   prefix: string;
   scopes: ApiKeyScope[];
 }
 
 function normalizeApiKeyName(name: string): string {
-  const normalized = name.normalize("NFC").trim().replace(/\s+/g, " ");
-  const hasControlCharacter = Array.from(normalized).some((character) => {
-    const code = character.codePointAt(0) ?? 0;
-    return code <= 0x1f || code === 0x7f;
-  });
-
-  if (
-    normalized.length === 0 ||
-    normalized.length > API_KEY_NAME_MAX_LENGTH ||
-    hasControlCharacter
-  ) {
-    throw new ApiKeyInputError(
-      "API key name must be between 1 and 64 safe characters",
-    );
-  }
-
-  return normalized;
-}
-
-/**
- * A label is display-only credential metadata, never caller-supplied request
- * attribution. Reject invisible direction controls so an owner cannot create a
- * misleading key label in the library or admin ledger.
- */
-export function normalizeApiKeyClientLabel(
-  value: string | null | undefined,
-): string | null {
-  if (value === null || value === undefined) return null;
-  const normalized = value.normalize("NFC").trim().replace(/\s+/gu, " ");
-  if (normalized.length === 0) return null;
-
+  const normalized = name.normalize("NFC").trim().replace(/\s+/gu, " ");
   const unsafe = Array.from(normalized).some((character) => {
     const code = character.codePointAt(0) ?? 0;
     return (
@@ -117,13 +92,15 @@ export function normalizeApiKeyClientLabel(
   });
 
   if (
-    Array.from(normalized).length > API_KEY_CLIENT_LABEL_MAX_LENGTH ||
+    normalized.length === 0 ||
+    Array.from(normalized).length > API_KEY_NAME_MAX_LENGTH ||
     unsafe
   ) {
     throw new ApiKeyInputError(
-      "Client label must be at most 80 safe characters",
+      "Name must be between 1 and 80 safe characters.",
     );
   }
+
   return normalized;
 }
 
@@ -143,7 +120,7 @@ function inactiveApiKeyWhere(
 
 async function pruneInactiveApiKeyHistory(
   transaction: Prisma.TransactionClient,
-  input: { userId: string; name: string; now: Date },
+  input: { userId: string; now: Date },
 ): Promise<void> {
   const staleBefore = new Date(
     input.now.getTime() - INACTIVE_API_KEY_RETENTION_MS,
@@ -159,15 +136,6 @@ async function pruneInactiveApiKeyHistory(
         { revokedAt: { lte: staleBefore } },
         { revokedAt: null, expiresAt: { lte: staleBefore } },
       ],
-    },
-  });
-
-  // A terminal row must not squat a human-readable name forever. The active
-  // row, if any, remains protected by the database uniqueness constraint.
-  await transaction.apiKey.deleteMany({
-    where: {
-      name: input.name,
-      ...inactiveApiKeyWhere(input.userId, input.now),
     },
   });
 
@@ -199,11 +167,40 @@ async function pruneInactiveApiKeyHistory(
   });
 }
 
+async function allocateApiKeySlug(
+  transaction: Prisma.TransactionClient,
+  userId: string,
+  name: string,
+): Promise<string> {
+  const base = apiKeySlugBase(name);
+  const existing = await transaction.apiKey.findMany({
+    where: {
+      userId,
+      OR: [{ slug: base }, { slug: { startsWith: `${base}-` } }],
+    },
+    select: { slug: true },
+  });
+  const taken = new Set(existing.map((row) => row.slug));
+  if (!taken.has(base)) return base;
+  for (
+    let suffix = 2;
+    suffix <= MAX_API_KEY_HISTORY_PER_USER + 1;
+    suffix += 1
+  ) {
+    const candidate = `${base}-${suffix}`;
+    if (!taken.has(candidate)) return candidate;
+  }
+  throw new ApiKeyInputError("A unique key identifier could not be allocated.");
+}
+
 export async function createApiKey(
   input: CreateApiKeyInput,
 ): Promise<CreatedApiKey> {
   const name = normalizeApiKeyName(input.name);
-  const clientLabel = normalizeApiKeyClientLabel(input.clientLabel);
+  const mediaDomain = input.mediaDomain?.trim() || null;
+  if (mediaDomain && !validMediaDomainId(mediaDomain)) {
+    throw new ApiKeyInputError("Choose a configured media domain.");
+  }
   let scopes: ApiKeyScope[];
   try {
     scopes = normalizeApiKeyScopes(input.scopes);
@@ -227,7 +224,6 @@ export async function createApiKey(
       async (transaction) => {
         await pruneInactiveApiKeyHistory(transaction, {
           userId: input.userId,
-          name,
           now,
         });
 
@@ -244,12 +240,14 @@ export async function createApiKey(
           );
         }
 
+        const slug = await allocateApiKeySlug(transaction, input.userId, name);
         return transaction.apiKey.create({
           data: {
             id,
             userId: input.userId,
             name,
-            clientLabel,
+            slug,
+            mediaDomain,
             prefix: generated.displayPrefix,
             secretHash: generated.secretHash,
             scopes,
@@ -258,7 +256,8 @@ export async function createApiKey(
           select: {
             id: true,
             name: true,
-            clientLabel: true,
+            slug: true,
+            mediaDomain: true,
             prefix: true,
             scopes: true,
             createdAt: true,
@@ -273,7 +272,9 @@ export async function createApiKey(
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"
     ) {
-      throw new ApiKeyInputError("An API key with that name already exists.");
+      throw new ApiKeyInputError(
+        "That identifier was just taken. Submit again to create the next available identifier.",
+      );
     }
     throw error;
   }
@@ -293,7 +294,8 @@ export async function listApiKeys(userId: string): Promise<ApiKeySummary[]> {
     select: {
       id: true,
       name: true,
-      clientLabel: true,
+      slug: true,
+      mediaDomain: true,
       prefix: true,
       s3AccessKeyId: true,
       s3EnabledAt: true,
@@ -303,19 +305,25 @@ export async function listApiKeys(userId: string): Promise<ApiKeySummary[]> {
       lastUsedAt: true,
       expiresAt: true,
       revokedAt: true,
+      user: { select: { defaultMediaDomain: true } },
     },
   });
 
   return rows.map((row) => ({
     id: row.id,
     name: row.name,
-    clientLabel: row.clientLabel,
+    slug: row.slug,
+    mediaDomain: row.mediaDomain,
     prefix: row.prefix,
     s3AccessKeyId: row.s3AccessKeyId,
     s3EnabledAt: row.s3EnabledAt,
     s3PublicNamespace: row.s3PublicNamespace,
     s3PublicBaseUrl: row.s3PublicNamespace
-      ? describeS3Credential(row.s3PublicNamespace).publicBaseUrl
+      ? describeS3Credential(
+          row.s3PublicNamespace,
+          row.mediaDomain,
+          row.user.defaultMediaDomain,
+        ).publicBaseUrl
       : null,
     scopes: knownScopes(row.scopes),
     createdAt: row.createdAt,
@@ -325,15 +333,31 @@ export async function listApiKeys(userId: string): Promise<ApiKeySummary[]> {
   }));
 }
 
-export async function updateApiKeyClientLabel(input: {
+export async function updateApiKeyName(input: {
   userId: string;
   apiKeyId: string;
-  clientLabel: string | null;
+  name: string;
 }): Promise<boolean> {
-  const clientLabel = normalizeApiKeyClientLabel(input.clientLabel);
+  const name = normalizeApiKeyName(input.name);
   const result = await db.apiKey.updateMany({
     where: { id: input.apiKeyId, userId: input.userId },
-    data: { clientLabel },
+    data: { name },
+  });
+  return result.count === 1;
+}
+
+export async function updateApiKeyMediaDomain(input: {
+  userId: string;
+  apiKeyId: string;
+  mediaDomain: string | null;
+}): Promise<boolean> {
+  const mediaDomain = input.mediaDomain?.trim() || null;
+  if (mediaDomain && !validMediaDomainId(mediaDomain)) {
+    throw new ApiKeyInputError("Choose a configured media domain.");
+  }
+  const result = await db.apiKey.updateMany({
+    where: { id: input.apiKeyId, userId: input.userId },
+    data: { mediaDomain },
   });
   return result.count === 1;
 }
@@ -365,12 +389,14 @@ export async function resolveApiKeyIdentity(
       id: true,
       userId: true,
       name: true,
-      clientLabel: true,
+      slug: true,
+      mediaDomain: true,
       prefix: true,
       scopes: true,
       expiresAt: true,
       revokedAt: true,
       lastUsedAt: true,
+      user: { select: { defaultMediaDomain: true } },
     },
   });
 
@@ -397,7 +423,9 @@ export async function resolveApiKeyIdentity(
     id: row.id,
     userId: row.userId,
     name: row.name,
-    clientLabel: row.clientLabel,
+    slug: row.slug,
+    mediaDomain: row.mediaDomain,
+    userDefaultMediaDomain: row.user.defaultMediaDomain,
     prefix: row.prefix,
     scopes,
   };

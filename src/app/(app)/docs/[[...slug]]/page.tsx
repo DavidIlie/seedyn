@@ -59,7 +59,7 @@ function ArticleSkeleton() {
     <div
       role="status"
       aria-label="Loading documentation"
-      className="mx-auto max-w-[68ch] space-y-4 px-6 py-12 [grid-area:main]"
+      className="mx-auto w-full max-w-[68ch] space-y-4 px-4 py-10 [grid-area:main] sm:px-6 sm:py-12 lg:px-8"
     >
       <div className="bg-border h-8 w-2/3 rounded" />
       <div className="bg-border h-4 w-1/2 rounded" />

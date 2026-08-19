@@ -18,7 +18,7 @@ import { PrimaryNav } from "./primary-nav";
 export function AppHeader() {
   return (
     <header className="border-border bg-panel sticky top-0 z-40 border-b">
-      <div className="mx-auto flex h-16 max-w-6xl items-center gap-2 px-4">
+      <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-2 px-4 sm:px-6 lg:px-8">
         <SeedynLogo className="mr-2" />
 
         <div className="flex min-w-0 flex-1 items-center justify-end gap-2 lg:justify-start">
@@ -47,7 +47,7 @@ function UploadActionFallback() {
   return (
     <span
       aria-hidden="true"
-      className="border-accent bg-accent text-accent-foreground inline-flex h-11 items-center gap-2 rounded-lg border px-4 text-sm font-medium lg:ml-auto lg:h-10"
+      className="border-accent bg-accent text-accent-foreground inline-flex h-11 items-center gap-2 rounded-lg border px-4 text-sm font-medium max-[390px]:size-11 max-[390px]:px-0 lg:ml-auto lg:h-10"
     >
       <svg
         width="16"
@@ -61,7 +61,7 @@ function UploadActionFallback() {
       >
         <path d="M8 11V2.75M4.75 6 8 2.75 11.25 6M2.5 10.5v2.75h11V10.5" />
       </svg>
-      Upload
+      <span className="max-[390px]:sr-only">Upload</span>
     </span>
   );
 }

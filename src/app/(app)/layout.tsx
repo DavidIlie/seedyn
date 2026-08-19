@@ -6,6 +6,7 @@ import { AppHeader } from "~/components/shell/app-header";
 import { RouteLayoutMarker } from "~/components/shell/route-layout-marker";
 import { SessionGate } from "~/components/shell/session-gate";
 import { UploadProvider } from "~/components/upload/upload-action";
+import { listMediaDomainChoices } from "~/server/media/origin-preferences";
 
 /**
  * The authenticated shell: skip link, header, main landmark.
@@ -16,10 +17,11 @@ import { UploadProvider } from "~/components/upload/upload-action";
  * navigation block.
  */
 export default function AppLayout({ children }: { children: React.ReactNode }) {
+  const mediaDomains = listMediaDomainChoices();
   return (
     <QueryProvider>
       <NavigationBlockerProvider>
-        <UploadProvider>
+        <UploadProvider mediaDomains={mediaDomains}>
           <div className="min-h-dvh">
             <a
               href="#main"
@@ -34,7 +36,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <SessionGate />
             </Suspense>
 
-            <main id="main" className="app-main mx-auto max-w-6xl px-4 pb-20">
+            <main
+              id="main"
+              className="app-main mx-auto w-full max-w-6xl px-4 pb-20 sm:px-6 lg:px-8"
+            >
               <Suspense fallback={null}>
                 <RouteLayoutMarker />
               </Suspense>

@@ -10,6 +10,10 @@ import {
   resolveOriginRole,
   VERIFIED_MEDIA_REWRITE_HEADER,
 } from "~/lib/origin";
+import {
+  parseMediaDomainCatalog,
+  resolveMediaHostAllowlist,
+} from "~/lib/media-domains.js";
 
 const APP_HOSTS = parseHostSet(
   process.env.APP_HOSTS ??
@@ -17,11 +21,24 @@ const APP_HOSTS = parseHostSet(
       ? "seedyn.dave.tips"
       : "seedyn.dave.tips,seedyn.localhost,localhost"),
 );
-const MEDIA_HOSTS = parseHostSet(
-  process.env.MEDIA_HOSTS ??
+const MEDIA_DOMAIN_CATALOG = parseMediaDomainCatalog({
+  allowHttp: process.env.NODE_ENV !== "production",
+  allowLocalHttp: true,
+  fallbackOrigin:
+    process.env.CDN_URL ??
     (process.env.NODE_ENV === "production"
-      ? "i.dave.tips"
-      : "i.dave.tips,i.localhost"),
+      ? "https://i.dave.tips"
+      : "http://i.localhost:3000"),
+  serialized: process.env.MEDIA_DOMAINS,
+});
+const MEDIA_HOSTS = new Set(
+  resolveMediaHostAllowlist(
+    MEDIA_DOMAIN_CATALOG,
+    process.env.MEDIA_HOSTS ??
+      (process.env.NODE_ENV === "production"
+        ? "i.dave.tips"
+        : "i.dave.tips,i.localhost"),
+  ),
 );
 const LIVENESS_PATH = "/api/healthz";
 const READINESS_PATH = "/api/readyz";
@@ -147,5 +164,5 @@ export const config = {
   // streaming and password form bodies under the media route's strict 2 KiB
   // reader rather than a framework clone.
   matcher:
-    "/((?!api/files/?$|api/images/?$|api/texts/?$|api/upload/?$|api/uploads/?$|api/uploads/[^/]+/gif/?$|seedyn(?:/|$)|[A-Za-z0-9_-]{22,64}\\.[a-z0-9]{1,10}/?$).*)",
+    "/((?!api/files/?$|api/images/?$|api/texts/?$|api/upload/?$|api/uploads/?$|api/uploads/[^/]+/gif/?$|seedyn(?:/|$)|[A-Za-z0-9](?:[A-Za-z0-9_-]{1,62}[A-Za-z0-9])?\\.[a-z0-9]{1,10}/?$).*)",
 };

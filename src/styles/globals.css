@@ -232,7 +232,8 @@
 @layer utilities {
   /* The marker is owned by the shared layout, so it updates with router state
      instead of remaining inside Next's hidden, retained page tree. */
-  .app-main:has(> [data-main-layout="docs"]) {
+  .app-main:has(> [data-main-layout="docs"]),
+  .app-main:not(:has(> [data-main-layout])):has(> [data-seedyn-docs]) {
     max-width: none;
     padding-inline: 0;
     padding-bottom: 0;

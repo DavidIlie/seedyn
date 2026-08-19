@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 
+import { apiKeySlugBase } from "~/lib/api-key-slug";
 import { CopyButton } from "~/components/ui/copy-button";
 import { HydratedSubmitButton } from "~/components/ui/hydrated-submit-button";
 import {
@@ -11,6 +12,7 @@ import {
   labelBase,
 } from "~/components/ui/styles";
 import { API_KEY_SCOPES, type ApiKeyScope } from "~/server/api-keys/constants";
+import type { MediaDomainChoice } from "~/server/media/origin-preferences";
 
 import { createApiKeyAction, type CreateKeyState } from "./actions";
 import { S3CredentialControl } from "./s3-credential-control";
@@ -32,7 +34,11 @@ const SCOPE_COPY: Record<ApiKeyScope, string> = {
   "upload:text": "Upload text",
 };
 
-export function CreateKey() {
+export function CreateKey({
+  mediaDomains,
+}: {
+  mediaDomains: MediaDomainChoice[];
+}) {
   const [completedName, setCompletedName] = useState<string | null>(null);
 
   if (completedName !== null) {
@@ -47,10 +53,19 @@ export function CreateKey() {
     );
   }
 
-  return <CreateKeyForm onDismiss={setCompletedName} />;
+  return (
+    <CreateKeyForm mediaDomains={mediaDomains} onDismiss={setCompletedName} />
+  );
 }
 
-function CreateKeyForm({ onDismiss }: { onDismiss: (name: string) => void }) {
+function CreateKeyForm({
+  mediaDomains,
+  onDismiss,
+}: {
+  mediaDomains: MediaDomainChoice[];
+  onDismiss: (name: string) => void;
+}) {
+  const [name, setName] = useState("My uploader");
   const [state, action] = useActionState<CreateKeyState, FormData>(
     createApiKeyAction,
     { status: "idle" },
@@ -73,31 +88,22 @@ function CreateKeyForm({ onDismiss }: { onDismiss: (name: string) => void }) {
           id="key-name"
           name="name"
           required
-          maxLength={64}
-          defaultValue="My uploader"
+          maxLength={80}
+          value={name}
+          onChange={(event) => setName(event.target.value)}
           aria-describedby="key-name-hint"
           className={`${inputBase} sm:max-w-xs`}
         />
         <p id="key-name-hint" className="text-muted-foreground text-sm">
-          Names are unique per account and appear in the list below.
+          A clear name for the device or client using this credential.
         </p>
-      </div>
-
-      <div className="space-y-2">
-        <label htmlFor="key-client-label" className={labelBase}>
-          Device label <span className="text-muted-foreground">(optional)</span>
-        </label>
-        <input
-          id="key-client-label"
-          name="clientLabel"
-          maxLength={80}
-          placeholder="David laptop"
-          aria-describedby="key-client-label-hint"
-          className={`${inputBase} sm:max-w-xs`}
-        />
-        <p id="key-client-label-hint" className="text-muted-foreground text-sm">
-          Future uploads keep a snapshot such as “Shottr — David laptop”, even
-          if you rename this label later.
+        <p className="text-muted-foreground text-sm">
+          Identifier:{" "}
+          <code className="text-foreground font-mono text-xs break-all">
+            {apiKeySlugBase(name)}
+          </code>
+          . Seedyn adds a number automatically if that identifier already
+          exists.
         </p>
       </div>
 
@@ -119,6 +125,29 @@ function CreateKeyForm({ onDismiss }: { onDismiss: (name: string) => void }) {
           </label>
         ))}
       </fieldset>
+
+      <div className="space-y-2">
+        <label htmlFor="key-media-domain" className={labelBase}>
+          Media domain
+        </label>
+        <select
+          id="key-media-domain"
+          name="mediaDomain"
+          defaultValue=""
+          className={`${inputBase} sm:max-w-xs`}
+        >
+          <option value="">Account default</option>
+          {mediaDomains.map((domain) => (
+            <option key={domain.id} value={domain.id}>
+              {domain.host}
+            </option>
+          ))}
+        </select>
+        <p className="text-muted-foreground text-sm">
+          HTTP, ShareX, Shottr, and S3 uploads made with this key return links
+          on this domain.
+        </p>
+      </div>
 
       <div className="space-y-2">
         <label htmlFor="key-expiry" className={labelBase}>
@@ -212,6 +241,10 @@ function Reveal({
           It is shown once. Seedyn stores only a hash, so nobody — including you
           — can read it again. Copy it for any HTTP client, or download the
           optional ShareX configuration. Both contain a secret.
+        </p>
+        <p className="text-muted-foreground mt-2 text-xs">
+          Identifier:{" "}
+          <code className="text-foreground font-mono">{state.slug}</code>
         </p>
       </div>
 
