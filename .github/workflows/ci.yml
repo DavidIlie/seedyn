@@ -61,7 +61,6 @@ jobs:
       MINIO_BUCKET: seedyn-ci
       SEEDYN_DEV_AUTH: true
       SEEDYN_DEV_AUTH_EMAIL: david@davidilie.com
-      E2E_REUSE_EXISTING_SERVER: true
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -99,9 +98,10 @@ jobs:
       - run: pnpm format:check
       - run: pnpm check
 
-      - name: Start development server
+      - name: Start integration server
         run: |
           nohup pnpm dev > "$RUNNER_TEMP/seedyn-dev.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/seedyn-dev.pid"
           for attempt in {1..60}; do
             if curl --fail --silent --max-time 2 \
               --header 'Host: seedyn.localhost:3000' \
@@ -116,7 +116,23 @@ jobs:
           done
 
       - run: pnpm test:integration
-      - run: pnpm test:e2e
+      - name: Stop integration server
+        if: always()
+        run: |
+          if [ ! -f "$RUNNER_TEMP/seedyn-dev.pid" ]; then exit 0; fi
+          dev_pid=$(<"$RUNNER_TEMP/seedyn-dev.pid")
+          kill -TERM "$dev_pid" 2>/dev/null || exit 0
+          for attempt in {1..30}; do
+            if ! kill -0 "$dev_pid" 2>/dev/null; then exit 0; fi
+            sleep 1
+          done
+          tail -n 200 "$RUNNER_TEMP/seedyn-dev.log"
+          echo "Development server did not stop within 30 seconds" >&2
+          exit 1
+      - name: Run development browser suite
+        env:
+          E2E_REUSE_EXISTING_SERVER: "false"
+        run: pnpm test:e2e
       - run: pnpm test:e2e:production
       - name: Validate container build
         if: github.event_name == 'pull_request'
