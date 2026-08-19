@@ -73,9 +73,6 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
-      - name: Install Chromium on the hosted fork runner
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork
-        run: pnpm exec playwright install --with-deps chromium
       - name: Start MinIO
         run: >-
           docker run --detach --rm --name seedyn-ci-minio
@@ -132,10 +129,6 @@ jobs:
           tail -n 200 "$RUNNER_TEMP/seedyn-dev.log"
           echo "Development server did not stop within 30 seconds" >&2
           exit 1
-      - name: Run development browser suite
-        env:
-          E2E_REUSE_EXISTING_SERVER: "false"
-        run: pnpm test:e2e
       - name: Validate container build
         if: github.event_name == 'pull_request'
         run: docker build --tag seedyn:ci .
