@@ -141,10 +141,6 @@ export async function createApiKeyAction(
       }
     }
 
-    // The list below is server-rendered, so re-read it rather than splicing a
-    // row in on the client. Refresh after the optional S3 credential exists.
-    refresh();
-
     return {
       status: "created",
       id: created.id,
@@ -224,7 +220,6 @@ export async function rotateS3CredentialAction(
       credential.mediaDomain,
       credential.userDefaultMediaDomain,
     );
-    refresh();
     return {
       status: "revealed",
       accessKeyId: credential.accessKeyId,

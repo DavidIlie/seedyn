@@ -8,6 +8,7 @@ import {
   PackageOpenIcon,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useActionState, useState } from "react";
 
 import { CopyButton } from "~/components/ui/copy-button";
@@ -108,6 +109,7 @@ function CreateKeyDialog({
   onComplete: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
   const [preset, setPreset] = useState<Preset | null>(null);
   const [state, action, pending] = useActionState<CreateKeyState, FormData>(
     createApiKeyAction,
@@ -124,6 +126,7 @@ function CreateKeyDialog({
   function finish() {
     setOpen(false);
     onComplete();
+    window.requestAnimationFrame(() => router.refresh());
   }
 
   return (

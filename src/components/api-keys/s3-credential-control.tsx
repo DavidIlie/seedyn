@@ -2,6 +2,7 @@
 
 import { KeyRound, ShieldCheck, TriangleAlert } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
 
 import { CopyButton } from "~/components/ui/copy-button";
@@ -73,6 +74,7 @@ function S3CredentialDialog({
   onSecretConsumed: (credential: RevealedS3Credential) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
   const [state, action, pending] = useActionState<S3CredentialState, FormData>(
     rotateS3CredentialAction,
     { status: "idle" },
@@ -90,6 +92,7 @@ function S3CredentialDialog({
   function confirmSecretSaved() {
     setOpen(false);
     if (state.status === "revealed") onSecretConsumed(state);
+    window.requestAnimationFrame(() => router.refresh());
   }
 
   return (
