@@ -68,3 +68,8 @@ Images, files, and texts use cursor-backed infinite loading. The initial page
 is server-rendered and retains real next-page links without JavaScript. Once
 hydrated, TanStack Query appends pages; TanStack Table owns table-mode rows and
 TanStack Virtual bounds compact-list DOM size for large result sets.
+
+Library rows, cards, tables, and upload details show a durable source badge:
+Browser, HTTP API, ShareX, or S3. Machine-created items also show the API-key
+name and its optional device label. This provenance is written atomically with
+the upload record and survives credential revocation or history cleanup.

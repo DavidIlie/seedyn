@@ -45,6 +45,14 @@ enum StorageReservationKind {
   GIF
 }
 
+enum UploadOrigin {
+  LEGACY_UNKNOWN
+  BROWSER
+  HTTP
+  SHAREX
+  S3
+}
+
 model Account {
   id                       String  @id @default(cuid())
   userId                   String
@@ -123,52 +131,65 @@ model VerificationToken {
 }
 
 model ApiKey {
-  id         String    @id
-  userId     String
-  name       String
-  prefix     String
-  secretHash Bytes     @unique
-  scopes     String[]
-  createdAt  DateTime  @default(now())
-  lastUsedAt DateTime?
-  expiresAt  DateTime?
-  revokedAt  DateTime?
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String    @id
+  userId            String
+  name              String
+  clientLabel       String?
+  prefix            String
+  secretHash        Bytes     @unique
+  scopes            String[]
+  s3AccessKeyId     String?   @unique
+  s3PublicNamespace String?   @unique
+  s3EnabledAt       DateTime?
+  createdAt         DateTime  @default(now())
+  lastUsedAt        DateTime?
+  expiresAt         DateTime?
+  revokedAt         DateTime?
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, name])
   @@index([userId, revokedAt, createdAt(sort: Desc)])
 }
 
 model Upload {
-  id              String             @id
-  userId          String
-  publicSlug      String             @unique
-  kind            UploadKind
-  state           UploadState        @default(READY)
-  originalName    String
-  textLanguage    String?
-  passwordHash    String?
-  passwordVersion Int                @default(0)
-  extension       String
-  contentType     String
-  disposition     ContentDisposition
-  byteSize        BigInt
-  sha256          Bytes
-  storageKey      String             @unique
-  width           Int?
-  height          Int?
-  durationMs      Int?
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-  deleteErrorCode String?
-  deleteErrorAt   DateTime?
-  user            User               @relation(fields: [userId], references: [id], onDelete: Restrict)
-  variants        UploadVariant[]
+  id                        String             @id
+  userId                    String
+  publicSlug                String             @unique
+  kind                      UploadKind
+  state                     UploadState        @default(READY)
+  originalName              String
+  textLanguage              String?
+  passwordHash              String?
+  passwordVersion           Int                @default(0)
+  origin                    UploadOrigin       @default(LEGACY_UNKNOWN)
+  apiKeyIdSnapshot          String?
+  apiKeyNameSnapshot        String?
+  clientLabelSnapshot       String?
+  s3ObjectKey               String?
+  s3PublicNamespaceSnapshot String?
+  extension                 String
+  contentType               String
+  disposition               ContentDisposition
+  byteSize                  BigInt
+  sha256                    Bytes
+  storageKey                String             @unique
+  width                     Int?
+  height                    Int?
+  durationMs                Int?
+  createdAt                 DateTime           @default(now())
+  updatedAt                 DateTime           @updatedAt
+  deleteErrorCode           String?
+  deleteErrorAt             DateTime?
+  user                      User               @relation(fields: [userId], references: [id], onDelete: Restrict)
+  variants                  UploadVariant[]
 
+  @@unique([s3PublicNamespaceSnapshot, s3ObjectKey])
   @@index([userId, createdAt(sort: Desc), id(sort: Desc)])
   @@index([userId, kind, createdAt(sort: Desc), id(sort: Desc)])
   @@index([createdAt(sort: Desc), id(sort: Desc)])
   @@index([kind, createdAt(sort: Desc)])
+  @@index([origin, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([userId, apiKeyIdSnapshot, createdAt(sort: Desc), id(sort: Desc)])
   @@index([state, updatedAt])
 }
 

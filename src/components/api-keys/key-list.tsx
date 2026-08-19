@@ -5,6 +5,8 @@ import { buttonCompact, panelSurface } from "~/components/ui/styles";
 import type { ApiKeySummary } from "~/server/api-keys";
 
 import { revokeApiKeyAction } from "./actions";
+import { ClientLabelForm } from "./client-label-form";
+import { S3CredentialControl } from "./s3-credential-control";
 
 /**
  * The stored view of a key: its display prefix, its scopes, and its lifecycle.
@@ -64,6 +66,30 @@ function KeyRow({ apiKey }: { apiKey: ApiKeySummary }) {
           {" · "}
           {`Created ${formatTimestamp(apiKey.createdAt.toISOString())}`}
         </p>
+        {apiKey.clientLabel ? (
+          <p className="text-muted-foreground mt-1 text-xs">
+            Upload label: {apiKey.name} — {apiKey.clientLabel}
+          </p>
+        ) : null}
+        {!inactive ? (
+          <>
+            <ClientLabelForm
+              apiKeyId={apiKey.id}
+              clientLabel={apiKey.clientLabel}
+            />
+            <S3CredentialControl
+              apiKeyId={apiKey.id}
+              accessKeyId={apiKey.s3AccessKeyId}
+              enabledAt={
+                apiKey.s3EnabledAt
+                  ? formatTimestamp(apiKey.s3EnabledAt.toISOString())
+                  : null
+              }
+              publicBaseUrl={apiKey.s3PublicBaseUrl}
+              publicNamespace={apiKey.s3PublicNamespace}
+            />
+          </>
+        ) : null}
       </div>
 
       {inactive ? (

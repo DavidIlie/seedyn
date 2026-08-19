@@ -7,6 +7,7 @@ import {
   uploadKindLabel,
 } from "~/components/lib/format";
 import type { SerializedUpload } from "~/server/uploads/serialization";
+import { uploadOriginLabel } from "~/components/upload/origin-badge";
 
 /**
  * Metadata as a description list, because that is what it is: a set of
@@ -29,6 +30,23 @@ export function MetadataList({ upload }: { upload: SerializedUpload }) {
     ...(dimensions ? [{ term: "Dimensions", value: dimensions }] : []),
     ...(duration ? [{ term: "Duration", value: duration }] : []),
     { term: "Uploaded", value: formatTimestamp(upload.createdAt) },
+    {
+      term: "Uploaded via",
+      value: uploadOriginLabel(upload.provenance.origin),
+    },
+    ...(upload.provenance.credential
+      ? [
+          {
+            term: "Credential",
+            value: upload.provenance.credential.clientLabel
+              ? `${upload.provenance.credential.name} — ${upload.provenance.credential.clientLabel}`
+              : upload.provenance.credential.name,
+          },
+        ]
+      : []),
+    ...(upload.provenance.s3
+      ? [{ term: "S3 object key", value: upload.provenance.s3.objectKey }]
+      : []),
     {
       term: "Access",
       value: upload.passwordProtected

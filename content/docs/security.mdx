@@ -57,5 +57,12 @@ from the Next.js Proxy matcher. This avoids Next 16.3's pre-Proxy request clone,
 which otherwise buffers bodies and silently truncates them at its configured
 cap. Remaining proxied request bodies are capped at 256 KiB.
 
+Upload provenance contains only bounded display metadata: an ingress enum and
+snapshots of the authenticated key id, name, and optional owner-managed device
+label. Labels are never accepted from an upload request or guessed from a
+User-Agent. Raw credentials, hashes, Authorization headers, network addresses,
+and S3 signing material are excluded. Snapshot fields intentionally have no
+foreign key to prunable key history.
+
 Runtime-protected docs intentionally contain no credentials or operational
 secrets because repository visibility is a separate boundary.

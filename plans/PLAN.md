@@ -84,7 +84,8 @@ All database reads, ownership filters, sorting, and cursors remain server-side.
 - Text/code composer with CodeMirror file import and browser draft recovery,
   plus an owned Shiki read view and permanent raw URL.
 - Upload detail: preview, metadata, checksum, URLs, copy/download/delete.
-- API keys: create, reveal once, download `.sxcu`, inspect last use, revoke.
+- API keys: create, reveal once, label a client/device, download `.sxcu`,
+  inspect last use, revoke.
 - Docs: browser uploads, the general upload API, keys/scopes, serving semantics,
   GIF conversion, ShareX setup, compatibility endpoints, and operations.
 
@@ -101,6 +102,8 @@ All database reads, ownership filters, sorting, and cursors remain server-side.
   old repository's image/file/text contracts.
 - API-key authentication, size/type checks, uniform JSON responses, request IDs,
   and a generated ShareX configuration that removes manual setup.
+- Durable per-upload provenance for browser, HTTP, ShareX, and S3 ingress,
+  including safe key-name/device snapshots that survive key cleanup.
 
 ## 5. Rendering and navigation thesis
 
