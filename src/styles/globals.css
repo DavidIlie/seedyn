@@ -55,6 +55,18 @@
   --color-sunken: var(--sunken);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--accent-foreground);
+  --color-secondary: var(--sunken);
+  --color-secondary-foreground: var(--foreground);
+  --color-muted: var(--sunken);
+  --color-card: var(--panel);
+  --color-card-foreground: var(--foreground);
+  --color-popover: var(--panel);
+  --color-popover-foreground: var(--foreground);
+  --color-input: var(--border);
+  --color-ring: var(--accent);
+  --color-destructive: var(--danger);
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
   --color-brand-muted: var(--brand-muted);
@@ -139,6 +151,8 @@
    focus, and active location. */
 :root {
   color-scheme: light;
+
+  --radius: 0.625rem;
 
   --background: oklch(0.982 0.007 255);
   --panel: oklch(0.998 0.002 255);
