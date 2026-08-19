@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
 
 import sharp from "sharp";
-import { Agent } from "undici";
+import {
+  Agent,
+  fetch as undiciFetch,
+  FormData as UndiciFormData,
+} from "undici";
 
 import { env } from "~/env";
 import { createApiKey } from "~/server/api-keys/service";
@@ -35,10 +39,10 @@ function fetchLocal(
   if (url.hostname !== "localhost" && !url.hostname.endsWith(".localhost")) {
     return fetch(url, init);
   }
-  return fetch(url, {
+  return undiciFetch(url, {
     ...init,
     dispatcher: LOOPBACK_DISPATCHER,
-  } as RequestInit & { dispatcher: Agent });
+  } as Parameters<typeof undiciFetch>[1]) as unknown as Promise<Response>;
 }
 
 async function postUpload(input: {
@@ -49,12 +53,12 @@ async function postUpload(input: {
   authorization: string;
   expectedStatus: number;
 }): Promise<Record<string, unknown>> {
-  const form = new FormData();
+  const form = new UndiciFormData();
   form.set(input.field, input.body, input.filename);
   const response = await fetchLocal(new URL(input.path, env.APP_URL), {
     method: "POST",
     headers: { Authorization: input.authorization },
-    body: form,
+    body: form as unknown as BodyInit,
   });
   if (response.status !== input.expectedStatus) {
     throw new Error(
