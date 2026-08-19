@@ -17,6 +17,7 @@ const AUTHORIZATION =
   /^AWS4-HMAC-SHA256 Credential=([A-Za-z0-9_-]{8,128})\/(\d{8})\/([a-z0-9-]{1,64})\/s3\/aws4_request, ?SignedHeaders=([a-z0-9-]+(?:;[a-z0-9-]+)*), ?Signature=([a-f0-9]{64})$/u;
 const AMZ_DATE = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/u;
 const SHA256_HEX = /^[a-f0-9]{64}$/u;
+const UNSIGNED_PAYLOAD = "UNSIGNED-PAYLOAD";
 const REQUIRED_SIGNED_HEADERS = [
   "host",
   "x-amz-content-sha256",
@@ -158,7 +159,7 @@ export function parseSigV4Candidate(request: Request): SigV4Candidate {
     );
   }
   const payloadSha256 = requireSignedHeader(request, "x-amz-content-sha256");
-  if (!SHA256_HEX.test(payloadSha256)) {
+  if (!SHA256_HEX.test(payloadSha256) && payloadSha256 !== UNSIGNED_PAYLOAD) {
     throw new S3ProtocolError(
       "InvalidArgument",
       "The x-amz-content-sha256 header is invalid.",
@@ -294,10 +295,20 @@ export function verifySigV4(input: {
       },
     );
   }
-  if (
-    input.operation !== "PutObject" &&
-    input.candidate.payloadSha256 !== S3_EMPTY_SHA256
-  ) {
+  const payloadMarker = input.candidate.payloadSha256;
+  if (input.operation === "PutObject" && !SHA256_HEX.test(payloadMarker)) {
+    throw new S3ProtocolError(
+      "InvalidArgument",
+      "Uploaded objects must include a signed SHA-256 payload digest.",
+    );
+  }
+  // Shottr signs its bodyless cleanup DELETE with the S3-standard
+  // UNSIGNED-PAYLOAD marker. Keep uploads digest-bound and accept that marker
+  // only where the gateway has already asserted that no request body exists.
+  const acceptedBodylessPayload =
+    payloadMarker === S3_EMPTY_SHA256 ||
+    (input.operation === "DeleteObject" && payloadMarker === UNSIGNED_PAYLOAD);
+  if (input.operation !== "PutObject" && !acceptedBodylessPayload) {
     throw new S3ProtocolError(
       "BadDigest",
       "Requests without a body must sign the empty SHA-256 digest.",
