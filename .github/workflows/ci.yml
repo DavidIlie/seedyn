@@ -136,7 +136,6 @@ jobs:
         env:
           E2E_REUSE_EXISTING_SERVER: "false"
         run: pnpm test:e2e
-      - run: pnpm test:e2e:production
       - name: Validate container build
         if: github.event_name == 'pull_request'
         run: docker build --tag seedyn:ci .

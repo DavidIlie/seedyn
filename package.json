@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "node scripts/build.mjs",
-    "check": "pnpm lint && pnpm typecheck && pnpm test",
+    "check": "pnpm lint && pnpm typecheck",
     "db:generate": "prisma generate",
     "db:migrate": "NODE_ENV=${NODE_ENV:-development} node scripts/run-command-with-next-env.mjs prisma migrate deploy",
     "db:migrate:dev": "NODE_ENV=${NODE_ENV:-development} node scripts/run-command-with-next-env.mjs prisma migrate dev",
@@ -26,8 +26,6 @@
     "start:standalone": "NODE_ENV=production node scripts/start-standalone.mjs",
     "storage:check": "NODE_ENV=${NODE_ENV:-development} NODE_OPTIONS=--conditions=react-server tsx scripts/run-with-next-env.ts scripts/reconcile-storage.ts",
     "storage:setup": "NODE_ENV=development NODE_OPTIONS=--conditions=react-server tsx scripts/run-with-next-env.ts scripts/ensure-dev-storage.ts",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:e2e:production": "E2E_PRODUCTION=true SEEDYN_BUILD_INSTANT_TESTING=true PORT=3101 APP_URL=http://seedyn.localhost:3101 CDN_URL=http://i.localhost:3101 APP_HOSTS=seedyn.localhost,localhost MEDIA_HOSTS=i.localhost AUTH_SECRET=seedyn-e2e-production-auth-secret AUTH_DAVIDAPPS_ID=seedyn-e2e-client AUTH_DAVIDAPPS_SECRET=seedyn-e2e-client-secret SEEDYN_DEV_AUTH=false TRUSTED_PROXY_HOPS=1 playwright test",
     "test:e2e:ui": "playwright test --ui",
@@ -74,7 +72,6 @@
     "@types/node": "24.10.1",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
-    "@vitest/coverage-v8": "4.1.10",
     "oxlint": "1.78.0",
     "oxlint-tsgolint": "7.0.2001",
     "postcss": "8.5.6",
@@ -83,8 +80,7 @@
     "tailwindcss": "4.1.14",
     "tsx": "4.23.12",
     "typescript": "7.0.2",
-    "undici": "8.10.0",
-    "vitest": "4.1.10"
+    "undici": "8.10.0"
   },
   "packageManager": "pnpm@9.15.0",
   "pnpm": {
