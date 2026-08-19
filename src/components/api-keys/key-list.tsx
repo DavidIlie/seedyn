@@ -3,9 +3,11 @@ import { EmptyState } from "~/components/ui/empty-state";
 import { HydratedSubmitButton } from "~/components/ui/hydrated-submit-button";
 import { buttonCompact, panelSurface } from "~/components/ui/styles";
 import type { ApiKeySummary } from "~/server/api-keys";
+import type { MediaDomainChoice } from "~/server/media/origin-preferences";
 
 import { revokeApiKeyAction } from "./actions";
-import { ClientLabelForm } from "./client-label-form";
+import { KeyNameForm } from "./name-form";
+import { KeyMediaDomainForm } from "./media-domain-form";
 import { S3CredentialControl } from "./s3-credential-control";
 
 /**
@@ -16,7 +18,13 @@ import { S3CredentialControl } from "./s3-credential-control";
  * server — only its digest does. Offering a secret-free template from this row
  * would be offering a file that does not work.
  */
-export function KeyList({ keys }: { keys: ApiKeySummary[] }) {
+export function KeyList({
+  keys,
+  mediaDomains,
+}: {
+  keys: ApiKeySummary[];
+  mediaDomains: MediaDomainChoice[];
+}) {
   if (keys.length === 0) {
     return (
       <EmptyState
@@ -29,13 +37,19 @@ export function KeyList({ keys }: { keys: ApiKeySummary[] }) {
   return (
     <ul className={panelSurface}>
       {keys.map((key) => (
-        <KeyRow key={key.id} apiKey={key} />
+        <KeyRow key={key.id} apiKey={key} mediaDomains={mediaDomains} />
       ))}
     </ul>
   );
 }
 
-function KeyRow({ apiKey }: { apiKey: ApiKeySummary }) {
+function KeyRow({
+  apiKey,
+  mediaDomains,
+}: {
+  apiKey: ApiKeySummary;
+  mediaDomains: MediaDomainChoice[];
+}) {
   const expired = apiKey.expiresAt !== null && apiKey.expiresAt <= new Date();
   const inactive = apiKey.revokedAt !== null || expired;
 
@@ -44,6 +58,9 @@ function KeyRow({ apiKey }: { apiKey: ApiKeySummary }) {
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-baseline gap-x-3 text-sm">
           <span className="font-medium">{apiKey.name}</span>
+          <code className="text-muted-foreground font-mono text-xs">
+            {apiKey.slug}
+          </code>
           <code className="text-muted-foreground font-mono text-xs">
             {apiKey.prefix}…
           </code>
@@ -66,16 +83,14 @@ function KeyRow({ apiKey }: { apiKey: ApiKeySummary }) {
           {" · "}
           {`Created ${formatTimestamp(apiKey.createdAt.toISOString())}`}
         </p>
-        {apiKey.clientLabel ? (
-          <p className="text-muted-foreground mt-1 text-xs">
-            Upload label: {apiKey.name} — {apiKey.clientLabel}
-          </p>
-        ) : null}
         {!inactive ? (
           <>
-            <ClientLabelForm
+            <KeyNameForm apiKeyId={apiKey.id} name={apiKey.name} />
+            <KeyMediaDomainForm
+              key={`${apiKey.id}:${apiKey.mediaDomain ?? "account"}`}
               apiKeyId={apiKey.id}
-              clientLabel={apiKey.clientLabel}
+              mediaDomain={apiKey.mediaDomain}
+              mediaDomains={mediaDomains}
             />
             <S3CredentialControl
               apiKeyId={apiKey.id}

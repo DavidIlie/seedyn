@@ -1,6 +1,6 @@
 import { Readable } from "node:stream";
 
-import { env } from "~/env";
+import { mediaDomainCatalog } from "~/env";
 import {
   parsePublicMediaPath,
   VERIFIED_MEDIA_REWRITE_HEADER,
@@ -396,7 +396,7 @@ export async function POST(
   // same-origin navigation; cross-site/null-origin submissions do not pass.
   if (
     origin &&
-    origin !== new URL(env.CDN_URL).origin &&
+    !mediaDomainCatalog.origins.includes(origin) &&
     !sandboxedSameOriginNavigation
   ) {
     return unavailable(404);

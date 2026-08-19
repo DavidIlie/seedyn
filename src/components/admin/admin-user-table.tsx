@@ -23,6 +23,7 @@ import {
 } from "~/server/admin/insights-view";
 
 import { StorageQuotaControl } from "./storage-quota-control";
+import { ClearUserUploads } from "./clear-user-uploads";
 
 type UserTableProps = {
   users: AdminUserPage;
@@ -214,8 +215,8 @@ export function AdminUserTable({ users, rangeDays }: UserTableProps) {
                     view={view}
                     align="right"
                   />
-                  <th scope="col" className="w-56 px-4 py-2.5 font-medium">
-                    Quota
+                  <th scope="col" className="w-64 px-4 py-2.5 font-medium">
+                    Controls
                   </th>
                 </tr>
               </thead>
@@ -345,7 +346,10 @@ function UserTableRow({ user }: { user: AdminUserRow }) {
         {formatTimestamp(user.createdAt)}
       </td>
       <td className="px-4 py-3.5">
-        <StorageQuotaControl user={user} />
+        <div className="flex flex-col items-start gap-2">
+          <StorageQuotaControl user={user} />
+          <ClearUserUploads user={user} />
+        </div>
       </td>
     </tr>
   );
@@ -374,6 +378,7 @@ function UserCard({ user }: { user: AdminUserRow }) {
         />
       </dl>
       <StorageQuotaControl user={user} />
+      <ClearUserUploads user={user} />
       <p className="text-muted-foreground text-xs">
         Last upload{" "}
         {user.lastUploadAt ? formatTimestamp(user.lastUploadAt) : "never"}

@@ -1,5 +1,7 @@
 "use client";
 
+/* oxlint-disable jsx-a11y/no-noninteractive-tabindex -- The table and virtual-list scroll regions must be keyboard reachable. */
+
 import {
   coreFeatures,
   createCoreRowModel,
@@ -151,7 +153,12 @@ function UploadTable({
   });
 
   return (
-    <div className="border-border bg-panel overflow-x-auto rounded-xl border">
+    <div
+      role="region"
+      aria-label="Uploads table"
+      tabIndex={0}
+      className="border-border bg-panel overflow-x-auto overscroll-x-contain rounded-xl border"
+    >
       <table className="w-full min-w-[47rem] text-left text-sm">
         <thead className="bg-sunken text-muted-foreground text-xs">
           <tr className="border-border border-b">
@@ -267,6 +274,7 @@ function VirtualCompactUploadList({
       ref={viewport}
       role="region"
       aria-label="Virtualized uploads"
+      tabIndex={0}
       className="border-border bg-panel max-h-[min(70dvh,48rem)] overflow-auto rounded-xl border"
     >
       <div

@@ -32,6 +32,7 @@ import {
   inputBase,
   labelBase,
 } from "~/components/ui/styles";
+import type { MediaDomainChoice } from "~/server/media/origin-preferences";
 
 import { BROWSER_UPLOAD_ENDPOINT, browserGifEndpoint } from "./endpoints";
 import {
@@ -154,10 +155,12 @@ export function UploadAction({
   className = "",
   label = "Upload",
   tone = "primary",
+  compactOnNarrow = false,
 }: {
   className?: string;
   label?: string;
   tone?: "primary" | "quiet";
+  compactOnNarrow?: boolean;
 }) {
   const openDialog = useContext(UploadDialogContext);
   if (!openDialog) {
@@ -168,15 +171,23 @@ export function UploadAction({
     <button
       type="button"
       onClick={() => openDialog()}
-      className={`${tone === "primary" ? buttonPrimary : buttonQuiet} ${className}`}
+      className={`${tone === "primary" ? buttonPrimary : buttonQuiet} ${compactOnNarrow ? "max-[390px]:size-11 max-[390px]:px-0" : ""} ${className}`}
     >
       <UploadArrow />
-      {label}
+      <span className={compactOnNarrow ? "max-[390px]:sr-only" : undefined}>
+        {label}
+      </span>
     </button>
   );
 }
 
-export function UploadProvider({ children }: { children: React.ReactNode }) {
+export function UploadProvider({
+  children,
+  mediaDomains,
+}: {
+  children: React.ReactNode;
+  mediaDomains: MediaDomainChoice[];
+}) {
   const instanceId = useId();
   const fileInputId = `${instanceId}-upload-file`;
   const urlInputId = `${instanceId}-upload-url`;
@@ -194,6 +205,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   const [dragging, setDragging] = useState(false);
   const [urlValue, setUrlValue] = useState("");
   const [slugValue, setSlugValue] = useState("");
+  const [mediaDomain, setMediaDomain] = useState("");
   const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
   const [confirmingClose, setConfirmingClose] = useState(false);
   const [quickGifBusy, setQuickGifBusy] = useState(false);
@@ -207,6 +219,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       sourceLabel: string,
       quickGif = false,
       customSlug = slugValue,
+      requestedMediaDomain = mediaDomain,
     ) => {
       if (controller.current) return;
       if (customSlug && slugAvailable !== true) {
@@ -240,11 +253,14 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       });
 
       try {
+        const fields: Record<string, string> = {};
+        if (customSlug) fields.slug = customSlug;
+        if (requestedMediaDomain) fields.mediaDomain = requestedMediaDomain;
         const record = await postMultipart({
           endpoint: BROWSER_UPLOAD_ENDPOINT,
           body: file,
           filename: file.name || "upload",
-          fields: customSlug ? { slug: customSlug } : undefined,
+          fields: Object.keys(fields).length > 0 ? fields : undefined,
           signal: abort.signal,
           onProgress: (loaded, total) =>
             setOwnedPhase({
@@ -280,7 +296,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         if (ownsOperation()) controller.current = null;
       }
     },
-    [router, slugAvailable, slugValue],
+    [mediaDomain, router, slugAvailable, slugValue],
   );
 
   const changeSlug = useCallback((value: string) => {
@@ -351,6 +367,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       setPhase(file ? { name: "selected", file } : { name: "idle" });
       setUrlValue("");
       setSlugValue("");
+      setMediaDomain("");
       setSlugAvailable(null);
       dragDepth.current = 0;
       setDragging(false);
@@ -360,7 +377,13 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
 
       if (file && options?.autoStart) {
         const label = options.quickGif ? clipboardLabel(file) : file.name;
-        void send(file, label || "Dropped file", options.quickGif ?? false, "");
+        void send(
+          file,
+          label || "Dropped file",
+          options.quickGif ?? false,
+          "",
+          "",
+        );
       }
     },
     [send],
@@ -413,6 +436,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     setConfirmingClose(false);
     setUrlValue("");
     setSlugValue("");
+    setMediaDomain("");
     setSlugAvailable(null);
     dragDepth.current = 0;
     setDragging(false);
@@ -714,6 +738,33 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
                   onAvailabilityChange={setSlugAvailable}
                   disabled={busy}
                 />
+
+                <div className="space-y-2">
+                  <label
+                    htmlFor={`${instanceId}-media-domain`}
+                    className={labelBase}
+                  >
+                    Media domain
+                  </label>
+                  <select
+                    id={`${instanceId}-media-domain`}
+                    value={mediaDomain}
+                    onChange={(event) => setMediaDomain(event.target.value)}
+                    disabled={busy}
+                    className={inputBase}
+                  >
+                    <option value="">Account default</option>
+                    {mediaDomains.map((domain) => (
+                      <option key={domain.id} value={domain.id}>
+                        {domain.host}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-muted-foreground text-sm">
+                    The returned link uses this domain. The same object remains
+                    available on every configured media host.
+                  </p>
+                </div>
 
                 {phase.name === "selected" ? (
                   <div className="border-border bg-panel flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">

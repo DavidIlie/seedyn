@@ -75,7 +75,7 @@ export function AccountMenu({
       <div
         role="group"
         aria-label="Account"
-        className="border-border bg-panel absolute top-full right-0 z-50 mt-2 w-[min(18rem,calc(100vw-2rem))] rounded-xl border p-1.5"
+        className="border-border bg-panel absolute top-full right-0 z-50 mt-2 w-[min(18rem,calc(100dvw-2rem))] max-w-[calc(100dvw-2rem)] rounded-xl border p-1.5"
       >
         <div className="flex min-w-0 items-center gap-3 px-3 py-3">
           <span className="bg-accent/12 text-accent grid size-9 shrink-0 place-items-center rounded-full text-sm font-semibold uppercase">
@@ -98,6 +98,12 @@ export function AccountMenu({
         </div>
 
         <div className="border-border border-t pt-1">
+          <AccountLink
+            href="/account"
+            label="Account"
+            icon="settings"
+            close={closeMenu}
+          />
           <AccountLink
             href="/api-keys"
             label="API keys"
@@ -133,7 +139,7 @@ function AccountLink({
 }: {
   href: Route;
   label: string;
-  icon: "key" | "docs" | "admin";
+  icon: "settings" | "key" | "docs" | "admin";
   close: () => void;
 }) {
   return (
@@ -148,7 +154,29 @@ function AccountLink({
   );
 }
 
-function AccountGlyph({ name }: { name: "key" | "docs" | "admin" }) {
+function AccountGlyph({
+  name,
+}: {
+  name: "settings" | "key" | "docs" | "admin";
+}) {
+  if (name === "settings") {
+    return (
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <circle cx="8" cy="8" r="2.25" />
+        <path d="M6.8 1.75h2.4l.45 1.55 1.15.65 1.55-.45 1.2 2.05-1.1 1.15v1.3l1.1 1.15-1.2 2.05-1.55-.45-1.15.65-.45 1.55H6.8l-.45-1.55-1.15-.65-1.55.45-1.2-2.05L3.55 8V6.7l-1.1-1.15L3.65 3.5l1.55.45 1.15-.65z" />
+      </svg>
+    );
+  }
   if (name === "key") {
     return (
       <svg

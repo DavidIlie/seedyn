@@ -69,7 +69,7 @@ export function LibraryTrendChart({
               : `Your ${noun} trend starts with the next upload.`}
           </p>
         </div>
-        <dl className="grid w-full grid-cols-3 gap-x-5 text-left sm:w-auto sm:gap-x-8 sm:text-right">
+        <dl className="grid w-full grid-cols-2 gap-x-5 gap-y-3 text-left min-[520px]:grid-cols-3 sm:w-auto sm:gap-x-8 sm:text-right">
           <Metric
             label="Uploads"
             value={trend.totalUploads.toLocaleString("en-US")}
@@ -77,6 +77,7 @@ export function LibraryTrendChart({
           <Metric label="Added" value={formatBytes(trend.totalByteSize)} />
           <Metric
             label="Busiest"
+            className="col-span-2 min-[520px]:col-span-1"
             value={
               trend.busiestLabel
                 ? `${trend.busiestLabel} · ${trend.busiestUploads}`
@@ -276,9 +277,17 @@ const axisProps = {
   tick: { fill: "var(--muted-foreground)", fontSize: 10 },
 } as const;
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({
+  label,
+  value,
+  className = "",
+}: {
+  label: string;
+  value: string;
+  className?: string;
+}) {
   return (
-    <div className="min-w-0">
+    <div className={`min-w-0 ${className}`}>
       <dt className="text-muted-foreground text-[0.625rem] font-medium tracking-[0.08em] uppercase">
         {label}
       </dt>

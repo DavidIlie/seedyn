@@ -36,6 +36,14 @@ stops working. Password protection may perform its own URL rotation when first
 enabled. S3 object aliases remain stable and continue resolving to the upload's
 current direct URL.
 
+## Media domain
+
+The upload dialog can use the account default or choose `i.dave.tips` or
+`i.gurt.ing` for one upload. Seedyn stores that choice with the upload, so its
+library, detail, GIF, and API responses keep presenting the same canonical URL
+after account defaults change. The object remains available by the same slug
+on every configured Seedyn media domain.
+
 Member accounts receive 5 GB of storage by default. Original objects and stored
 GIF variants both count. The library shows committed usage and any bytes
 currently reserved by an upload. Administrators are unlimited and can raise a
@@ -71,8 +79,8 @@ view parses the Markdown through the same bounded schema, removes unsafe link
 targets, and renders it on the server with Tiptap's static renderer rather than
 shipping a read-only editor.
 
-The permanent `i.dave.tips` URL is the raw consumable form. Source extensions
-are preserved, but every text object is deliberately served as
+The permanent media URL is the raw consumable form. Source extensions are
+preserved, but every text object is deliberately served as
 `text/plain; charset=utf-8` with `nosniff` and the media-origin sandbox policy;
 HTML, SVG, XML, and JavaScript are never promoted to executable browser MIME
 types.
@@ -84,5 +92,5 @@ TanStack Virtual bounds compact-list DOM size for large result sets.
 
 Library rows, cards, tables, and upload details show a durable source badge:
 Browser, HTTP API, ShareX, or S3. Machine-created items also show the API-key
-name and its optional device label. This provenance is written atomically with
-the upload record and survives credential revocation or history cleanup.
+Name and immutable identifier. This provenance is written atomically with the
+upload record and survives credential rename, revocation, or history cleanup.

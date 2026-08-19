@@ -5,7 +5,7 @@ description: Upload and store an object, then serve it from a durable public URL
 
 Seedyn accepts images, files, text, and short media from the browser or any HTTP
 client. It stores the original in a private MinIO bucket and returns an
-unguessable public URL on `i.dave.tips`.
+unguessable public URL on your selected Seedyn media domain.
 
 ## Start here
 
@@ -23,7 +23,10 @@ must be revoked and replaced.
 ## Two origins, one application
 
 - `seedyn.dave.tips` contains authenticated pages, docs, and upload APIs.
-- `i.dave.tips` serves exact public media URLs with no cookies or directory listing.
+- `i.dave.tips` and `i.gurt.ing` serve exact public media URLs with no
+  cookies or directory listing.
 
-Both origins reach one Next.js deployment. The media boundary is enforced by
-host routing and repeated inside the media handler.
+All origins reach one Next.js deployment. Choose the account default from
+**Account**, override it for one browser upload, or set a default on an API key.
+The media boundary is enforced by host routing and repeated inside the media
+handler.

@@ -4,6 +4,7 @@ import {
   publicUrl,
 } from "~/components/data/uploads";
 import { auth } from "~/server/auth";
+import { db } from "~/server/db";
 import { authorizeBrowserMutation } from "~/server/http/browser-mutation";
 import { domainErrorResponse } from "~/server/http/errors";
 import { contentLengthIsPermitted, safeJsonError } from "~/server/http/request";
@@ -17,6 +18,10 @@ import {
   UPLOAD_LIMITS,
 } from "~/server/uploads/multipart";
 import { createUpload } from "~/server/uploads/service";
+import {
+  resolveMediaDomainPreference,
+  validMediaDomainId,
+} from "~/server/media/origin-preferences";
 
 export const maxDuration = 120;
 export const DELETE = uploadMethodNotAllowed;
@@ -72,7 +77,11 @@ export async function GET(request: Request): Promise<Response> {
       ...page,
       items: page.items.map((upload) =>
         Object.assign({}, upload, {
-          url: publicUrl(upload.publicSlug, upload.extension),
+          url: publicUrl(
+            upload.publicSlug,
+            upload.extension,
+            upload.mediaOrigin,
+          ),
         }),
       ),
     },
@@ -107,6 +116,7 @@ export async function POST(request: Request): Promise<Response> {
         "filename",
         "textLanguage",
         "slug",
+        "mediaDomain",
       ]),
       maxFileBytes: UPLOAD_LIMITS.generic,
     });
@@ -119,8 +129,33 @@ export async function POST(request: Request): Promise<Response> {
         authorization.requestId,
       );
     }
+    const requestedMediaDomain = file.fields.mediaDomain?.trim() || null;
+    if (requestedMediaDomain && !validMediaDomainId(requestedMediaDomain)) {
+      return safeJsonError(
+        400,
+        "invalid_input",
+        "Choose a configured media domain.",
+        authorization.requestId,
+      );
+    }
+    const account = await db.user.findUnique({
+      where: { id: authorization.userId },
+      select: { defaultMediaDomain: true },
+    });
+    if (!account) {
+      return safeJsonError(
+        401,
+        "unauthenticated",
+        "Your account is unavailable.",
+        authorization.requestId,
+      );
+    }
     const result = await createUpload({
       userId: authorization.userId,
+      mediaOrigin: resolveMediaDomainPreference(
+        requestedMediaDomain,
+        account.defaultMediaDomain,
+      ).origin,
       file,
       provenance: { origin: "BROWSER" },
       forcedKind,

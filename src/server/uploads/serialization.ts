@@ -24,7 +24,9 @@ type UploadLike = {
   origin: SerializedUploadOrigin;
   apiKeyIdSnapshot: string | null;
   apiKeyNameSnapshot: string | null;
+  apiKeySlugSnapshot: string | null;
   clientLabelSnapshot: string | null;
+  mediaOrigin: string | null;
   s3ObjectKey: string | null;
   s3PublicNamespaceSnapshot: string | null;
   extension: string;
@@ -51,7 +53,7 @@ export type SerializedUploadProvenance = {
   credential: {
     id: string;
     name: string;
-    clientLabel: string | null;
+    slug: string;
   } | null;
   s3: { objectKey: string; publicNamespace: string } | null;
 };
@@ -61,6 +63,7 @@ type UploadProvenanceLike = Pick<
   | "origin"
   | "apiKeyIdSnapshot"
   | "apiKeyNameSnapshot"
+  | "apiKeySlugSnapshot"
   | "clientLabelSnapshot"
   | "s3ObjectKey"
   | "s3PublicNamespaceSnapshot"
@@ -76,7 +79,10 @@ export function serializeUploadProvenance(
         ? {
             id: value.apiKeyIdSnapshot,
             name: value.apiKeyNameSnapshot,
-            clientLabel: value.clientLabelSnapshot,
+            slug:
+              value.apiKeySlugSnapshot ??
+              value.clientLabelSnapshot ??
+              value.apiKeyNameSnapshot,
           }
         : null,
     s3:
@@ -112,6 +118,7 @@ export type SerializedUpload = {
   originalName: string;
   textLanguage: string | null;
   passwordProtected: boolean;
+  mediaOrigin: string | null;
   provenance: SerializedUploadProvenance;
   extension: string;
   contentType: string;
@@ -151,6 +158,7 @@ export function serializeUpload(value: UploadLike): SerializedUpload {
     originalName: value.originalName,
     textLanguage: value.textLanguage,
     passwordProtected: Boolean(value.passwordHash),
+    mediaOrigin: value.mediaOrigin,
     provenance: serializeUploadProvenance(value),
     extension: value.extension,
     contentType: value.contentType,

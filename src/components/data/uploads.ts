@@ -1,11 +1,11 @@
 import "server-only";
 
-import { env } from "~/env";
 import {
   escapePostgresLikePattern,
   normalizeUploadSearchQuery,
 } from "~/lib/upload-search";
 import { db } from "~/server/db";
+import { publicMediaUrl } from "~/server/media/origin-preferences";
 import {
   serializeUpload,
   type SerializedUpload,
@@ -64,14 +64,16 @@ export type LibraryTrend = {
 export const PAGE_SIZE = 12;
 export const DASHBOARD_RECENT_COUNT = 10;
 
-/** Mirrors the private `publicUrl` helper in the upload service. */
-export function publicUrl(publicSlug: string, extension: string): string {
-  const base = env.CDN_URL.endsWith("/") ? env.CDN_URL : `${env.CDN_URL}/`;
-  return new URL(`${publicSlug}.${extension}`, base).toString();
+export function publicUrl(
+  publicSlug: string,
+  extension: string,
+  mediaOrigin?: string | null,
+): string {
+  return publicMediaUrl({ publicSlug, extension, mediaOrigin });
 }
 
 export function uploadUrl(upload: SerializedUpload): string {
-  return publicUrl(upload.publicSlug, upload.extension);
+  return publicUrl(upload.publicSlug, upload.extension, upload.mediaOrigin);
 }
 
 export function readyGifVariant(upload: SerializedUpload) {

@@ -129,7 +129,7 @@ export async function loadAdminUploadPage(input?: {
     items: page.map(({ user, ...upload }) => ({
       upload: serializeUpload(upload),
       owner: user,
-      url: publicUrl(upload.publicSlug, upload.extension),
+      url: publicUrl(upload.publicSlug, upload.extension, upload.mediaOrigin),
     })),
     nextCursor:
       hasMore && last

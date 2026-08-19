@@ -38,9 +38,14 @@ export function MetadataList({ upload }: { upload: SerializedUpload }) {
       ? [
           {
             term: "Credential",
-            value: upload.provenance.credential.clientLabel
-              ? `${upload.provenance.credential.name} — ${upload.provenance.credential.clientLabel}`
-              : upload.provenance.credential.name,
+            value: (
+              <>
+                {upload.provenance.credential.name}{" "}
+                <code className="text-muted-foreground font-mono text-xs">
+                  {upload.provenance.credential.slug}
+                </code>
+              </>
+            ),
           },
         ]
       : []),

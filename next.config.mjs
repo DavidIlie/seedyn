@@ -1,42 +1,45 @@
 import { createMDX } from "fumadocs-mdx/next";
 
+import {
+  parseMediaDomainCatalog,
+  resolveMediaHostAllowlist,
+} from "./src/lib/media-domains.js";
+
 const isDevelopment = process.env.NODE_ENV !== "production";
 
-/**
- * @param {string | undefined} value
- * @param {string} fallback
- */
-function httpOrigin(value, fallback) {
-  try {
-    const url = new URL(value ?? fallback);
-    return url.protocol === "http:" || url.protocol === "https:"
-      ? url.origin
-      : fallback;
-  } catch {
-    return fallback;
-  }
-}
+const mediaDomainCatalog = parseMediaDomainCatalog({
+  allowHttp: isDevelopment,
+  // `next typegen` and local production builds evaluate this config with
+  // NODE_ENV=production after loading the developer's `.env.local`. Permit
+  // only *.localhost HTTP here; runtime env validation stays HTTPS-only.
+  allowLocalHttp: true,
+  fallbackOrigin:
+    process.env.CDN_URL ??
+    (isDevelopment ? "http://i.localhost:3000" : "https://i.dave.tips"),
+  serialized: process.env.MEDIA_DOMAINS,
+});
+const mediaHosts = resolveMediaHostAllowlist(
+  mediaDomainCatalog,
+  process.env.MEDIA_HOSTS ??
+    (isDevelopment ? "i.dave.tips,i.localhost" : "i.dave.tips"),
+);
+const mediaOrigins = mediaDomainCatalog.origins.join(" ");
 
-const cdnOrigin = httpOrigin(process.env.CDN_URL, "https://i.dave.tips");
-
 /**
- * @param {string | undefined} value
+ * @param {readonly string[]} hosts
  * @param {string} fallback
  * @returns {string}
  */
-function hostPattern(value, fallback) {
-  const hosts = (value?.trim() ? value : fallback)
-    .split(",")
-    .map((host) => host.trim().toLowerCase().split(":", 1)[0] ?? "")
+function hostPattern(hosts, fallback) {
+  const patterns = hosts
     .filter(Boolean)
     .map((host) => host.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-  return hosts.length === 1 ? (hosts[0] ?? fallback) : `(?:${hosts.join("|")})`;
+  return patterns.length === 1
+    ? (patterns[0] ?? fallback)
+    : `(?:${patterns.join("|")})`;
 }
 
-const mediaHostPattern = hostPattern(
-  process.env.MEDIA_HOSTS,
-  isDevelopment ? "i.dave.tips,i.localhost" : "i.dave.tips",
-);
+const mediaHostPattern = hostPattern(mediaHosts, "i.dave.tips");
 // Next 16.3 preserves config headers over same-name Route Handler headers.
 // One media-host policy therefore has to protect both raw bytes and the small
 // password-unlock document. Uploaded HTML is never served as HTML (and every
@@ -61,12 +64,12 @@ const contentSecurityPolicy = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${isDevelopment ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
-  `img-src 'self' data: blob: ${cdnOrigin}`,
-  `media-src 'self' blob: ${cdnOrigin}`,
+  `img-src 'self' data: blob: ${mediaOrigins}`,
+  `media-src 'self' blob: ${mediaOrigins}`,
   // URL ingestion is an explicit user gesture and fetches arbitrary HTTPS
   // origins in the browser. This relaxes connection destinations only; script,
   // style, frame, worker, and form policies remain independently constrained.
-  `connect-src 'self' blob: ${cdnOrigin} https:`,
+  `connect-src 'self' blob: ${mediaOrigins} https:`,
   "worker-src 'self' blob:",
   "font-src 'self' data:",
   "object-src 'none'",

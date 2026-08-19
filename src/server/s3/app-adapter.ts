@@ -22,6 +22,7 @@ import {
   type ParsedUploadFile,
 } from "~/server/uploads/multipart";
 import { createUpload, deleteOwnedUpload } from "~/server/uploads/service";
+import { resolveMediaDomainPreference } from "~/server/media/origin-preferences";
 
 import {
   S3AdapterError,
@@ -251,6 +252,10 @@ export const seedynS3GatewayAdapter: S3GatewayAdapter = {
       }
       await createUpload({
         userId: credential.userId,
+        mediaOrigin: resolveMediaDomainPreference(
+          credential.mediaDomain,
+          credential.userDefaultMediaDomain,
+        ).origin,
         file,
         classification,
         forcedKind: "auto",
@@ -260,7 +265,7 @@ export const seedynS3GatewayAdapter: S3GatewayAdapter = {
           credential: {
             id: credential.apiKeyId,
             name: credential.apiKeyName,
-            clientLabel: credential.clientLabel,
+            slug: credential.apiKeySlug,
           },
           s3: {
             objectKey: input.key,

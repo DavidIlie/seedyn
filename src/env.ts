@@ -3,6 +3,10 @@ import { isIP } from "node:net";
 import { z } from "zod";
 
 import { shouldSkipEnvironmentValidation } from "~/lib/env-validation";
+import {
+  parseMediaDomainCatalog,
+  resolveMediaHostAllowlist,
+} from "~/lib/media-domains.js";
 
 const optionalSecret = z.string().min(1).optional();
 const originUrl = z.url().refine((value) => {
@@ -16,12 +20,13 @@ const originUrl = z.url().refine((value) => {
   );
 }, "Must be an origin URL without credentials, path, query, or fragment");
 
-export const env = createEnv({
+const parsedEnv = createEnv({
   server: {
     APP_URL: originUrl,
     CDN_URL: originUrl,
+    MEDIA_DOMAINS: z.string().min(1).optional(),
     APP_HOSTS: z.string().min(1),
-    MEDIA_HOSTS: z.string().min(1),
+    MEDIA_HOSTS: z.string().min(1).optional(),
     POD_IP: z
       .string()
       .refine((value) => isIP(value) !== 0, "Must be a literal IP address")
@@ -52,6 +57,25 @@ export const env = createEnv({
   ),
   emptyStringAsUndefined: true,
 });
+
+export const mediaDomainCatalog = parseMediaDomainCatalog({
+  allowHttp: parsedEnv.NODE_ENV !== "production",
+  allowLocalHttp: true,
+  fallbackOrigin: parsedEnv.CDN_URL,
+  serialized: parsedEnv.MEDIA_DOMAINS,
+});
+export const mediaHostAllowlist = resolveMediaHostAllowlist(
+  mediaDomainCatalog,
+  parsedEnv.MEDIA_HOSTS,
+);
+
+// Keep the established `env.MEDIA_HOSTS` interface while making the catalog
+// authoritative. Existing consumers automatically receive every configured
+// media host without each request module reparsing process environment.
+export const env = {
+  ...parsedEnv,
+  MEDIA_HOSTS: mediaHostAllowlist.join(","),
+} as const;
 
 export function assertAuthConfigured(): void {
   if (env.SEEDYN_DEV_AUTH && env.NODE_ENV !== "production") return;

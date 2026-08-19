@@ -96,6 +96,7 @@ model User {
   storageLimitBytes    BigInt?
   storageUsedBytes     BigInt               @default(0)
   storageReservedBytes BigInt               @default(0)
+  defaultMediaDomain   String?
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
   accounts             Account[]
@@ -134,7 +135,9 @@ model ApiKey {
   id                String    @id
   userId            String
   name              String
+  slug              String
   clientLabel       String?
+  mediaDomain       String?
   prefix            String
   secretHash        Bytes     @unique
   scopes            String[]
@@ -147,7 +150,7 @@ model ApiKey {
   revokedAt         DateTime?
   user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, name])
+  @@unique([userId, slug])
   @@index([userId, revokedAt, createdAt(sort: Desc)])
 }
 
@@ -164,7 +167,9 @@ model Upload {
   origin                    UploadOrigin       @default(LEGACY_UNKNOWN)
   apiKeyIdSnapshot          String?
   apiKeyNameSnapshot        String?
+  apiKeySlugSnapshot        String?
   clientLabelSnapshot       String?
+  mediaOrigin               String?
   s3ObjectKey               String?
   s3PublicNamespaceSnapshot String?
   extension                 String

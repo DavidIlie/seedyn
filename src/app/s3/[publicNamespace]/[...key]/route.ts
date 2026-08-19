@@ -1,5 +1,5 @@
-import { env } from "~/env";
 import { db } from "~/server/db";
+import { publicMediaUrl } from "~/server/media/origin-preferences";
 import {
   checkPublicMediaRateLimit,
   isMediaHostRequest,
@@ -32,11 +32,6 @@ function unavailable(status: 429 | 503, headers?: HeadersInit): Response {
   responseHeaders.set("Cross-Origin-Resource-Policy", "cross-origin");
   responseHeaders.set("X-Content-Type-Options", "nosniff");
   return new Response(null, { status, headers: responseHeaders });
-}
-
-function canonicalMediaUrl(publicSlug: string, extension: string): string {
-  const base = env.CDN_URL.endsWith("/") ? env.CDN_URL : `${env.CDN_URL}/`;
-  return new URL(`${publicSlug}.${extension}`, base).toString();
 }
 
 async function resolveAlias(
@@ -78,7 +73,7 @@ async function resolveAlias(
         s3PublicNamespaceSnapshot: publicNamespace,
         state: "READY",
       },
-      select: { extension: true, publicSlug: true },
+      select: { extension: true, publicSlug: true, mediaOrigin: true },
     });
     if (!upload) return notFound();
 
@@ -88,7 +83,7 @@ async function resolveAlias(
         "Access-Control-Allow-Origin": "*",
         "Cache-Control": "no-store",
         "Cross-Origin-Resource-Policy": "cross-origin",
-        Location: canonicalMediaUrl(upload.publicSlug, upload.extension),
+        Location: publicMediaUrl(upload),
         "Referrer-Policy": "no-referrer",
         "X-Content-Type-Options": "nosniff",
         "X-Robots-Tag": "noindex, nofollow, noarchive",

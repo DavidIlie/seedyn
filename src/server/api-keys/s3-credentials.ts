@@ -6,6 +6,7 @@ import { Prisma } from "@prisma/client";
 
 import { env } from "~/env";
 import { db } from "~/server/db";
+import { resolveMediaDomainPreference } from "~/server/media/origin-preferences";
 import { S3_FIXED_BUCKET } from "~/server/s3/constants";
 
 const ACCESS_KEY_PREFIX = "SDN";
@@ -31,6 +32,8 @@ export type CreatedS3Credential = Readonly<{
   accessKeyId: string;
   publicNamespace: string;
   secretAccessKey: string;
+  mediaDomain: string | null;
+  userDefaultMediaDomain: string | null;
 }>;
 
 export type S3CredentialDisplay = Readonly<{
@@ -44,7 +47,9 @@ export type ResolvedS3Credential = Readonly<{
   accessKeyId: string;
   apiKeyId: string;
   apiKeyName: string;
-  clientLabel: string | null;
+  apiKeySlug: string;
+  mediaDomain: string | null;
+  userDefaultMediaDomain: string | null;
   publicNamespace: string;
   scopes: readonly string[];
   secretAccessKey: string;
@@ -66,14 +71,23 @@ function generatePublicNamespace(): string {
 
 export function describeS3Credential(
   publicNamespace: string,
+  mediaDomain?: string | null,
+  userDefaultMediaDomain?: string | null,
 ): S3CredentialDisplay {
   if (!/^[A-Za-z0-9_-]{16,128}$/u.test(publicNamespace)) {
     throw new Error("Stored S3 public namespace is invalid.");
   }
+  const publicDomain = resolveMediaDomainPreference(
+    mediaDomain,
+    userDefaultMediaDomain,
+  );
   return {
     bucket: S3_FIXED_BUCKET,
     endpoint: env.APP_URL,
-    publicBaseUrl: new URL(`/s3/${publicNamespace}/`, env.CDN_URL).toString(),
+    publicBaseUrl: new URL(
+      `/s3/${publicNamespace}/`,
+      publicDomain.origin,
+    ).toString(),
     publicNamespace,
   };
 }
@@ -123,6 +137,8 @@ export async function rotateS3Credential(input: {
               expiresAt: true,
               revokedAt: true,
               s3PublicNamespace: true,
+              mediaDomain: true,
+              user: { select: { defaultMediaDomain: true } },
             },
           });
           const now = new Date();
@@ -148,6 +164,8 @@ export async function rotateS3Credential(input: {
               id: true,
               s3AccessKeyId: true,
               s3PublicNamespace: true,
+              mediaDomain: true,
+              user: { select: { defaultMediaDomain: true } },
             },
           });
         },
@@ -160,6 +178,8 @@ export async function rotateS3Credential(input: {
       return {
         accessKeyId: row.s3AccessKeyId,
         publicNamespace: row.s3PublicNamespace,
+        mediaDomain: row.mediaDomain,
+        userDefaultMediaDomain: row.user.defaultMediaDomain,
         secretAccessKey: deriveSecretAccessKey({
           accessKeyId: row.s3AccessKeyId,
           apiKeyId: row.id,
@@ -189,13 +209,15 @@ export async function resolveS3Credential(
       id: true,
       userId: true,
       name: true,
-      clientLabel: true,
+      slug: true,
+      mediaDomain: true,
       scopes: true,
       s3AccessKeyId: true,
       s3PublicNamespace: true,
       s3EnabledAt: true,
       expiresAt: true,
       revokedAt: true,
+      user: { select: { defaultMediaDomain: true } },
     },
   });
   const now = new Date();
@@ -213,7 +235,9 @@ export async function resolveS3Credential(
     accessKeyId: row.s3AccessKeyId,
     apiKeyId: row.id,
     apiKeyName: row.name,
-    clientLabel: row.clientLabel,
+    apiKeySlug: row.slug,
+    mediaDomain: row.mediaDomain,
+    userDefaultMediaDomain: row.user.defaultMediaDomain,
     publicNamespace: row.s3PublicNamespace,
     scopes: row.scopes,
     secretAccessKey: deriveSecretAccessKey({
