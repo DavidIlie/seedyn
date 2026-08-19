@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { GuardedLink } from "~/components/navigation/navigation-blocker";
 
 /**
  * The Seedyn port mark: one stored object enters a private ring and leaves as
@@ -41,7 +41,7 @@ export function SeedynLogo({
   className?: string;
 }) {
   return (
-    <Link
+    <GuardedLink
       href={href}
       aria-label="Seedyn library"
       className={`group inline-flex items-center gap-2 ${className}`}
@@ -50,6 +50,6 @@ export function SeedynLogo({
       <span className="font-display hidden text-[15px] font-semibold tracking-[-0.025em] min-[480px]:inline lg:inline">
         Seedyn
       </span>
-    </Link>
+    </GuardedLink>
   );
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FileUp, Save } from "lucide-react";
 import {
@@ -18,6 +17,10 @@ import {
   inputBase,
   labelBase,
 } from "~/components/ui/styles";
+import {
+  GuardedLink,
+  useNavigationBlocker,
+} from "~/components/navigation/navigation-blocker";
 
 import {
   isTextLanguage,
@@ -54,6 +57,7 @@ function bytes(value: string): number {
 
 export function TextComposer() {
   const router = useRouter();
+  const { setBlocked } = useNavigationBlocker();
   const fileInput = useRef<HTMLInputElement>(null);
   const [filename, setFilename] = useState("untitled.txt");
   const [language, setLanguage] = useState<TextLanguage>("plaintext");
@@ -108,6 +112,11 @@ export function TextComposer() {
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty, submitting]);
+
+  useEffect(() => {
+    setBlocked(dirty && !submitting);
+    return () => setBlocked(false);
+  }, [dirty, setBlocked, submitting]);
 
   const submit = useCallback(async () => {
     if (submitting) return;
@@ -306,9 +315,9 @@ export function TextComposer() {
       </div>
 
       <p className="text-muted-foreground mt-3 text-sm">
-        <Link href="/texts" className="hover:text-foreground">
+        <GuardedLink href="/texts" className="hover:text-foreground">
           Cancel and return to texts
-        </Link>
+        </GuardedLink>
         <span aria-hidden="true"> · </span>Press Ctrl/⌘ S to create.
       </p>
     </div>

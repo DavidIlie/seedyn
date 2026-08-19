@@ -1,9 +1,10 @@
 "use client";
 
 import type { Route } from "next";
-import Link from "next/link";
 import { useSelectedLayoutSegment } from "next/navigation";
 import { useEffect, useRef } from "react";
+
+import { GuardedLink } from "~/components/navigation/navigation-blocker";
 
 export type AccountIdentity = {
   name: string | null;
@@ -136,14 +137,14 @@ function AccountLink({
   close: () => void;
 }) {
   return (
-    <Link
+    <GuardedLink
       href={href}
       onClick={close}
       className="text-muted-foreground hover:bg-sunken hover:text-foreground flex h-10 items-center gap-3 rounded-lg px-3 text-sm transition-colors"
     >
       <AccountGlyph name={icon} />
       {label}
-    </Link>
+    </GuardedLink>
   );
 }
 

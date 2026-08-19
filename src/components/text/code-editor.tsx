@@ -9,6 +9,7 @@ import { markdown } from "@codemirror/lang-markdown";
 import { python } from "@codemirror/lang-python";
 import { rust } from "@codemirror/lang-rust";
 import { sql } from "@codemirror/lang-sql";
+import { useEffect, useState } from "react";
 
 import type { TextLanguage } from "./languages";
 
@@ -49,9 +50,21 @@ export function CodeEditor({
   language: TextLanguage;
   onChange: (value: string) => void;
 }) {
+  const [dark, setDark] = useState(
+    () => window.matchMedia("(prefers-color-scheme: dark)").matches,
+  );
+
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const update = () => setDark(media.matches);
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
   return (
     <CodeMirror
       value={value}
+      theme={dark ? "dark" : "light"}
       height="min(60dvh, 42rem)"
       minHeight="24rem"
       extensions={extensionFor(language)}

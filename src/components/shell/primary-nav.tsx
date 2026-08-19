@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { GuardedLink } from "~/components/navigation/navigation-blocker";
 
 /**
  * The six product destinations, rendered in both their wide and narrow forms.
@@ -45,7 +45,7 @@ export function PrimaryNav({
             const active = destination.segment === segment;
             return (
               <li key={destination.href}>
-                <Link
+                <GuardedLink
                   href={destination.href}
                   aria-current={active ? "page" : undefined}
                   className={
@@ -57,7 +57,7 @@ export function PrimaryNav({
                 >
                   <NavGlyph name={destination.icon} />
                   {destination.label}
-                </Link>
+                </GuardedLink>
               </li>
             );
           })}
@@ -79,7 +79,7 @@ export function PrimaryNav({
               const active = destination.segment === segment;
               return (
                 <li key={destination.href}>
-                  <Link
+                  <GuardedLink
                     href={destination.href}
                     aria-current={active ? "page" : undefined}
                     className={
@@ -91,7 +91,7 @@ export function PrimaryNav({
                   >
                     <NavGlyph name={destination.icon} />
                     {destination.label}
-                  </Link>
+                  </GuardedLink>
                 </li>
               );
             })}
