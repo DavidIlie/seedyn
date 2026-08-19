@@ -30,6 +30,12 @@ export function MetadataList({ upload }: { upload: SerializedUpload }) {
     ...(duration ? [{ term: "Duration", value: duration }] : []),
     { term: "Uploaded", value: formatTimestamp(upload.createdAt) },
     {
+      term: "Access",
+      value: upload.passwordProtected
+        ? "Password required"
+        : "Anyone with the link",
+    },
+    {
       term: "Served as",
       value:
         upload.disposition === "INLINE"

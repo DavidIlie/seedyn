@@ -30,12 +30,33 @@ member's limit from the admin user ledger. Browser, API, and ShareX uploads all
 use the same race-safe quota enforcement and return
 `storage_quota_exceeded` when the next object would cross the limit.
 
-## Text and code
+## Password protection
 
-Open **Texts → New text** to write in the CodeMirror editor or load a local
-UTF-8 text file before publishing it. Seedyn records an allowlisted language and
-keeps a browser-local draft until creation succeeds. The authenticated detail
-page uses Shiki for a bounded, syntax-highlighted read view.
+Every image, video, text, file, and stored GIF variant can inherit an optional
+password from its parent upload. Open the upload detail page to set, change, or
+remove it. The detail page shows the current access state; password hashes and
+storage keys are never returned to the browser.
+
+Adding a password rotates the public URLs the first time protection is enabled.
+Copy the newly displayed URL after saving. Visitors receive a small unlock page
+before any uploaded bytes, metadata response, range, or download is served.
+
+## Text, code, and documents
+
+Open **Texts → New text or document** and choose the authoring surface:
+
+- **Code** uses CodeMirror, accepts a local UTF-8 file, records an allowlisted
+  language, and renders the owned read view with bounded Shiki highlighting.
+- **Document** uses Tiptap's toolbar, Markdown shortcuts, task lists, and `/`
+  block menu. It imports and exports Markdown and stores the published object as
+  portable `.md`, so the permanent URL is useful outside Seedyn too.
+
+Both modes keep an autosaved browser-local draft until creation succeeds. The
+document editor uses Tiptap JSON only for that private editing state; publishing
+serializes it with Tiptap's official Markdown support. The authenticated read
+view parses the Markdown through the same bounded schema, removes unsafe link
+targets, and renders it on the server with Tiptap's static renderer rather than
+shipping a read-only editor.
 
 The permanent `i.dave.tips` URL is the raw consumable form. Source extensions
 are preserved, but every text object is deliberately served as

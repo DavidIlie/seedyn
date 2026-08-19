@@ -1,7 +1,10 @@
 import { createReadStream } from "node:fs";
+import { readFile } from "node:fs/promises";
 
 import { fileTypeFromBuffer } from "file-type";
 import sharp from "sharp";
+
+import { parseMarkdownDocument } from "~/components/text/document-format";
 
 import { DomainError } from "./errors";
 import { UPLOAD_LIMITS, type ParsedUploadFile } from "./multipart";
@@ -28,6 +31,7 @@ const TEXT_LANGUAGES = {
   cpp: "cpp",
   csharp: "cs",
   css: "css",
+  document: "md",
   go: "go",
   html: "html",
   javascript: "js",
@@ -60,6 +64,7 @@ const TEXT_LANGUAGE_ALIASES = new Map<string, keyof typeof TEXT_LANGUAGES>([
   ["cs", "csharp"],
   ["csharp", "csharp"],
   ["css", "css"],
+  ["document", "document"],
   ["go", "go"],
   ["html", "html"],
   ["js", "javascript"],
@@ -116,6 +121,36 @@ function textMetadata(
     return { extension: "txt", textLanguage: "plaintext" };
   }
   return { extension: TEXT_LANGUAGES[language], textLanguage: language };
+}
+
+async function textClassification(
+  file: ParsedUploadFile,
+  requestedLanguage: string | undefined,
+): Promise<ClassifiedUpload> {
+  const metadata = textMetadata(
+    file.originalName || file.fields.filename || "upload",
+    requestedLanguage,
+  );
+  if (metadata.textLanguage === "document") {
+    try {
+      parseMarkdownDocument(await readFile(file.path, "utf8"));
+    } catch (error) {
+      throw new DomainError("invalid_input", {
+        message: "The rich-text document is malformed or unsupported.",
+        cause: error,
+      });
+    }
+  }
+  return {
+    kind: "TEXT",
+    ...metadata,
+    contentType: "text/plain; charset=utf-8",
+    disposition: "INLINE",
+    width: null,
+    height: null,
+    durationMs: null,
+    frameCount: null,
+  };
 }
 
 const SAFE_IMAGES = new Map<string, { extension: string; contentType: string }>(
@@ -224,19 +259,7 @@ export async function classifyUpload(
 ): Promise<ClassifiedUpload> {
   if (file.byteSize === 0) {
     if (options?.forcedKind === "text") {
-      return {
-        kind: "TEXT",
-        ...textMetadata(
-          file.originalName || file.fields.filename || "upload",
-          options.textLanguage,
-        ),
-        contentType: "text/plain; charset=utf-8",
-        disposition: "INLINE",
-        width: null,
-        height: null,
-        durationMs: null,
-        frameCount: null,
-      };
+      return textClassification(file, options.textLanguage);
     }
     return {
       kind: "FILE",
@@ -321,19 +344,7 @@ export async function classifyUpload(
         frameCount: null,
       };
     }
-    return {
-      kind: "TEXT",
-      ...textMetadata(
-        file.originalName || file.fields.filename || "upload",
-        options?.textLanguage,
-      ),
-      contentType: "text/plain; charset=utf-8",
-      disposition: "INLINE",
-      width: null,
-      height: null,
-      durationMs: null,
-      frameCount: null,
-    };
+    return textClassification(file, options?.textLanguage);
   }
 
   return {

@@ -37,7 +37,19 @@ const mediaHostPattern = hostPattern(
   process.env.MEDIA_HOSTS,
   isDevelopment ? "i.dave.tips,i.localhost" : "i.dave.tips",
 );
-const mediaContentSecurityPolicy = "sandbox; default-src 'none'";
+// Next 16.3 preserves config headers over same-name Route Handler headers.
+// One media-host policy therefore has to protect both raw bytes and the small
+// password-unlock document. Uploaded HTML is never served as HTML (and every
+// response is nosniff); the sandbox still disables scripts, navigation,
+// popups, and same-origin privileges while allowing only our same-origin form.
+const mediaContentSecurityPolicy = [
+  "sandbox allow-forms allow-same-origin",
+  "default-src 'none'",
+  "style-src 'unsafe-inline'",
+  "form-action 'self'",
+  "base-uri 'none'",
+  "frame-ancestors 'none'",
+].join("; ");
 const appHeaderSource = "/((?!internal/media(?:/|$)).*)";
 
 /** @returns {{ key: string; type: "header"; value: string }[]} */
@@ -122,6 +134,7 @@ const config = {
             key: "Content-Security-Policy",
             value: mediaContentSecurityPolicy,
           },
+          { key: "Referrer-Policy", value: "no-referrer" },
         ],
       },
       {

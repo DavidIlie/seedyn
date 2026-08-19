@@ -8,7 +8,14 @@ import {
   type ColumnDef,
 } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Eye, EyeOff, LayoutGrid, List, TableProperties } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  LayoutGrid,
+  List,
+  LockKeyhole,
+  TableProperties,
+} from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -170,7 +177,15 @@ function UploadTable({
                     href={`/uploads/${upload.id}`}
                     className="hover:text-accent block truncate font-medium"
                   >
-                    {upload.originalName}
+                    <span className="inline-flex max-w-full items-center gap-1.5">
+                      {upload.passwordProtected ? (
+                        <LockKeyhole
+                          aria-label="Password protected"
+                          className="text-accent size-3.5 shrink-0"
+                        />
+                      ) : null}
+                      <span className="truncate">{upload.originalName}</span>
+                    </span>
                   </Link>
                   <span className="text-muted-foreground block truncate font-mono text-[0.6875rem]">
                     {upload.publicSlug}.{upload.extension}
@@ -344,8 +359,8 @@ function MediaPreview({
   compact?: boolean;
 }) {
   const ready = upload.state === "READY";
-  const image = upload.kind === "IMAGE" && ready;
-  const video = upload.kind === "VIDEO" && ready;
+  const image = upload.kind === "IMAGE" && ready && !upload.passwordProtected;
+  const video = upload.kind === "VIDEO" && ready && !upload.passwordProtected;
   const mediaClass =
     "absolute inset-0 h-full w-full object-cover transition-[filter,transform] duration-200 " +
     (privacy ? "blur-xl scale-110" : "group-hover:scale-[1.02]");
@@ -361,7 +376,11 @@ function MediaPreview({
       }
     >
       <span className="text-muted-foreground font-mono text-xs tracking-wider">
-        {uploadKindGlyph(upload.kind)}
+        {upload.passwordProtected ? (
+          <LockKeyhole className="text-accent size-5" />
+        ) : (
+          uploadKindGlyph(upload.kind)
+        )}
       </span>
       {image ? (
         // oxlint-disable-next-line next/no-img-element -- immutable user media deliberately bypasses the optimizer

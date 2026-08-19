@@ -15,10 +15,13 @@ import type { PublicMediaMetadata } from "./headers";
 
 export type PublicMediaRecord = PublicMediaMetadata & {
   id: string;
+  uploadId: string;
   publicSlug: string;
   extension: string;
   storageKey: string;
   storageKind: StoredObjectKind;
+  passwordHash: string | null;
+  passwordVersion: number;
 };
 
 function byteSizeAsNumber(value: bigint): number | null {
@@ -62,6 +65,8 @@ export async function findPublicMedia(
         contentType: true,
         disposition: true,
         originalName: true,
+        passwordHash: true,
+        passwordVersion: true,
         sha256: true,
         createdAt: true,
       },
@@ -83,28 +88,47 @@ export async function findPublicMedia(
         disposition: true,
         sha256: true,
         createdAt: true,
-        upload: { select: { originalName: true } },
+        upload: {
+          select: {
+            id: true,
+            originalName: true,
+            passwordHash: true,
+            passwordVersion: true,
+          },
+        },
       },
     }),
   ]);
 
   const row = original ?? variant;
   if (!row) return null;
+  const owner = original
+    ? {
+        id: original.id,
+        originalName: original.originalName,
+        passwordHash: original.passwordHash,
+        passwordVersion: original.passwordVersion,
+      }
+    : variant!.upload;
   const byteSize = byteSizeAsNumber(row.byteSize);
   if (byteSize === null) return null;
   return {
     id: row.id,
+    uploadId: owner.id,
     publicSlug: row.publicSlug,
     extension: row.extension,
     storageKey: row.storageKey,
     storageKind: original ? "original" : "gif-variant",
+    passwordHash: owner.passwordHash,
+    passwordVersion: owner.passwordVersion,
+    passwordProtected: Boolean(owner.passwordHash),
     byteSize,
     contentType: row.contentType,
     disposition: row.disposition,
     originalName:
       "originalName" in row
         ? row.originalName
-        : variantFilename(row.upload.originalName, row.extension),
+        : variantFilename(owner.originalName, row.extension),
     sha256: row.sha256,
     createdAt: row.createdAt,
   };

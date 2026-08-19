@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { TextComposer } from "~/components/text/text-composer";
 
-export const metadata: Metadata = { title: "New text" };
+export const metadata: Metadata = { title: "New text or document" };
 export const instant = true;
 
 export default function NewTextPage() {
@@ -19,11 +19,11 @@ export default function NewTextPage() {
       </div>
       <div className="pb-6">
         <h1 className="font-display text-[1.75rem] leading-tight font-semibold tracking-[-0.025em]">
-          New text
+          New text or document
         </h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Write code or notes, or open a local text file to edit before
-          publishing.
+          Publish a syntax-highlighted code file or a Notion-style rich document
+          with Markdown import and export.
         </p>
       </div>
       <TextComposer />

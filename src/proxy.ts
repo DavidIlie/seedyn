@@ -132,9 +132,10 @@ export function proxy(request: NextRequest): NextResponse {
 }
 
 export const config = {
-  // Next clones every non-GET/HEAD body before Proxy runs. Upload routes own
-  // the same host/origin/auth checks in their handlers and must bypass Proxy
-  // so large multipart bodies remain streaming and are never silently cut off.
+  // Next clones every non-GET/HEAD body before Proxy runs. Upload routes and
+  // exact root media assets own the same host checks in their handlers and
+  // bypass Proxy, keeping multipart uploads streaming and password form bodies
+  // under the media route's strict 2 KiB reader rather than a framework clone.
   matcher:
-    "/((?!api/files/?$|api/images/?$|api/texts/?$|api/upload/?$|api/uploads/?$|api/uploads/[^/]+/gif/?$).*)",
+    "/((?!api/files/?$|api/images/?$|api/texts/?$|api/upload/?$|api/uploads/?$|api/uploads/[^/]+/gif/?$|[A-Za-z0-9_-]{22,64}\\.[a-z0-9]{1,10}/?$).*)",
 };

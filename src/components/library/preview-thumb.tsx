@@ -1,3 +1,5 @@
+import { LockKeyhole } from "lucide-react";
+
 import type { SerializedUpload } from "~/server/uploads/serialization";
 
 import { uploadKindGlyph } from "~/components/lib/format";
@@ -22,7 +24,10 @@ export function PreviewThumb({
   privacy?: boolean;
   className?: string;
 }) {
-  const showImage = upload.kind === "IMAGE" && upload.state === "READY";
+  const showImage =
+    upload.kind === "IMAGE" &&
+    upload.state === "READY" &&
+    !upload.passwordProtected;
 
   return (
     <span
@@ -33,7 +38,11 @@ export function PreviewThumb({
       }
     >
       <span className="text-muted-foreground font-mono text-[10px] tracking-wider">
-        {uploadKindGlyph(upload.kind)}
+        {upload.passwordProtected ? (
+          <LockKeyhole className="size-3.5" />
+        ) : (
+          uploadKindGlyph(upload.kind)
+        )}
       </span>
       {showImage ? (
         /* oxlint-disable-next-line next/no-img-element -- immutable user media deliberately bypasses the optimizer */

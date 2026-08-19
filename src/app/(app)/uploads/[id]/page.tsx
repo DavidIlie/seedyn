@@ -19,6 +19,7 @@ import {
   UploadPreviewSkeleton,
 } from "~/components/detail/upload-preview";
 import { TextReadView } from "~/components/detail/text-read-view";
+import { PasswordProtection } from "~/components/detail/password-protection";
 import {
   UrlHeading,
   UrlHeadingSkeleton,
@@ -93,6 +94,11 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
         </div>
 
         <div className="space-y-6">
+          <PasswordProtection
+            uploadId={upload.id}
+            protected={upload.passwordProtected}
+          />
+
           <GifPanel
             uploadId={upload.id}
             uploadKind={upload.kind}
@@ -101,6 +107,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
             sourceUrl={url}
             storedGifUrl={gif ? publicUrl(gif.publicSlug, gif.extension) : null}
             storedGifBytes={gif?.byteSize ?? null}
+            passwordProtected={upload.passwordProtected}
           />
 
           <a

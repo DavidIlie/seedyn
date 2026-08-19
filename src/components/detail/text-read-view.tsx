@@ -7,6 +7,8 @@ import {
 import { readOwnedTextContent } from "~/server/uploads/text-reader";
 import type { SerializedUpload } from "~/server/uploads/serialization";
 
+import { DocumentReadView } from "./document-read-view";
+
 const SHIKI_LANGUAGES = new Set([
   "bash",
   "css",
@@ -46,6 +48,15 @@ export async function TextReadView({
           </p>
         </div>
       </div>
+    );
+  }
+
+  if (upload.textLanguage === "document") {
+    return (
+      <DocumentReadView
+        content={result.content}
+        filename={upload.originalName}
+      />
     );
   }
 

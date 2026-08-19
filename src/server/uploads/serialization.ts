@@ -20,6 +20,7 @@ type UploadLike = {
   state: string;
   originalName: string;
   textLanguage: string | null;
+  passwordHash?: string | null;
   extension: string;
   contentType: string;
   disposition: string;
@@ -54,6 +55,7 @@ export type SerializedUpload = {
   state: string;
   originalName: string;
   textLanguage: string | null;
+  passwordProtected: boolean;
   extension: string;
   contentType: string;
   disposition: string;
@@ -91,6 +93,7 @@ export function serializeUpload(value: UploadLike): SerializedUpload {
     state: value.state,
     originalName: value.originalName,
     textLanguage: value.textLanguage,
+    passwordProtected: Boolean(value.passwordHash),
     extension: value.extension,
     contentType: value.contentType,
     disposition: value.disposition,

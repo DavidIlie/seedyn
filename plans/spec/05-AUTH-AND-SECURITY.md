@@ -83,17 +83,18 @@ Provisioning preconditions:
 
 ## Authorization matrix
 
-| Operation                  | Browser session | API key                     | Anonymous |
-| -------------------------- | --------------- | --------------------------- | --------- |
-| View own dashboard/uploads | own user        | no                          | no        |
-| Upload original            | own user        | scoped owner                | no        |
-| Create GIF variant         | own user        | no in V1                    | no        |
-| Delete upload              | own user        | deferred API scope          | no        |
-| Manage keys                | own user        | no                          | no        |
-| Read HTML/Markdown docs    | invited user    | optional future `docs:read` | no        |
-| Read cross-user admin data | admin role only | no                          | no        |
-| Fetch exact CDN URL        | yes             | yes                         | yes       |
-| List/search CDN            | no              | no                          | no        |
+| Operation                  | Browser session | API key                     | Anonymous                          |
+| -------------------------- | --------------- | --------------------------- | ---------------------------------- |
+| View own dashboard/uploads | own user        | no                          | no                                 |
+| Upload original            | own user        | scoped owner                | no                                 |
+| Create GIF variant         | own user        | no in V1                    | no                                 |
+| Delete upload              | own user        | deferred API scope          | no                                 |
+| Set/remove upload password | own user        | no                          | no                                 |
+| Manage keys                | own user        | no                          | no                                 |
+| Read HTML/Markdown docs    | invited user    | optional future `docs:read` | no                                 |
+| Read cross-user admin data | admin role only | no                          | no                                 |
+| Fetch exact CDN URL        | yes             | yes                         | yes, with password when configured |
+| List/search CDN            | no              | no                          | no                                 |
 
 ## Public-content threat model
 
@@ -116,6 +117,12 @@ Required controls:
 - high-entropy slugs; uniform 404; no public listing;
 - content length and decompression/metadata parsing limits;
 - uploaded text is escaped in any rich viewer.
+- optional passwords use Argon2id (19 MiB, two passes, one lane); protected
+  GET/HEAD/ranges require a valid path-scoped grant or HTTP Basic password;
+- protected responses are `private, no-store`, vary on Cookie/Authorization,
+  and password verification is fail-closed behind source and object limits;
+- first-time protection rotates original and variant slugs so a protected URL
+  is never one that Seedyn previously advertised as publicly cacheable.
 
 ## URL-ingest threat model
 

@@ -1,3 +1,5 @@
+import { LockKeyhole } from "lucide-react";
+
 import { uploadKindGlyph } from "~/components/lib/format";
 import type { SerializedUpload } from "~/server/uploads/serialization";
 
@@ -23,6 +25,23 @@ export function UploadPreview({
         <p className="text-muted-foreground text-sm">
           No preview while this upload is being removed.
         </p>
+      </Frame>
+    );
+  }
+
+  if (upload.passwordProtected) {
+    return (
+      <Frame>
+        <div className="text-center">
+          <LockKeyhole
+            aria-hidden="true"
+            className="text-accent mx-auto size-6"
+          />
+          <p className="mt-3 text-sm font-medium">Preview protected</p>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Open the original and enter its password to view the media.
+          </p>
+        </div>
       </Frame>
     );
   }

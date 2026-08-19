@@ -359,6 +359,59 @@ export async function getOwnedUpload(userId: string, uploadId: string) {
   }
 }
 
+/**
+ * Change the optional public-media password for an owned upload.
+ *
+ * The first transition from bearer-link access to password access rotates the
+ * original and every variant slug. That closes the old URLs at the origin and
+ * ensures a response cached before protection cannot satisfy the new URL.
+ * Existing copies outside Seedyn, including an already-populated intermediary
+ * cache for an old URL, cannot be recalled.
+ */
+export async function updateOwnedUploadPassword(input: {
+  userId: string;
+  uploadId: string;
+  passwordHash: string | null;
+}) {
+  try {
+    const row = await serializableTransaction(async (transaction) => {
+      const existing = await transaction.upload.findFirst({
+        where: { id: input.uploadId, userId: input.userId },
+        select: { id: true, passwordHash: true },
+      });
+      if (!existing) throw new DomainError("not_found");
+
+      const firstLock =
+        existing.passwordHash === null && input.passwordHash !== null;
+      if (firstLock) {
+        const variants = await transaction.uploadVariant.findMany({
+          where: { uploadId: existing.id },
+          select: { id: true },
+        });
+        for (const variant of variants) {
+          await transaction.uploadVariant.update({
+            where: { id: variant.id },
+            data: { publicSlug: createPublicSlug() },
+          });
+        }
+      }
+
+      return transaction.upload.update({
+        where: { id: existing.id },
+        data: {
+          passwordHash: input.passwordHash,
+          passwordVersion: { increment: 1 },
+          ...(firstLock ? { publicSlug: createPublicSlug() } : {}),
+        },
+        include: { variants: { orderBy: { createdAt: "asc" } } },
+      });
+    });
+    return serializeUpload(row);
+  } catch (error) {
+    throw databaseError(error);
+  }
+}
+
 export async function createGifVariant(
   input: {
     userId: string;

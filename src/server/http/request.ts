@@ -301,6 +301,34 @@ export async function checkPublicMediaRateLimit(input: {
   return rangeLimit.allowed ? sourceLimit : rangeLimit;
 }
 
+/**
+ * Password verification invokes Argon2id and therefore gets a deliberately
+ * small, fail-closed budget before any hash work. The per-object ceiling also
+ * bounds a distributed guessing attempt against one protected link.
+ */
+export async function checkPublicMediaPasswordRateLimit(input: {
+  sourceAddress: string;
+  uploadId: string;
+}): Promise<UploadRateLimitResult> {
+  const sourceLimit = await checkUploadRateLimit({
+    apiKeyId: "public-media-password-source",
+    userId: "all-protected-media",
+    sourceAddress: input.sourceAddress,
+    limit: 12,
+    windowMs: 60_000,
+  });
+  if (!sourceLimit.allowed) return sourceLimit;
+
+  const objectLimit = await checkUploadRateLimit({
+    apiKeyId: "public-media-password-object",
+    userId: input.uploadId,
+    sourceAddress: "0.0.0.0",
+    limit: 120,
+    windowMs: 60_000,
+  });
+  return objectLimit.allowed ? sourceLimit : objectLimit;
+}
+
 export function signInNetworkPartition(sourceAddress: string): string {
   const version = isIP(sourceAddress);
   if (version === 4) {

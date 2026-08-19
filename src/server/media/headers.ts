@@ -1,7 +1,8 @@
 import { contentDispositionHeader } from "./disposition";
 import type { ByteRange } from "~/server/storage/object-store";
 
-const MEDIA_CONTENT_SECURITY_POLICY = "sandbox; default-src 'none'";
+const MEDIA_CONTENT_SECURITY_POLICY =
+  "sandbox allow-forms allow-same-origin; default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
 
 export type PublicMediaMetadata = {
   byteSize: number;
@@ -10,6 +11,7 @@ export type PublicMediaMetadata = {
   originalName: string;
   sha256: Uint8Array;
   createdAt: Date;
+  passwordProtected: boolean;
 };
 
 export function sha256Etag(sha256: Uint8Array): string {
@@ -23,9 +25,11 @@ export function buildPublicMediaHeaders(
   const headers = new Headers({
     "Accept-Ranges": "bytes",
     "Access-Control-Allow-Origin": "*",
-    "Cache-Control": range
-      ? "private, max-age=3600, no-transform"
-      : "public, max-age=3600, s-maxage=86400, immutable",
+    "Cache-Control": media.passwordProtected
+      ? "private, no-store, max-age=0"
+      : range
+        ? "private, max-age=3600, no-transform"
+        : "public, max-age=3600, s-maxage=86400, immutable",
     "Content-Disposition": contentDispositionHeader(
       media.disposition,
       media.originalName,
@@ -46,6 +50,12 @@ export function buildPublicMediaHeaders(
     headers.set(
       "Content-Range",
       `bytes ${range.start}-${range.end}/${media.byteSize}`,
+    );
+  }
+  if (media.passwordProtected) {
+    headers.set(
+      "Vary",
+      range ? "Cookie, Authorization, Range" : "Cookie, Authorization",
     );
   }
   return headers;
@@ -89,8 +99,8 @@ export function isNotModifiedSince(
 
 export function publicOptionsHeaders(): Headers {
   return new Headers({
-    Allow: "GET, HEAD, OPTIONS",
-    "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+    Allow: "GET, HEAD, OPTIONS, POST",
+    "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS, POST",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Max-Age": "86400",
     "Cache-Control": "public, max-age=86400",

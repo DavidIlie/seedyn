@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { FileUp, Save } from "lucide-react";
+import { Code2, Download, FileText, FileUp, Save } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -12,16 +12,21 @@ import {
 } from "react";
 
 import {
+  GuardedLink,
+  useNavigationBlocker,
+} from "~/components/navigation/navigation-blocker";
+import {
   buttonPrimary,
   buttonQuiet,
   inputBase,
   labelBase,
 } from "~/components/ui/styles";
-import {
-  GuardedLink,
-  useNavigationBlocker,
-} from "~/components/navigation/navigation-blocker";
 
+import {
+  documentToMarkdown,
+  EMPTY_DOCUMENT,
+  parseMarkdownDocument,
+} from "./document-format";
 import {
   isTextLanguage,
   languageFromFilename,
@@ -29,39 +34,60 @@ import {
   type TextLanguage,
 } from "./languages";
 
-const DRAFT_KEY = "seedyn:text-draft:v1";
+const DRAFT_KEY = "seedyn:text-draft:v2";
+const LEGACY_DRAFT_KEY = "seedyn:text-draft:v1";
 const MAX_TEXT_BYTES = 16 * 1024 * 1024;
+const EMPTY_DOCUMENT_VALUE = JSON.stringify(EMPTY_DOCUMENT);
 
 const CodeEditor = dynamic(
   () => import("./code-editor").then((module) => module.CodeEditor),
-  {
-    ssr: false,
-    loading: () => (
-      <div
-        aria-label="Loading code editor"
-        className="bg-sunken min-h-96 animate-pulse"
-      />
-    ),
-  },
+  { ssr: false, loading: () => <EditorLoading label="code" /> },
 );
 
-type Draft = {
+const DocumentEditor = dynamic(
+  () => import("./document-editor").then((module) => module.DocumentEditor),
+  { ssr: false, loading: () => <EditorLoading label="document" /> },
+);
+
+type ComposerMode = "code" | "document";
+type CodeDraft = {
   filename: string;
   language: TextLanguage;
   content: string;
+};
+type DocumentDraft = { filename: string; content: string };
+type Draft = {
+  version: 2;
+  mode: ComposerMode;
+  code: CodeDraft;
+  document: DocumentDraft;
+};
+
+const INITIAL_CODE: CodeDraft = {
+  filename: "untitled.txt",
+  language: "plaintext",
+  content: "",
+};
+const INITIAL_DOCUMENT: DocumentDraft = {
+  filename: "untitled.md",
+  content: EMPTY_DOCUMENT_VALUE,
 };
 
 function bytes(value: string): number {
   return new TextEncoder().encode(value).byteLength;
 }
 
+function isMode(value: unknown): value is ComposerMode {
+  return value === "code" || value === "document";
+}
+
 export function TextComposer() {
   const router = useRouter();
   const { setBlocked } = useNavigationBlocker();
   const fileInput = useRef<HTMLInputElement>(null);
-  const [filename, setFilename] = useState("untitled.txt");
-  const [language, setLanguage] = useState<TextLanguage>("plaintext");
-  const [content, setContent] = useState("");
+  const [mode, setMode] = useState<ComposerMode>("code");
+  const [code, setCode] = useState<CodeDraft>(INITIAL_CODE);
+  const [document, setDocument] = useState<DocumentDraft>(INITIAL_DOCUMENT);
   const [dirty, setDirty] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("Drafts are saved in this browser.");
@@ -72,14 +98,38 @@ export function TextComposer() {
       const stored = window.localStorage.getItem(DRAFT_KEY);
       if (stored) {
         const draft = JSON.parse(stored) as Partial<Draft>;
-        if (typeof draft.filename === "string") setFilename(draft.filename);
-        if (typeof draft.content === "string") setContent(draft.content);
-        if (
-          typeof draft.language === "string" &&
-          isTextLanguage(draft.language)
-        ) {
-          setLanguage(draft.language);
+        if (draft.version === 2 && isMode(draft.mode)) {
+          setMode(draft.mode);
+          if (draft.code && isTextLanguage(draft.code.language)) {
+            setCode(draft.code);
+          }
+          if (
+            draft.document &&
+            typeof draft.document.filename === "string" &&
+            typeof draft.document.content === "string"
+          ) {
+            setDocument(draft.document);
+          }
+          setDirty(true);
+          setMessage("Recovered your browser draft.");
+          return;
         }
+      }
+
+      const legacy = window.localStorage.getItem(LEGACY_DRAFT_KEY);
+      if (legacy) {
+        const draft = JSON.parse(legacy) as Partial<CodeDraft>;
+        setCode({
+          filename:
+            typeof draft.filename === "string"
+              ? draft.filename
+              : INITIAL_CODE.filename,
+          language:
+            typeof draft.language === "string" && isTextLanguage(draft.language)
+              ? draft.language
+              : INITIAL_CODE.language,
+          content: typeof draft.content === "string" ? draft.content : "",
+        });
         setDirty(true);
         setMessage("Recovered your browser draft.");
       }
@@ -94,15 +144,16 @@ export function TextComposer() {
       try {
         window.localStorage.setItem(
           DRAFT_KEY,
-          JSON.stringify({ filename, language, content } satisfies Draft),
+          JSON.stringify({ version: 2, mode, code, document } satisfies Draft),
         );
+        window.localStorage.removeItem(LEGACY_DRAFT_KEY);
         setMessage("Draft saved in this browser.");
       } catch {
         setMessage("Browser draft storage is unavailable.");
       }
     }, 350);
     return () => window.clearTimeout(timeout);
-  }, [content, dirty, filename, language]);
+  }, [code, dirty, document, mode]);
 
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
@@ -120,30 +171,51 @@ export function TextComposer() {
 
   const submit = useCallback(async () => {
     if (submitting) return;
-    const normalizedName = filename.trim();
+    const normalizedName = (
+      mode === "code" ? code.filename : document.filename
+    ).trim();
     if (!normalizedName) {
       setError("Enter a filename.");
       return;
     }
-    const byteSize = bytes(content);
-    if (byteSize > MAX_TEXT_BYTES) {
-      setError("This text is larger than the 16 MB limit.");
+
+    let bodyContent: string;
+    try {
+      if (mode === "document") {
+        bodyContent = documentToMarkdown(
+          JSON.parse(document.content) as typeof EMPTY_DOCUMENT,
+        );
+      } else {
+        bodyContent = code.content;
+      }
+    } catch {
+      setError(
+        "The document draft is malformed. Reload it from Markdown or start a new document.",
+      );
+      return;
+    }
+
+    if (bytes(bodyContent) > MAX_TEXT_BYTES) {
+      setError("This item is larger than the 16 MB limit.");
       return;
     }
 
     setSubmitting(true);
     setError(null);
-    setMessage("Creating text…");
+    setMessage(mode === "document" ? "Creating document…" : "Creating text…");
     try {
       const body = new FormData();
       body.append(
         "file",
-        new Blob([content], { type: "text/plain;charset=utf-8" }),
+        new Blob([bodyContent], { type: "text/plain;charset=utf-8" }),
         normalizedName,
       );
       body.append("kind", "text");
       body.append("filename", normalizedName);
-      body.append("textLanguage", language);
+      body.append(
+        "textLanguage",
+        mode === "document" ? "document" : code.language,
+      );
       const response = await fetch("/api/uploads", {
         method: "POST",
         body,
@@ -156,28 +228,25 @@ export function TextComposer() {
       } | null;
       if (!response.ok) {
         throw new Error(
-          payload?.error?.message ?? "The text could not be created.",
+          payload?.error?.message ?? "The item could not be created.",
         );
       }
       window.localStorage.removeItem(DRAFT_KEY);
+      window.localStorage.removeItem(LEGACY_DRAFT_KEY);
       setDirty(false);
-      if (payload?.id) {
-        router.push(`/uploads/${payload.id}`);
-      } else if (payload?.url) {
-        window.location.assign(payload.url);
-      } else {
-        router.push("/texts");
-      }
+      if (payload?.id) router.push(`/uploads/${payload.id}`);
+      else if (payload?.url) window.location.assign(payload.url);
+      else router.push("/texts");
     } catch (caught) {
       setError(
         caught instanceof Error
           ? caught.message
-          : "The text could not be created.",
+          : "The item could not be created.",
       );
       setMessage("Draft kept in this browser.");
       setSubmitting(false);
     }
-  }, [content, filename, language, router, submitting]);
+  }, [code, document, mode, router, submitting]);
 
   useEffect(() => {
     const saveShortcut = (event: KeyboardEvent) => {
@@ -190,11 +259,10 @@ export function TextComposer() {
     return () => window.removeEventListener("keydown", saveShortcut);
   }, [submit]);
 
-  function updateFilename(value: string) {
-    setFilename(value);
-    setLanguage(languageFromFilename(value));
+  function edit() {
     setDirty(true);
     setMessage("Saving draft…");
+    setError(null);
   }
 
   async function pickFile(event: ChangeEvent<HTMLInputElement>) {
@@ -205,63 +273,135 @@ export function TextComposer() {
       setError("That file is larger than the 16 MB limit.");
       return;
     }
-    if (
-      dirty &&
-      content &&
-      !window.confirm("Replace the current draft with this file?")
-    )
+    if (dirty && !window.confirm("Replace the current draft with this file?"))
       return;
     try {
       const next = await file.text();
-      setFilename(file.name || "untitled.txt");
-      setLanguage(languageFromFilename(file.name));
-      setContent(next);
-      setDirty(true);
-      setError(null);
+      if (mode === "document") {
+        const parsed = parseMarkdownDocument(next);
+        setDocument({
+          filename: file.name.replace(/\.(?:markdown|txt)$/i, ".md"),
+          content: JSON.stringify(parsed),
+        });
+      } else {
+        setCode({
+          filename: file.name || "untitled.txt",
+          language: languageFromFilename(file.name),
+          content: next,
+        });
+      }
+      edit();
       setMessage(`Loaded ${file.name}.`);
     } catch {
-      setError("That file could not be read as UTF-8 text.");
+      setError(
+        mode === "document"
+          ? "That file could not be parsed as Markdown."
+          : "That file could not be read as UTF-8 text.",
+      );
     }
   }
 
-  const byteSize = bytes(content);
-  const lineCount = content.length === 0 ? 1 : content.split("\n").length;
+  function exportMarkdown() {
+    try {
+      const markdown = documentToMarkdown(JSON.parse(document.content));
+      const url = URL.createObjectURL(
+        new Blob([markdown], { type: "text/markdown" }),
+      );
+      const anchor = window.document.createElement("a");
+      anchor.href = url;
+      anchor.download = document.filename.endsWith(".md")
+        ? document.filename
+        : `${document.filename}.md`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError("The current document could not be exported.");
+    }
+  }
+
+  const filename = mode === "code" ? code.filename : document.filename;
+  const payloadBytes =
+    mode === "code" ? bytes(code.content) : bytes(document.content);
 
   return (
     <div className="pb-10">
+      <div
+        role="tablist"
+        aria-label="Editor type"
+        className="border-border bg-sunken mb-5 inline-flex rounded-xl border p-1"
+      >
+        <ModeButton
+          selected={mode === "code"}
+          onClick={() => setMode("code")}
+          icon={Code2}
+        >
+          Code
+        </ModeButton>
+        <ModeButton
+          selected={mode === "document"}
+          onClick={() => setMode("document")}
+          icon={FileText}
+        >
+          Document
+        </ModeButton>
+      </div>
+
       <div className="flex flex-col gap-3 md:flex-row md:items-end">
         <label className="min-w-0 flex-1">
           <span className={labelBase}>Filename</span>
           <input
             value={filename}
-            onChange={(event) => updateFilename(event.target.value)}
+            onChange={(event) => {
+              if (mode === "code") {
+                setCode((current) => ({
+                  ...current,
+                  filename: event.target.value,
+                  language: languageFromFilename(event.target.value),
+                }));
+              } else {
+                setDocument((current) => ({
+                  ...current,
+                  filename: event.target.value,
+                }));
+              }
+              edit();
+            }}
             className={`${inputBase} mt-1 font-mono`}
             maxLength={255}
             spellCheck={false}
           />
         </label>
-        <label className="md:w-44">
-          <span className={labelBase}>Language</span>
-          <select
-            value={language}
-            onChange={(event) => {
-              setLanguage(event.target.value as TextLanguage);
-              setDirty(true);
-            }}
-            className={`${inputBase} mt-1`}
-          >
-            {TEXT_LANGUAGES.map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="flex gap-2">
+        {mode === "code" ? (
+          <label className="md:w-44">
+            <span className={labelBase}>Language</span>
+            <select
+              value={code.language}
+              onChange={(event) => {
+                setCode((current) => ({
+                  ...current,
+                  language: event.target.value as TextLanguage,
+                }));
+                edit();
+              }}
+              className={`${inputBase} mt-1`}
+            >
+              {TEXT_LANGUAGES.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        <div className="flex flex-wrap gap-2">
           <input
             ref={fileInput}
             type="file"
-            accept="text/*,.js,.jsx,.ts,.tsx,.json,.md,.py,.rs,.sql,.sh,.yaml,.yml,.xml"
+            accept={
+              mode === "document"
+                ? ".md,.markdown,.txt,text/markdown,text/plain"
+                : "text/*,.js,.jsx,.ts,.tsx,.json,.md,.py,.rs,.sql,.sh,.yaml,.yml,.xml"
+            }
             className="sr-only"
             onChange={(event) => void pickFile(event)}
           />
@@ -270,8 +410,18 @@ export function TextComposer() {
             className={buttonQuiet}
             onClick={() => fileInput.current?.click()}
           >
-            <FileUp className="size-4" aria-hidden="true" /> Pick file
+            <FileUp className="size-4" aria-hidden="true" />{" "}
+            {mode === "document" ? "Import Markdown" : "Pick file"}
           </button>
+          {mode === "document" ? (
+            <button
+              type="button"
+              className={buttonQuiet}
+              onClick={exportMarkdown}
+            >
+              <Download className="size-4" aria-hidden="true" /> Export .md
+            </button>
+          ) : null}
           <button
             type="button"
             className={buttonPrimary}
@@ -279,7 +429,11 @@ export function TextComposer() {
             onClick={() => void submit()}
           >
             <Save className="size-4" aria-hidden="true" />{" "}
-            {submitting ? "Creating…" : "Create"}
+            {submitting
+              ? "Creating…"
+              : mode === "document"
+                ? "Create document"
+                : "Create"}
           </button>
         </div>
       </div>
@@ -294,20 +448,26 @@ export function TextComposer() {
       ) : null}
 
       <div className="border-border bg-panel mt-4 overflow-hidden rounded-xl border">
-        <CodeEditor
-          value={content}
-          language={language}
-          onChange={(value) => {
-            setContent(value);
-            setDirty(true);
-            setMessage("Saving draft…");
-          }}
-        />
+        {mode === "code" ? (
+          <CodeEditor
+            value={code.content}
+            language={code.language}
+            onChange={(content) => {
+              setCode((current) => ({ ...current, content }));
+              edit();
+            }}
+          />
+        ) : (
+          <DocumentEditor
+            value={document.content}
+            onChange={(content) => {
+              setDocument((current) => ({ ...current, content }));
+              edit();
+            }}
+          />
+        )}
         <div className="border-border text-muted-foreground flex flex-wrap items-center justify-between gap-2 border-t px-3 py-2 font-mono text-xs">
-          <span>
-            {lineCount.toLocaleString()} lines · {byteSize.toLocaleString()}{" "}
-            bytes · UTF-8
-          </span>
+          <span>{payloadBytes.toLocaleString()} draft bytes · UTF-8</span>
           <span role="status" aria-live="polite">
             {message}
           </span>
@@ -321,5 +481,39 @@ export function TextComposer() {
         <span aria-hidden="true"> · </span>Press Ctrl/⌘ S to create.
       </p>
     </div>
+  );
+}
+
+function ModeButton({
+  selected,
+  onClick,
+  icon: Icon,
+  children,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  icon: typeof Code2;
+  children: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={selected}
+      onClick={onClick}
+      className={`inline-flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors ${selected ? "bg-panel text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+    >
+      <Icon className="size-4" aria-hidden="true" />
+      {children}
+    </button>
+  );
+}
+
+function EditorLoading({ label }: { label: string }) {
+  return (
+    <div
+      aria-label={`Loading ${label} editor`}
+      className="bg-sunken min-h-96 animate-pulse"
+    />
   );
 }

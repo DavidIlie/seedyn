@@ -147,6 +147,8 @@ model Upload {
   state           UploadState        @default(READY)
   originalName    String
   textLanguage    String?
+  passwordHash    String?
+  passwordVersion Int                @default(0)
   extension       String
   contentType     String
   disposition     ContentDisposition

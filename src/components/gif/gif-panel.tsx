@@ -45,6 +45,7 @@ export function GifPanel({
   sourceUrl,
   storedGifUrl,
   storedGifBytes,
+  passwordProtected,
 }: {
   uploadId: string;
   uploadKind: string;
@@ -53,6 +54,7 @@ export function GifPanel({
   sourceUrl: string;
   storedGifUrl: string | null;
   storedGifBytes: string | null;
+  passwordProtected?: boolean;
 }) {
   const plan = planGifConversion({
     uploadKind,
@@ -297,6 +299,12 @@ export function GifPanel({
           <p className="text-muted-foreground text-sm">
             This upload is already a GIF. Its original URL ends in{" "}
             <code className="font-mono">.gif</code> and needs no variant.
+          </p>
+        ) : passwordProtected ? (
+          <p className="text-muted-foreground text-sm">
+            Browser conversion is paused while the original is password
+            protected. Remove the password, create the GIF, then protect the
+            upload again; the stored GIF inherits the same password.
           </p>
         ) : plan.engine === "none" ? (
           <p className="text-muted-foreground text-sm">{plan.reason}</p>

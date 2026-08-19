@@ -175,7 +175,8 @@ Prisma owns migrations for:
 - Auth.js `User`, `Account`, `Session`, and `VerificationToken` records.
 - `ApiKey` with one-way secret hash, prefix, scopes, timestamps, and revocation.
 - `Upload` with owner, public slug, kind, original name, MIME, extension, byte
-  size, checksum, MinIO key, timestamps, and deletion state.
+  size, checksum, MinIO key, optional Argon2id password hash/version,
+  timestamps, and deletion state.
 - `UploadVariant` for the GIF derivative and future format variants without
   widening the base upload row.
 
@@ -220,8 +221,8 @@ the planning and application build do not authorize them.
   limit without introducing plans or billing.
 - Server-side media transcoding, background workers, queues, or cron processing.
 - Albums, folders, tags, comments, social feeds, or public gallery browsing.
-- URL shortener, custom domains per user, expiring links, passwords, or ACLs on
-  individual uploads.
+- URL shortener, custom domains per user, expiring links, or general ACLs on
+  individual uploads. V1 does include one optional password per upload.
 - S3-compatible API exposure to clients.
 - Mobile/desktop apps beyond ShareX's custom uploader.
 - Multiple storage backends or local-filesystem production storage.

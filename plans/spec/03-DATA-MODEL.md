@@ -69,6 +69,8 @@ model Upload {
   kind           UploadKind
   state          UploadState @default(READY)
   originalName   String
+  passwordHash   String?
+  passwordVersion Int       @default(0)
   extension      String
   contentType    String
   byteSize       BigInt
@@ -122,6 +124,11 @@ model StorageReservation {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 ```
+
+`passwordHash` is an Argon2id PHC string and never leaves server-only code.
+`passwordVersion` increments on every set/change/remove operation and is bound
+into short-lived signed media grants. GIF variants inherit their parent
+upload's password boundary rather than storing a second credential.
 
 `User.storageUsedBytes` and `User.storageReservedBytes` are non-negative
 materialized counters. `User.storageLimitBytes = null` means the 5 GB member
