@@ -18,9 +18,10 @@ original URL.
 
 ### Q-003 — GIF limits
 
-Resolved: video uploads use the generic 64 MiB source cap. Conversion uses the
-first 10 seconds at 15 fps and a 640-pixel maximum edge; V1 has no trimming UI.
-GIF output is capped at 25 MiB. The server independently validates GIF
+Resolved: video uploads use the generic 64 MiB source cap. Video conversion uses
+the first 10 seconds at 15 fps and a 640-pixel maximum edge; V1 has no trimming
+UI. Still conversion preserves the source size up to 1920 × 1080. GIF output is
+capped at 25 MiB. The server independently validates GIF
 structure, dimensions, frames, duration, and size.
 
 ### Q-004 — Remote URL ingestion

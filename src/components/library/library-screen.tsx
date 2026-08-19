@@ -5,10 +5,12 @@ import {
   decodeCursor,
   listUploadsByKind,
   PAGE_SIZE,
+  readLibraryTrend,
   type LibraryKind,
 } from "~/components/data/uploads";
 import { PageHeader } from "~/components/ui/page-header";
 import { normalizeUploadSearchQuery } from "~/lib/upload-search";
+import { readStorageQuota } from "~/server/storage/quota";
 
 import {
   LibraryControls,
@@ -21,6 +23,7 @@ import {
   UploadList,
   UploadListSkeleton,
 } from "./upload-list";
+import { LibraryTrendChart } from "./library-trend-chart";
 
 /**
  * The one library screen behind `/images`, `/files`, and `/texts`.
@@ -64,6 +67,10 @@ export function LibraryScreen({
     <>
       <PageHeader title={title} subtitle={description} />
 
+      <Suspense fallback={<LibraryTrendSkeleton />}>
+        <Trends kind={kind} noun={noun} />
+      </Suspense>
+
       <Suspense fallback={<LibraryControlsSkeleton />}>
         <Controls path={path} searchParams={searchParams} />
       </Suspense>
@@ -72,6 +79,24 @@ export function LibraryScreen({
         <Rows kind={kind} path={path} noun={noun} searchParams={searchParams} />
       </Suspense>
     </>
+  );
+}
+
+async function Trends({ kind, noun }: { kind: LibraryKind; noun: string }) {
+  const user = await requireSessionUser();
+  const [trend, storage] = await Promise.all([
+    readLibraryTrend({ userId: user.id, kind }),
+    readStorageQuota(user.id),
+  ]);
+  return <LibraryTrendChart trend={trend} storage={storage} noun={noun} />;
+}
+
+function LibraryTrendSkeleton() {
+  return (
+    <div
+      aria-hidden="true"
+      className="border-border bg-panel mb-7 h-[26rem] animate-pulse rounded-xl border lg:h-[17.5rem]"
+    />
   );
 }
 

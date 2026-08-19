@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { setUserStorageQuota } from "~/app/(app)/admin/actions";
+
 import {
   formatBytes,
   formatTimestamp,
@@ -276,16 +278,17 @@ function UserLedger({ users }: { users: AdminUserRow[] }) {
         <table className="w-full table-fixed text-left text-sm">
           <thead className="bg-sunken/70 text-muted-foreground text-xs">
             <tr>
-              <th className="w-[32%] px-4 py-3 font-medium">Account</th>
-              <th className="w-[12%] px-3 py-3 font-medium">Role</th>
-              <th className="w-[12%] px-3 py-3 text-right font-medium">
+              <th className="w-[25%] px-4 py-3 font-medium">Account</th>
+              <th className="w-[8%] px-3 py-3 font-medium">Role</th>
+              <th className="w-[9%] px-3 py-3 text-right font-medium">
                 Uploads
               </th>
-              <th className="w-[14%] px-3 py-3 text-right font-medium">
+              <th className="w-[10%] px-3 py-3 text-right font-medium">
                 Stored
               </th>
-              <th className="w-[12%] px-3 py-3 text-right font-medium">Keys</th>
-              <th className="w-[18%] px-4 py-3 text-right font-medium">
+              <th className="w-[23%] px-3 py-3 font-medium">Storage limit</th>
+              <th className="w-[8%] px-3 py-3 text-right font-medium">Keys</th>
+              <th className="w-[17%] px-4 py-3 text-right font-medium">
                 Last upload
               </th>
             </tr>
@@ -332,6 +335,9 @@ function UserTableRow({ user }: { user: AdminUserRow }) {
       <td className="px-3 py-3 text-right tabular-nums">
         {formatBytes(user.byteSize)}
       </td>
+      <td className="px-3 py-3">
+        <StorageQuotaControl user={user} />
+      </td>
       <td className="px-3 py-3 text-right tabular-nums">
         {user.activeKeyCount}
       </td>
@@ -365,6 +371,14 @@ function UserCard({ user }: { user: AdminUserRow }) {
         />
         <MobileFact label="Stored" value={formatBytes(user.byteSize)} />
         <MobileFact
+          label="Storage limit"
+          value={
+            user.effectiveStorageLimitBytes
+              ? formatBytes(user.effectiveStorageLimitBytes)
+              : "Unlimited"
+          }
+        />
+        <MobileFact
           label="GIFs"
           value={user.gifCount.toLocaleString("en-US")}
         />
@@ -373,7 +387,51 @@ function UserCard({ user }: { user: AdminUserRow }) {
           value={user.activeKeyCount.toLocaleString("en-US")}
         />
       </dl>
+      <div className="mt-4">
+        <StorageQuotaControl user={user} />
+      </div>
     </article>
+  );
+}
+
+const QUOTA_OPTIONS = [
+  { value: "default", label: "Default · 5 GB" },
+  { value: "10", label: "10 GB" },
+  { value: "25", label: "25 GB" },
+  { value: "50", label: "50 GB" },
+  { value: "100", label: "100 GB" },
+  { value: "250", label: "250 GB" },
+] as const;
+
+function StorageQuotaControl({ user }: { user: AdminUserRow }) {
+  if (user.appRole === "ADMIN") {
+    return <span className="text-muted-foreground text-xs">Unlimited</span>;
+  }
+  const selected = user.storageLimitBytes
+    ? String(BigInt(user.storageLimitBytes) / BigInt(1_000_000_000))
+    : "default";
+  return (
+    <form action={setUserStorageQuota} className="flex items-center gap-1.5">
+      <input type="hidden" name="userId" value={user.id} />
+      <select
+        name="limitGb"
+        defaultValue={selected}
+        aria-label={`Storage limit for ${user.email ?? user.name ?? "user"}`}
+        className="border-border bg-panel h-9 min-w-0 flex-1 rounded-md border px-2 text-xs"
+      >
+        {QUOTA_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <button
+        type="submit"
+        className="border-border bg-panel hover:bg-sunken h-9 rounded-md border px-2 text-xs font-medium"
+      >
+        Set
+      </button>
+    </form>
   );
 }
 

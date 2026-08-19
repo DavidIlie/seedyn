@@ -1,7 +1,6 @@
 import type { SerializedUpload } from "~/server/uploads/serialization";
 
 import { uploadKindGlyph } from "~/components/lib/format";
-import { uploadUrl } from "~/components/data/uploads";
 
 /**
  * A fixed 40×40 bordered preview slot.
@@ -14,9 +13,13 @@ import { uploadUrl } from "~/components/data/uploads";
  */
 export function PreviewThumb({
   upload,
+  url,
+  privacy = false,
   className = "",
 }: {
   upload: SerializedUpload;
+  url: string;
+  privacy?: boolean;
   className?: string;
 }) {
   const showImage = upload.kind === "IMAGE" && upload.state === "READY";
@@ -35,14 +38,20 @@ export function PreviewThumb({
       {showImage ? (
         /* oxlint-disable-next-line next/no-img-element -- immutable user media deliberately bypasses the optimizer */
         <img
-          src={uploadUrl(upload)}
+          src={privacy ? undefined : url}
           alt=""
           loading="lazy"
           decoding="async"
           width={40}
           height={40}
-          className="absolute inset-0 h-full w-full object-cover"
+          className={
+            "absolute inset-0 h-full w-full object-cover transition-[filter] duration-150 " +
+            (privacy ? "blur-lg" : "")
+          }
         />
+      ) : null}
+      {privacy && showImage ? (
+        <span className="bg-sunken/35 absolute inset-0 backdrop-blur-md" />
       ) : null}
     </span>
   );

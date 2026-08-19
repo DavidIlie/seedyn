@@ -39,6 +39,24 @@ const KIND_FILTER: Record<
   texts: ["TEXT"],
 };
 
+export const LIBRARY_TREND_DAYS = 14;
+
+export type LibraryTrendPoint = {
+  date: string;
+  label: string;
+  uploads: number;
+  byteSize: string;
+};
+
+export type LibraryTrend = {
+  days: number;
+  totalUploads: number;
+  totalByteSize: string;
+  busiestLabel: string | null;
+  busiestUploads: number;
+  points: LibraryTrendPoint[];
+};
+
 /**
  * Kept equal to the skeleton row count so a full page of results occupies
  * exactly the space its fallback did.
@@ -166,6 +184,71 @@ export async function listUploadsByKind(input: {
       hasMore && last
         ? encodeCursor(last.createdAt.toISOString(), last.id)
         : null,
+  };
+}
+
+export async function readLibraryTrend(input: {
+  userId: string;
+  kind: LibraryKind;
+}): Promise<LibraryTrend> {
+  const now = new Date();
+  const start = new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() - LIBRARY_TREND_DAYS + 1,
+    ),
+  );
+  const uploads = await db.upload.findMany({
+    where: {
+      userId: input.userId,
+      kind: { in: KIND_FILTER[input.kind] },
+      createdAt: { gte: start },
+    },
+    select: { createdAt: true, byteSize: true },
+  });
+  const labels = new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+  const points = new Map<string, LibraryTrendPoint>();
+
+  for (let index = 0; index < LIBRARY_TREND_DAYS; index += 1) {
+    const day = new Date(start);
+    day.setUTCDate(start.getUTCDate() + index);
+    const date = day.toISOString().slice(0, 10);
+    points.set(date, {
+      date,
+      label: labels.format(day),
+      uploads: 0,
+      byteSize: "0",
+    });
+  }
+
+  let totalByteSize = BigInt(0);
+  for (const upload of uploads) {
+    const point = points.get(upload.createdAt.toISOString().slice(0, 10));
+    if (!point) continue;
+    point.uploads += 1;
+    point.byteSize = (BigInt(point.byteSize) + upload.byteSize).toString(10);
+    totalByteSize += upload.byteSize;
+  }
+
+  const series = [...points.values()];
+  const busiest = series.reduce<LibraryTrendPoint | null>(
+    (current, point) =>
+      point.uploads > (current?.uploads ?? 0) ? point : current,
+    null,
+  );
+
+  return {
+    days: LIBRARY_TREND_DAYS,
+    totalUploads: uploads.length,
+    totalByteSize: totalByteSize.toString(10),
+    busiestLabel: busiest?.label ?? null,
+    busiestUploads: busiest?.uploads ?? 0,
+    points: series,
   };
 }
 

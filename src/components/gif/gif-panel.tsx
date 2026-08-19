@@ -306,7 +306,7 @@ export function GifPanel({
               <>
                 <p className="text-muted-foreground text-sm">
                   {plan.engine === "still"
-                    ? "No stored GIF yet. Your browser will encode a single-frame GIF and store it as a second permanent URL."
+                    ? "No stored GIF yet. Your browser keeps the original dimensions up to 1920×1080 and encodes one frame. Images with 256 colours or fewer remain exact; larger palettes use GIF’s highest-fidelity 256-colour approximation."
                     : `No stored GIF yet. Converting video needs a ${FFMPEG_APPROXIMATE_MB} MB converter, downloaded only when you ask for it. The first ${GIF_DEFAULT_CLIP_SECONDS} seconds are converted.`}
                 </p>
                 <button

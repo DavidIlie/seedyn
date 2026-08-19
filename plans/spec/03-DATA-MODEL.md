@@ -109,7 +109,23 @@ model UploadVariant {
 
   @@unique([uploadId, kind])
 }
+
+model StorageReservation {
+  id         String @id
+  userId     String
+  storageKey String @unique
+  byteSize   BigInt
+  kind       StorageReservationKind
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
 ```
+
+`User.storageUsedBytes` and `User.storageReservedBytes` are non-negative
+materialized counters. `User.storageLimitBytes = null` means the 5 GB member
+default; administrators are unlimited regardless of the override field.
 
 ## API-key format
 
@@ -149,10 +165,12 @@ change the ownership predicate.
 ```text
 validate/authenticate
   -> derive application-generated immutable identifiers and metadata
+  -> lock the User row and reserve exact bytes before object storage
   -> PUT object to predetermined MinIO key
-  -> INSERT READY database row
+  -> INSERT READY database row and move reserved bytes to used bytes atomically
        success: return canonical URL
        conflict/DB failure: delete predetermined object
+                           release reservation
                            if cleanup fails, log orphan record for reconciliation
 ```
 
@@ -163,8 +181,9 @@ An `Upload` row is never visible as READY before its object exists.
 ```text
 validate session + upload ownership + eligibility
   -> reject if READY GIF already exists (return it)
+  -> reserve exact GIF bytes under the same account quota
   -> PUT candidate to predetermined unique object key
-  -> INSERT READY variant under unique(uploadId, GIF)
+  -> INSERT READY variant and commit reservation under unique(uploadId, GIF)
        success: return URL
        unique race: delete candidate and return winner
        DB failure: delete candidate; record cleanup failure if needed
@@ -178,7 +197,7 @@ browser before the server receives a candidate.
 1. Transactionally change READY rows to DELETING after ownership check.
 2. Delete variants from MinIO, then original.
 3. Delete database rows in a transaction only when object deletes succeed or
-   return idempotent not-found.
+   return idempotent not-found; decrement used storage in that same transaction.
 4. On failure, mark `DELETE_FAILED`, store only a bounded safe error category and
    timestamp, and expose Retry in the authenticated UI.
 5. A maintenance command can list/retry failed deletes and discover orphan
@@ -190,6 +209,11 @@ Database byte sizes are `BigInt`. UI and JSON contracts serialize them as
 decimal strings or bounded numbers only after checking safe range. Aggregate
 sums use database bigint/numeric, never JavaScript number accumulation over an
 unbounded library.
+
+Quota enforcement uses durable reservations and a locked user row, so concurrent
+browser, API, ShareX, and GIF writes cannot each pass an aggregate check and
+collectively exceed the limit. Originals and GIF variants both count. A member
+already above a newly lowered limit keeps existing objects but cannot add more.
 
 ## Data not stored
 

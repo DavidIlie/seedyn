@@ -1,20 +1,19 @@
 import Link from "next/link";
 
-import type { UploadPage } from "~/components/data/uploads";
+import { uploadUrl, type UploadPage } from "~/components/data/uploads";
 import { EmptyState } from "~/components/ui/empty-state";
 import { buttonQuiet, panelSurface } from "~/components/ui/styles";
 import type { SerializedUpload } from "~/server/uploads/serialization";
 
 import type { LibraryPath } from "./library-controls";
-import { UploadRow, UploadRowSkeleton } from "./upload-row";
+import { LibraryPresentation } from "./library-presentation";
+import { UploadRowSkeleton } from "./upload-row";
 
 export function UploadList({ items }: { items: SerializedUpload[] }) {
   return (
-    <ul className={panelSurface}>
-      {items.map((upload) => (
-        <UploadRow key={upload.id} upload={upload} />
-      ))}
-    </ul>
+    <LibraryPresentation
+      items={items.map((upload) => ({ ...upload, url: uploadUrl(upload) }))}
+    />
   );
 }
 

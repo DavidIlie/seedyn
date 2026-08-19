@@ -209,6 +209,9 @@ the planning and application build do not authorize them.
 ## 10. What V1 does not contain
 
 - Organizations, billing, quotas sold as plans, public signup, or local invites.
+  Seedyn does enforce a personal per-account storage ceiling: members inherit
+  5 GB, administrators are unlimited, and administrators can raise a member's
+  limit without introducing plans or billing.
 - Server-side media transcoding, background workers, queues, or cron processing.
 - Albums, folders, tags, comments, social feeds, or public gallery browsing.
 - URL shortener, custom domains per user, expiring links, passwords, or ACLs on

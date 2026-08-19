@@ -2,7 +2,7 @@
 
 import { applyPalette, GIFEncoder, quantize } from "gifenc";
 
-import { GIF_MAX_EDGE } from "./options";
+import { GIF_STILL_MAX_HEIGHT, GIF_STILL_MAX_WIDTH } from "./options";
 
 /**
  * Single-frame GIF encoding for still images.
@@ -23,13 +23,49 @@ export type StillResponse =
   | { ok: false; message: string };
 
 function scaleTo(width: number, height: number) {
-  const longest = Math.max(width, height);
-  if (longest <= GIF_MAX_EDGE) return { width, height };
-  const ratio = GIF_MAX_EDGE / longest;
+  const ratio = Math.min(
+    1,
+    GIF_STILL_MAX_WIDTH / width,
+    GIF_STILL_MAX_HEIGHT / height,
+  );
   return {
     width: Math.max(1, Math.round(width * ratio)),
     height: Math.max(1, Math.round(height * ratio)),
   };
+}
+
+function exactPalette(frame: ImageData): {
+  palette: number[][];
+  indexed: Uint8Array;
+  transparentIndex: number;
+} | null {
+  const palette: number[][] = [];
+  const indexes = new Map<number, number>();
+  const indexed = new Uint8Array(frame.width * frame.height);
+  let transparentIndex = -1;
+
+  for (let pixel = 0; pixel < indexed.length; pixel += 1) {
+    const offset = pixel * 4;
+    const alpha = frame.data[offset + 3] ?? 255;
+    const transparent = alpha <= 127;
+    const red = transparent ? 0 : (frame.data[offset] ?? 0);
+    const green = transparent ? 0 : (frame.data[offset + 1] ?? 0);
+    const blue = transparent ? 0 : (frame.data[offset + 2] ?? 0);
+    const normalizedAlpha = transparent ? 0 : 255;
+    const key =
+      ((red << 24) | (green << 16) | (blue << 8) | normalizedAlpha) >>> 0;
+    let index = indexes.get(key);
+    if (index === undefined) {
+      if (palette.length === 256) return null;
+      index = palette.length;
+      indexes.set(key, index);
+      palette.push([red, green, blue, normalizedAlpha]);
+      if (transparent) transparentIndex = index;
+    }
+    indexed[pixel] = index;
+  }
+
+  return { palette, indexed, transparentIndex };
 }
 
 self.onmessage = async (event: MessageEvent<StillRequest>) => {
@@ -46,20 +82,29 @@ self.onmessage = async (event: MessageEvent<StillRequest>) => {
     context.drawImage(bitmap, 0, 0, size.width, size.height);
     const frame = context.getImageData(0, 0, size.width, size.height);
 
-    // `rgba4444` keeps the alpha channel through quantisation; GIF then reduces
-    // it to the one bit the format actually has.
-    const palette = quantize(frame.data, 256, {
-      format: "rgba4444",
-      oneBitAlpha: true,
-    });
-    const indexed = applyPalette(frame.data, palette, "rgba4444");
-    const transparentIndex = palette.findIndex((color) => color[3] === 0);
+    const exact = exactPalette(frame);
+    const hasTransparency = frame.data.some(
+      (channel, index) => index % 4 === 3 && channel <= 127,
+    );
+    // Indexed PNGs, logos, and flat screenshots can fit GIF's palette exactly.
+    // Opaque images use rgb565 instead of the old 4-bit/channel rgba path.
+    const format = hasTransparency ? "rgba4444" : "rgb565";
+    const palette =
+      exact?.palette ??
+      quantize(frame.data, 256, {
+        format,
+        oneBitAlpha: hasTransparency,
+      });
+    const indexed = exact?.indexed ?? applyPalette(frame.data, palette, format);
+    const transparentIndex =
+      exact?.transparentIndex ?? palette.findIndex((color) => color[3] === 0);
 
     const encoder = GIFEncoder();
     encoder.writeFrame(indexed, size.width, size.height, {
       palette,
       transparent: transparentIndex >= 0,
       transparentIndex: Math.max(0, transparentIndex),
+      repeat: -1,
     });
     encoder.finish();
 

@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { uploadUrl } from "~/components/data/uploads";
 import {
   formatBytes,
   formatTimestamp,
@@ -22,15 +21,22 @@ export const ROW_HEIGHT_CLASS = "h-16 md:h-14";
  * They are siblings, never nested, so the row exposes one link and one button
  * to assistive technology and to the browser's own focus order.
  */
-export function UploadRow({ upload }: { upload: SerializedUpload }) {
-  const url = uploadUrl(upload);
+export function UploadRow({
+  upload,
+  url,
+  privacy = false,
+}: {
+  upload: SerializedUpload;
+  url: string;
+  privacy?: boolean;
+}) {
   const lifecycle = lifecycleLabel(upload.state);
 
   return (
     <li
       className={`relative flex ${ROW_HEIGHT_CLASS} border-border hover:bg-sunken/70 focus-within:bg-sunken/70 items-center gap-3 border-b px-3 transition-colors last:border-b-0`}
     >
-      <PreviewThumb upload={upload} />
+      <PreviewThumb upload={upload} url={url} privacy={privacy} />
 
       <span className="flex min-w-0 flex-1 flex-col justify-center">
         <Link

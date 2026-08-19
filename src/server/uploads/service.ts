@@ -11,6 +11,12 @@ import {
 import { gifVariantObjectKey, originalObjectKey } from "~/server/storage/keys";
 import { objectStore } from "~/server/storage/minio";
 import type { ObjectStore } from "~/server/storage/object-store";
+import {
+  decrementUsedStorage,
+  finalizeStorageReservation,
+  releaseStorageReservation,
+  reserveStorage,
+} from "~/server/storage/quota";
 
 import {
   assertClassificationSize,
@@ -27,7 +33,10 @@ import type { ParsedUploadFile } from "./multipart";
 import { serializeUpload, serializeVariant } from "./serialization";
 
 type AuditEvent = {
-  event: "storage_orphan" | "delete_state_update_failed";
+  event:
+    | "storage_orphan"
+    | "delete_state_update_failed"
+    | "quota_reservation_release_failed";
   userId: string;
   uploadId: string;
   recordId: string;
@@ -51,6 +60,25 @@ function dependencies(value?: UploadServiceDependencies) {
     store: value?.store ?? objectStore,
     audit: value?.audit ?? defaultAudit,
   };
+}
+
+async function releaseQuotaReservation(input: {
+  audit: (event: AuditEvent) => void;
+  id: string;
+  userId: string;
+  uploadId: string;
+}): Promise<void> {
+  try {
+    await releaseStorageReservation({ id: input.id, userId: input.userId });
+  } catch (error) {
+    input.audit({
+      event: "quota_reservation_release_failed",
+      userId: input.userId,
+      uploadId: input.uploadId,
+      recordId: input.id,
+      errorCategory: safeErrorCategory(error),
+    });
+  }
 }
 
 function publicUrl(publicSlug: string, extension: string): string {
@@ -137,7 +165,23 @@ export async function createUpload(
     extension: classification.extension,
   });
 
-  if (input.signal?.aborted) throw new DomainError("request_aborted");
+  await reserveStorage({
+    id: uploadId,
+    userId: input.userId,
+    storageKey,
+    byteSize: input.file.byteSize,
+    kind: "ORIGINAL",
+  });
+
+  if (input.signal?.aborted) {
+    await releaseQuotaReservation({
+      audit,
+      id: uploadId,
+      userId: input.userId,
+      uploadId,
+    });
+    throw new DomainError("request_aborted");
+  }
 
   try {
     await store.put({
@@ -162,9 +206,17 @@ export async function createUpload(
         uploadId,
         recordId: uploadId,
       });
-      throw new DomainError("request_aborted", { cause: error });
     }
-    throw new DomainError("storage_unavailable", { cause: error });
+    await releaseQuotaReservation({
+      audit,
+      id: uploadId,
+      userId: input.userId,
+      uploadId,
+    });
+    throw new DomainError(
+      input.signal?.aborted ? "request_aborted" : "storage_unavailable",
+      { cause: error },
+    );
   }
 
   if (input.signal?.aborted) {
@@ -176,31 +228,44 @@ export async function createUpload(
       uploadId,
       recordId: uploadId,
     });
+    await releaseQuotaReservation({
+      audit,
+      id: uploadId,
+      userId: input.userId,
+      uploadId,
+    });
     throw new DomainError("request_aborted");
   }
 
   try {
-    const upload = await db.upload.create({
-      data: {
+    const upload = await serializableTransaction(async (transaction) => {
+      const created = await transaction.upload.create({
+        data: {
+          id: uploadId,
+          userId: input.userId,
+          publicSlug,
+          kind: classification.kind,
+          state: "READY",
+          originalName: sanitizeOriginalName(
+            input.file.originalName || input.file.fields.filename || "upload",
+          ),
+          extension: classification.extension,
+          contentType: classification.contentType,
+          disposition: classification.disposition,
+          byteSize: BigInt(input.file.byteSize),
+          sha256: Buffer.from(input.file.sha256Hex, "hex"),
+          storageKey,
+          width: classification.width,
+          height: classification.height,
+          durationMs: classification.durationMs,
+        },
+        include: { variants: true },
+      });
+      await finalizeStorageReservation(transaction, {
         id: uploadId,
         userId: input.userId,
-        publicSlug,
-        kind: classification.kind,
-        state: "READY",
-        originalName: sanitizeOriginalName(
-          input.file.originalName || input.file.fields.filename || "upload",
-        ),
-        extension: classification.extension,
-        contentType: classification.contentType,
-        disposition: classification.disposition,
-        byteSize: BigInt(input.file.byteSize),
-        sha256: Buffer.from(input.file.sha256Hex, "hex"),
-        storageKey,
-        width: classification.width,
-        height: classification.height,
-        durationMs: classification.durationMs,
-      },
-      include: { variants: true },
+      });
+      return created;
     });
     return {
       upload: serializeUpload(upload),
@@ -214,6 +279,12 @@ export async function createUpload(
       userId: input.userId,
       uploadId,
       recordId: uploadId,
+    });
+    await releaseQuotaReservation({
+      audit,
+      id: uploadId,
+      userId: input.userId,
+      uploadId,
     });
     throw databaseError(error);
   }
@@ -333,7 +404,23 @@ export async function createGifVariant(
     variantId,
   });
 
-  if (input.signal?.aborted) throw new DomainError("request_aborted");
+  await reserveStorage({
+    id: variantId,
+    userId: input.userId,
+    storageKey,
+    byteSize: input.file.byteSize,
+    kind: "GIF",
+  });
+
+  if (input.signal?.aborted) {
+    await releaseQuotaReservation({
+      audit,
+      id: variantId,
+      userId: input.userId,
+      uploadId: input.uploadId,
+    });
+    throw new DomainError("request_aborted");
+  }
 
   try {
     await store.put({
@@ -358,9 +445,17 @@ export async function createGifVariant(
         uploadId: input.uploadId,
         recordId: variantId,
       });
-      throw new DomainError("request_aborted", { cause: error });
     }
-    throw new DomainError("storage_unavailable", { cause: error });
+    await releaseQuotaReservation({
+      audit,
+      id: variantId,
+      userId: input.userId,
+      uploadId: input.uploadId,
+    });
+    throw new DomainError(
+      input.signal?.aborted ? "request_aborted" : "storage_unavailable",
+      { cause: error },
+    );
   }
 
   if (input.signal?.aborted) {
@@ -371,6 +466,12 @@ export async function createGifVariant(
       userId: input.userId,
       uploadId: input.uploadId,
       recordId: variantId,
+    });
+    await releaseQuotaReservation({
+      audit,
+      id: variantId,
+      userId: input.userId,
+      uploadId: input.uploadId,
     });
     throw new DomainError("request_aborted");
   }
@@ -387,7 +488,7 @@ export async function createGifVariant(
       ) {
         throw new DomainError("not_found");
       }
-      return transaction.uploadVariant.create({
+      const created = await transaction.uploadVariant.create({
         data: {
           id: variantId,
           uploadId: input.uploadId,
@@ -405,6 +506,11 @@ export async function createGifVariant(
           durationMs: classification.durationMs,
         },
       });
+      await finalizeStorageReservation(transaction, {
+        id: variantId,
+        userId: input.userId,
+      });
+      return created;
     });
     return {
       variant: serializeVariant(variant),
@@ -419,6 +525,12 @@ export async function createGifVariant(
       userId: input.userId,
       uploadId: input.uploadId,
       recordId: variantId,
+    });
+    await releaseQuotaReservation({
+      audit,
+      id: variantId,
+      userId: input.userId,
+      uploadId: input.uploadId,
     });
 
     if (
@@ -480,13 +592,16 @@ export async function deleteOwnedUpload(
   const { store, audit } = dependencies(injected);
   let row: {
     storageKey: string;
-    variants: { id: string; storageKey: string }[];
+    byteSize: bigint;
+    variants: { id: string; storageKey: string; byteSize: bigint }[];
   };
   try {
     row = await serializableTransaction(async (transaction) => {
       const owned = await transaction.upload.findFirst({
         where: { id: input.uploadId, userId: input.userId },
-        include: { variants: { select: { id: true, storageKey: true } } },
+        include: {
+          variants: { select: { id: true, storageKey: true, byteSize: true } },
+        },
       });
       if (!owned) throw new DomainError("not_found");
       if (owned.state !== "DELETING") {
@@ -552,6 +667,14 @@ export async function deleteOwnedUpload(
         });
         if (stillExists) throw new DomainError("database_unavailable");
       }
+      const releasedBytes = row.variants.reduce(
+        (total, variant) => total + variant.byteSize,
+        row.byteSize,
+      );
+      await decrementUsedStorage(transaction, {
+        userId: input.userId,
+        byteSize: releasedBytes,
+      });
     });
     return { deleted: true };
   } catch (error) {

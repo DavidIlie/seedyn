@@ -12,6 +12,12 @@ Video conversion uses the first 10 seconds at 15 fps with a 640-pixel maximum
 edge. V1 has no trimming UI. The source follows the 64 MiB generic upload cap,
 and the generated GIF must remain at or below 25 MiB.
 
+Still conversion keeps the source dimensions up to 1920 × 1080. PNGs and other
+stills that fit in GIF's 256-colour palette are encoded exactly after GIF's
+one-bit transparency normalization. Larger palettes use the highest-fidelity
+available 256-colour quantization. A full-colour PNG cannot be mathematically
+lossless as a GIF because GIF cannot represent more than 256 colours.
+
 The browser output is untrusted input. The server verifies ownership, GIF
 signature, dimensions, frame count, duration, byte size, and the one-GIF-per-
 upload uniqueness rule before storing it.

@@ -40,6 +40,11 @@ enum SeedynRole {
   ADMIN
 }
 
+enum StorageReservationKind {
+  ORIGINAL
+  GIF
+}
+
 model Account {
   id                       String  @id @default(cuid())
   userId                   String
@@ -72,23 +77,41 @@ model Session {
 }
 
 model User {
-  id              String     @id @default(cuid())
-  name            String?
-  email           String?    @unique
-  emailVerified   DateTime?
-  image           String?
-  identityIssuer  String?
-  identitySubject String?
-  appRole         SeedynRole @default(MEMBER)
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-  accounts        Account[]
-  sessions        Session[]
-  apiKeys         ApiKey[]
-  uploads         Upload[]
+  id                   String               @id @default(cuid())
+  name                 String?
+  email                String?              @unique
+  emailVerified        DateTime?
+  image                String?
+  identityIssuer       String?
+  identitySubject      String?
+  appRole              SeedynRole           @default(MEMBER)
+  storageLimitBytes    BigInt?
+  storageUsedBytes     BigInt               @default(0)
+  storageReservedBytes BigInt               @default(0)
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  accounts             Account[]
+  sessions             Session[]
+  apiKeys              ApiKey[]
+  uploads              Upload[]
+  storageReservations  StorageReservation[]
 
   @@unique([identityIssuer, identitySubject])
   @@index([createdAt, id])
+}
+
+model StorageReservation {
+  id         String                 @id
+  userId     String
+  storageKey String                 @unique
+  byteSize   BigInt
+  kind       StorageReservationKind
+  expiresAt  DateTime
+  createdAt  DateTime               @default(now())
+  user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
 }
 
 model VerificationToken {

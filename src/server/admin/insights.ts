@@ -3,6 +3,7 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 
 import { db } from "~/server/db";
+import { DEFAULT_MEMBER_STORAGE_LIMIT_BYTES } from "~/server/storage/quota";
 
 import { requireAdmin } from "./authorization";
 import {
@@ -29,6 +30,8 @@ export type AdminUserRow = {
   createdAt: string;
   uploadCount: number;
   byteSize: string;
+  storageLimitBytes: string | null;
+  effectiveStorageLimitBytes: string | null;
   gifCount: number;
   activeKeyCount: number;
   lastUploadAt: string | null;
@@ -63,7 +66,11 @@ export type AdminInsights = {
   recentUploads: AdminRecentUpload[];
 };
 
-type UserVariantAggregate = { userId: string; count: bigint };
+type UserVariantAggregate = {
+  userId: string;
+  count: bigint;
+  byteSize: bigint;
+};
 
 function decimal(value: bigint | null | undefined): string {
   return (value ?? BigInt(0)).toString(10);
@@ -139,6 +146,7 @@ export async function loadAdminInsights(
         name: true,
         email: true,
         appRole: true,
+        storageLimitBytes: true,
         createdAt: true,
       },
     }),
@@ -149,7 +157,10 @@ export async function loadAdminInsights(
       _max: { createdAt: true },
     }),
     db.$queryRaw<UserVariantAggregate[]>(Prisma.sql`
-      SELECT upload."userId" AS "userId", COUNT(*)::bigint AS "count"
+      SELECT
+        upload."userId" AS "userId",
+        COUNT(*)::bigint AS "count",
+        COALESCE(SUM(variant."byteSize"), 0)::bigint AS "byteSize"
       FROM "UploadVariant" AS variant
       INNER JOIN "Upload" AS upload ON upload."id" = variant."uploadId"
       GROUP BY upload."userId"
@@ -179,7 +190,13 @@ export async function loadAdminInsights(
     uploadsByUser.map((row) => [row.userId, row] as const),
   );
   const gifByUser = new Map(
-    gifsByUser.map((row) => [row.userId, numericCount(row.count)] as const),
+    gifsByUser.map(
+      (row) =>
+        [
+          row.userId,
+          { count: numericCount(row.count), byteSize: row.byteSize },
+        ] as const,
+    ),
   );
   const keyByUser = new Map(
     keysByUser.map((row) => [row.userId, row._count._all] as const),
@@ -218,8 +235,18 @@ export async function loadAdminInsights(
         appRole: user.appRole,
         createdAt: user.createdAt.toISOString(),
         uploadCount: upload?._count._all ?? 0,
-        byteSize: decimal(upload?._sum.byteSize),
-        gifCount: gifByUser.get(user.id) ?? 0,
+        byteSize: (
+          (upload?._sum.byteSize ?? BigInt(0)) +
+          (gifByUser.get(user.id)?.byteSize ?? BigInt(0))
+        ).toString(10),
+        storageLimitBytes: user.storageLimitBytes?.toString(10) ?? null,
+        effectiveStorageLimitBytes:
+          user.appRole === "ADMIN"
+            ? null
+            : (
+                user.storageLimitBytes ?? DEFAULT_MEMBER_STORAGE_LIMIT_BYTES
+              ).toString(10),
+        gifCount: gifByUser.get(user.id)?.count ?? 0,
         activeKeyCount: keyByUser.get(user.id) ?? 0,
         lastUploadAt: upload?._max.createdAt?.toISOString() ?? null,
       };

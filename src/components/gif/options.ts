@@ -6,8 +6,12 @@
  * on its own.
  */
 
-/** Longest output edge, aspect ratio preserved. */
+/** Longest video output edge, aspect ratio preserved. */
 export const GIF_MAX_EDGE = 640;
+
+/** Still GIFs retain far more of the source while matching server validation. */
+export const GIF_STILL_MAX_WIDTH = 1920;
+export const GIF_STILL_MAX_HEIGHT = 1080;
 
 export const GIF_FRAME_RATE = 15;
 

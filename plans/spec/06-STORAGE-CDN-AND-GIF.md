@@ -176,7 +176,8 @@ Implemented V1 output policy:
 
 - video uploads use the generic 64 MiB source cap;
 - video conversion uses the first 10 seconds (V1 has no trimming UI);
-- maximum output dimensions: 640 × 640 preserving aspect ratio;
+- video output keeps a 640-pixel maximum edge;
+- still output preserves its source size up to 1920 × 1080, never upscaling;
 - default frame rate: 15 fps;
 - infinite loop;
 - palette generation/use for video quality;
