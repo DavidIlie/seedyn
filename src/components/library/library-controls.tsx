@@ -21,7 +21,10 @@ export function LibraryControls({
   order: "newest" | "oldest";
 }) {
   return (
-    <Form action={action} className="flex flex-wrap items-center gap-2 pb-4">
+    <Form
+      action={action}
+      className="grid grid-cols-1 gap-2 pb-4 sm:flex sm:items-center"
+    >
       <label htmlFor="library-query" className="sr-only">
         Search filenames
       </label>
@@ -45,12 +48,12 @@ export function LibraryControls({
         id="library-order"
         name="order"
         defaultValue={order}
-        className={`${inputBase} w-auto`}
+        className={`${inputBase} !w-full sm:!w-auto`}
       >
         <option value="newest">Newest first</option>
         <option value="oldest">Oldest first</option>
       </select>
-      <button type="submit" className={buttonQuiet}>
+      <button type="submit" className={`${buttonQuiet} w-full sm:w-auto`}>
         Apply
       </button>
     </Form>
@@ -64,10 +67,13 @@ export function LibraryControls({
  */
 export function LibraryControlsSkeleton() {
   return (
-    <div aria-hidden="true" className="flex flex-wrap items-center gap-2 pb-4">
+    <div
+      aria-hidden="true"
+      className="grid grid-cols-1 gap-2 pb-4 sm:flex sm:items-center"
+    >
       <div className={`${inputBase} sm:max-w-xs`} />
-      <div className={`${inputBase} w-32`} />
-      <div className={`${buttonQuiet} w-20`} />
+      <div className={`${inputBase} !w-full sm:!w-32`} />
+      <div className={`${buttonQuiet} w-full sm:w-20`} />
     </div>
   );
 }

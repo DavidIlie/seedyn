@@ -69,7 +69,7 @@ export function LibraryTrendChart({
               : `Your ${noun} trend starts with the next upload.`}
           </p>
         </div>
-        <dl className="grid grid-cols-3 gap-x-5 text-right sm:gap-x-8">
+        <dl className="grid w-full grid-cols-3 gap-x-5 text-left sm:w-auto sm:gap-x-8 sm:text-right">
           <Metric
             label="Uploads"
             value={trend.totalUploads.toLocaleString("en-US")}
@@ -190,25 +190,27 @@ export function LibraryTrendChart({
         </div>
       )}
 
-      <table className="sr-only">
-        <caption>{capitalize(noun)} uploaded per UTC day</caption>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Uploads</th>
-            <th>Bytes added</th>
-          </tr>
-        </thead>
-        <tbody>
-          {trend.points.map((point) => (
-            <tr key={point.date}>
-              <th>{point.date}</th>
-              <td>{point.uploads}</td>
-              <td>{point.byteSize}</td>
+      <div className="sr-only">
+        <table>
+          <caption>{capitalize(noun)} uploaded per UTC day</caption>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Uploads</th>
+              <th>Bytes added</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {trend.points.map((point) => (
+              <tr key={point.date}>
+                <th>{point.date}</th>
+                <td>{point.uploads}</td>
+                <td>{point.byteSize}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }
