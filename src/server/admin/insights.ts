@@ -4,18 +4,16 @@ import { Prisma } from "@prisma/client";
 
 import { db } from "~/server/db";
 import { DEFAULT_MEMBER_STORAGE_LIMIT_BYTES } from "~/server/storage/quota";
-import {
-  serializeUploadProvenance,
-  type SerializedUploadOrigin,
-  type SerializedUploadProvenance,
-} from "~/server/uploads/serialization";
+import type { SerializedUploadOrigin } from "~/server/uploads/serialization";
 
 import { requireAdmin } from "./authorization";
 import {
   ADMIN_UPLOAD_KINDS,
+  ADMIN_USER_PAGE_SIZE,
   adminRangeStart,
   buildDailyUploadSeries,
   type AdminRangeDays,
+  type AdminUserView,
   type AdminUploadKind,
   type DailyUploadAggregate,
   type DailyUploadPoint,
@@ -48,19 +46,16 @@ export type AdminUserRow = {
   lastUploadAt: string | null;
 };
 
-export type AdminRecentUpload = {
-  id: string;
-  originalName: string;
-  contentType: string;
-  kind: AdminUploadKind;
-  state: "READY" | "DELETING" | "DELETE_FAILED";
-  byteSize: string;
-  createdAt: string;
-  provenance: SerializedUploadProvenance;
-  owner: { name: string | null; email: string | null };
+export type AdminUserPage = {
+  items: AdminUserRow[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+  view: AdminUserView;
 };
 
-export type AdminInsights = {
+export type AdminOverview = {
   rangeDays: AdminRangeDays;
   summary: {
     userCount: number;
@@ -75,14 +70,20 @@ export type AdminInsights = {
   daily: DailyUploadPoint[];
   kinds: AdminKindTotal[];
   origins: AdminOriginTotal[];
-  users: AdminUserRow[];
-  recentUploads: AdminRecentUpload[];
 };
 
-type UserVariantAggregate = {
-  userId: string;
-  count: bigint;
-  byteSize: bigint;
+type AdminUserDatabaseRow = {
+  id: string;
+  name: string | null;
+  email: string | null;
+  appRole: "MEMBER" | "ADMIN";
+  storageLimitBytes: bigint | null;
+  storageUsedBytes: bigint;
+  createdAt: Date;
+  uploadCount: bigint;
+  gifCount: bigint;
+  activeKeyCount: bigint;
+  lastUploadAt: Date | null;
 };
 
 const ADMIN_UPLOAD_ORIGINS = [
@@ -105,9 +106,133 @@ function numericCount(value: bigint): number {
   return count;
 }
 
-export async function loadAdminInsights(
+function adminUserOrder(view: AdminUserView): Prisma.Sql {
+  const ascending = view.direction === "asc";
+  switch (view.sort) {
+    case "account":
+      return ascending
+        ? Prisma.sql`LOWER(COALESCE(account."name", account."email", '')) ASC, account."id" ASC`
+        : Prisma.sql`LOWER(COALESCE(account."name", account."email", '')) DESC, account."id" DESC`;
+    case "uploads":
+      return ascending
+        ? Prisma.sql`"uploadCount" ASC, account."createdAt" DESC, account."id" DESC`
+        : Prisma.sql`"uploadCount" DESC, account."createdAt" DESC, account."id" DESC`;
+    case "stored":
+      return ascending
+        ? Prisma.sql`account."storageUsedBytes" ASC, account."createdAt" DESC, account."id" DESC`
+        : Prisma.sql`account."storageUsedBytes" DESC, account."createdAt" DESC, account."id" DESC`;
+    case "keys":
+      return ascending
+        ? Prisma.sql`"activeKeyCount" ASC, account."createdAt" DESC, account."id" DESC`
+        : Prisma.sql`"activeKeyCount" DESC, account."createdAt" DESC, account."id" DESC`;
+    case "joined":
+      return ascending
+        ? Prisma.sql`account."createdAt" ASC, account."id" ASC`
+        : Prisma.sql`account."createdAt" DESC, account."id" DESC`;
+    case "last":
+      return ascending
+        ? Prisma.sql`"lastUploadAt" ASC NULLS LAST, account."createdAt" DESC, account."id" DESC`
+        : Prisma.sql`"lastUploadAt" DESC NULLS LAST, account."createdAt" DESC, account."id" DESC`;
+  }
+  throw new Error("Unsupported admin user sort");
+}
+
+export async function loadAdminUserPage(
+  requestedView: AdminUserView,
+): Promise<AdminUserPage> {
+  await requireAdmin();
+
+  const now = new Date();
+  const searchFilter = requestedView.query
+    ? Prisma.sql`
+        AND (
+          STRPOS(LOWER(COALESCE(account."name", '')), LOWER(${requestedView.query})) > 0
+          OR STRPOS(LOWER(COALESCE(account."email", '')), LOWER(${requestedView.query})) > 0
+        )
+      `
+    : Prisma.empty;
+  const filter = Prisma.sql`WHERE TRUE ${searchFilter}`;
+  const countRows = await db.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
+    SELECT COUNT(*)::bigint AS "count"
+    FROM "User" AS account
+    ${filter}
+  `);
+  const totalCount = numericCount(countRows[0]?.count ?? BigInt(0));
+  const totalPages = Math.max(1, Math.ceil(totalCount / ADMIN_USER_PAGE_SIZE));
+  const page = Math.min(requestedView.page, totalPages);
+  const offset = (page - 1) * ADMIN_USER_PAGE_SIZE;
+  const order = adminUserOrder(requestedView);
+  const rows = await db.$queryRaw<AdminUserDatabaseRow[]>(Prisma.sql`
+    SELECT
+      account."id",
+      account."name",
+      account."email",
+      account."appRole",
+      account."storageLimitBytes",
+      account."storageUsedBytes",
+      account."createdAt",
+      (
+        SELECT COUNT(*)::bigint
+        FROM "Upload" AS upload
+        WHERE upload."userId" = account."id"
+      ) AS "uploadCount",
+      (
+        SELECT COUNT(*)::bigint
+        FROM "UploadVariant" AS variant
+        INNER JOIN "Upload" AS upload ON upload."id" = variant."uploadId"
+        WHERE upload."userId" = account."id"
+      ) AS "gifCount",
+      (
+        SELECT COUNT(*)::bigint
+        FROM "ApiKey" AS key
+        WHERE key."userId" = account."id"
+          AND key."revokedAt" IS NULL
+          AND (key."expiresAt" IS NULL OR key."expiresAt" > ${now})
+      ) AS "activeKeyCount",
+      (
+        SELECT MAX(upload."createdAt")
+        FROM "Upload" AS upload
+        WHERE upload."userId" = account."id"
+      ) AS "lastUploadAt"
+    FROM "User" AS account
+    ${filter}
+    ORDER BY ${order}
+    LIMIT ${ADMIN_USER_PAGE_SIZE}
+    OFFSET ${offset}
+  `);
+  const view = { ...requestedView, page };
+
+  return {
+    items: rows.map((user) => ({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      appRole: user.appRole,
+      createdAt: user.createdAt.toISOString(),
+      uploadCount: numericCount(user.uploadCount),
+      byteSize: user.storageUsedBytes.toString(10),
+      storageLimitBytes: user.storageLimitBytes?.toString(10) ?? null,
+      effectiveStorageLimitBytes:
+        user.appRole === "ADMIN"
+          ? null
+          : (
+              user.storageLimitBytes ?? DEFAULT_MEMBER_STORAGE_LIMIT_BYTES
+            ).toString(10),
+      gifCount: numericCount(user.gifCount),
+      activeKeyCount: numericCount(user.activeKeyCount),
+      lastUploadAt: user.lastUploadAt?.toISOString() ?? null,
+    })),
+    page,
+    pageSize: ADMIN_USER_PAGE_SIZE,
+    totalCount,
+    totalPages,
+    view,
+  };
+}
+
+export async function loadAdminOverview(
   rangeDays: AdminRangeDays,
-): Promise<AdminInsights> {
+): Promise<AdminOverview> {
   await requireAdmin();
 
   const now = new Date();
@@ -127,11 +252,6 @@ export async function loadAdminInsights(
     kindRows,
     originRows,
     dailyRows,
-    users,
-    uploadsByUser,
-    gifsByUser,
-    keysByUser,
-    recentUploads,
   ] = await Promise.all([
     db.user.count(),
     db.upload.aggregate({
@@ -166,74 +286,8 @@ export async function loadAdminInsights(
       GROUP BY date_trunc('day', "createdAt"), "kind"
       ORDER BY "day" ASC
     `),
-    db.user.findMany({
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        appRole: true,
-        storageLimitBytes: true,
-        createdAt: true,
-      },
-    }),
-    db.upload.groupBy({
-      by: ["userId"],
-      _count: { _all: true },
-      _sum: { byteSize: true },
-      _max: { createdAt: true },
-    }),
-    db.$queryRaw<UserVariantAggregate[]>(Prisma.sql`
-      SELECT
-        upload."userId" AS "userId",
-        COUNT(*)::bigint AS "count",
-        COALESCE(SUM(variant."byteSize"), 0)::bigint AS "byteSize"
-      FROM "UploadVariant" AS variant
-      INNER JOIN "Upload" AS upload ON upload."id" = variant."uploadId"
-      GROUP BY upload."userId"
-    `),
-    db.apiKey.groupBy({
-      by: ["userId"],
-      where: activeKeyWhere,
-      _count: { _all: true },
-    }),
-    db.upload.findMany({
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      take: 12,
-      select: {
-        id: true,
-        originalName: true,
-        contentType: true,
-        kind: true,
-        state: true,
-        byteSize: true,
-        createdAt: true,
-        origin: true,
-        apiKeyIdSnapshot: true,
-        apiKeyNameSnapshot: true,
-        clientLabelSnapshot: true,
-        s3ObjectKey: true,
-        s3PublicNamespaceSnapshot: true,
-        user: { select: { name: true, email: true } },
-      },
-    }),
   ]);
 
-  const uploadByUser = new Map(
-    uploadsByUser.map((row) => [row.userId, row] as const),
-  );
-  const gifByUser = new Map(
-    gifsByUser.map(
-      (row) =>
-        [
-          row.userId,
-          { count: numericCount(row.count), byteSize: row.byteSize },
-        ] as const,
-    ),
-  );
-  const keyByUser = new Map(
-    keysByUser.map((row) => [row.userId, row._count._all] as const),
-  );
   const kindByName = new Map(kindRows.map((row) => [row.kind, row] as const));
   const originByName = new Map(
     originRows.map((row) => [row.origin, row] as const),
@@ -270,41 +324,5 @@ export async function loadAdminInsights(
         byteSize: decimal(row?._sum.byteSize),
       };
     }),
-    users: users.map((user) => {
-      const upload = uploadByUser.get(user.id);
-      return {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        appRole: user.appRole,
-        createdAt: user.createdAt.toISOString(),
-        uploadCount: upload?._count._all ?? 0,
-        byteSize: (
-          (upload?._sum.byteSize ?? BigInt(0)) +
-          (gifByUser.get(user.id)?.byteSize ?? BigInt(0))
-        ).toString(10),
-        storageLimitBytes: user.storageLimitBytes?.toString(10) ?? null,
-        effectiveStorageLimitBytes:
-          user.appRole === "ADMIN"
-            ? null
-            : (
-                user.storageLimitBytes ?? DEFAULT_MEMBER_STORAGE_LIMIT_BYTES
-              ).toString(10),
-        gifCount: gifByUser.get(user.id)?.count ?? 0,
-        activeKeyCount: keyByUser.get(user.id) ?? 0,
-        lastUploadAt: upload?._max.createdAt?.toISOString() ?? null,
-      };
-    }),
-    recentUploads: recentUploads.map((upload) => ({
-      id: upload.id,
-      originalName: upload.originalName,
-      contentType: upload.contentType,
-      kind: upload.kind,
-      state: upload.state,
-      byteSize: upload.byteSize.toString(10),
-      createdAt: upload.createdAt.toISOString(),
-      provenance: serializeUploadProvenance(upload),
-      owner: upload.user,
-    })),
   };
 }

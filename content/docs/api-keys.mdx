@@ -42,6 +42,11 @@ protocol. Those safe audit fields remain useful after the key is renamed,
 revoked, expired, or removed from bounded key history. Seedyn never snapshots
 the raw key, digest, Authorization header, source address, or User-Agent.
 
+To use Shottr or another compatible S3 client, create the ordinary named key
+first, then select **Enable S3** on that key. Seedyn shows the separate Access
+Key ID and Secret Access Key once. The [Shottr and S3 guide](/docs/s3-shottr)
+lists the exact endpoint, bucket, and public URL fields.
+
 Key creation and revocation controls enable after the page hydrates. This avoids
 creating an unrecoverable one-time secret in a JavaScript-disabled browser,
 where Next.js 16.3 PPR cannot render a Server Action's result.

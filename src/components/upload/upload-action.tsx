@@ -16,6 +16,7 @@ import {
 import { formatBytes } from "~/components/lib/format";
 import { planGifConversion } from "~/components/gif/eligibility";
 import { GIF_MAX_OUTPUT_BYTES } from "~/components/gif/options";
+import { SlugAvailabilityField } from "~/components/slug/slug-availability-field";
 import { CopyButton } from "~/components/ui/copy-button";
 import {
   Dialog,
@@ -192,6 +193,8 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   const [phase, setPhase] = useState<Phase>({ name: "idle" });
   const [dragging, setDragging] = useState(false);
   const [urlValue, setUrlValue] = useState("");
+  const [slugValue, setSlugValue] = useState("");
+  const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
   const [confirmingClose, setConfirmingClose] = useState(false);
   const [quickGifBusy, setQuickGifBusy] = useState(false);
 
@@ -199,8 +202,21 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   const busy = transferBusy || quickGifBusy;
 
   const send = useCallback(
-    async (file: File, sourceLabel: string, quickGif = false) => {
+    async (
+      file: File,
+      sourceLabel: string,
+      quickGif = false,
+      customSlug = slugValue,
+    ) => {
       if (controller.current) return;
+      if (customSlug && slugAvailable !== true) {
+        setPhase({
+          name: "failed",
+          code: "slug_unavailable",
+          message: "Choose an available custom URL slug or leave it blank.",
+        });
+        return;
+      }
       if (file.size > MAX_UPLOAD_BYTES) {
         setPhase({
           name: "failed",
@@ -228,6 +244,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
           endpoint: BROWSER_UPLOAD_ENDPOINT,
           body: file,
           filename: file.name || "upload",
+          fields: customSlug ? { slug: customSlug } : undefined,
           signal: abort.signal,
           onProgress: (loaded, total) =>
             setOwnedPhase({
@@ -263,8 +280,13 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         if (ownsOperation()) controller.current = null;
       }
     },
-    [router],
+    [router, slugAvailable, slugValue],
   );
+
+  const changeSlug = useCallback((value: string) => {
+    setSlugValue(value);
+    setSlugAvailable(value ? false : null);
+  }, []);
 
   const chooseFile = useCallback((file: File) => {
     if (controller.current) return;
@@ -328,6 +350,8 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       if (fileInput.current) fileInput.current.value = "";
       setPhase(file ? { name: "selected", file } : { name: "idle" });
       setUrlValue("");
+      setSlugValue("");
+      setSlugAvailable(null);
       dragDepth.current = 0;
       setDragging(false);
       setConfirmingClose(false);
@@ -336,7 +360,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
 
       if (file && options?.autoStart) {
         const label = options.quickGif ? clipboardLabel(file) : file.name;
-        void send(file, label || "Dropped file", options.quickGif ?? false);
+        void send(file, label || "Dropped file", options.quickGif ?? false, "");
       }
     },
     [send],
@@ -388,6 +412,8 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     setQuickGifBusy(false);
     setConfirmingClose(false);
     setUrlValue("");
+    setSlugValue("");
+    setSlugAvailable(null);
     dragDepth.current = 0;
     setDragging(false);
   }
@@ -607,6 +633,8 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
                     onClick={() => {
                       if (fileInput.current) fileInput.current.value = "";
                       setQuickGifBusy(false);
+                      setSlugValue("");
+                      setSlugAvailable(null);
                       setPhase({ name: "idle" });
                     }}
                     className={buttonQuiet}
@@ -679,6 +707,13 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
                     </button>
                   </div>
                 </div>
+
+                <SlugAvailabilityField
+                  value={slugValue}
+                  onChange={changeSlug}
+                  onAvailabilityChange={setSlugAvailable}
+                  disabled={busy}
+                />
 
                 {phase.name === "selected" ? (
                   <div className="border-border bg-panel flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">

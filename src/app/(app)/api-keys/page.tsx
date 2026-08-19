@@ -16,7 +16,7 @@ export default function ApiKeysPage() {
     <>
       <PageHeader
         title="API keys"
-        subtitle="Scoped credentials let scripts and upload clients write to your account. A key is shown once."
+        subtitle="Create credentials for HTTP clients, ShareX, Shottr, and compatible S3 clients. Secrets are shown once."
       />
 
       <div className="space-y-8">
@@ -24,6 +24,12 @@ export default function ApiKeysPage() {
           <h2 id="create-heading" className="pb-3 text-sm font-medium">
             Create a key
           </h2>
+          <p className="text-muted-foreground -mt-1 mb-3 max-w-2xl text-sm">
+            For S3, create the named API key first. Then select{" "}
+            <span className="text-foreground font-medium">Enable S3</span> on
+            that key to generate its separate Access Key ID and one-time Secret
+            Access Key.
+          </p>
           <CreateKey />
         </section>
 

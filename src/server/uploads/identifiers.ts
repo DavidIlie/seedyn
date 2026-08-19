@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
 
-const SLUG_PATTERN = /^[A-Za-z0-9_-]{22,64}$/;
+const SLUG_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9_-]{1,62}[A-Za-z0-9])?$/;
 
 export function createRecordId(): string {
   return randomUUID();

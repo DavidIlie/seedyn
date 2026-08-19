@@ -1,8 +1,32 @@
+import type { Route } from "next";
+
 export const ADMIN_RANGE_DAYS = [7, 30, 90] as const;
 export const ADMIN_UPLOAD_KINDS = ["IMAGE", "VIDEO", "FILE", "TEXT"] as const;
+export const ADMIN_USER_PAGE_SIZE = 25;
+export const ADMIN_USER_SORTS = [
+  "account",
+  "uploads",
+  "stored",
+  "keys",
+  "last",
+  "joined",
+] as const;
 
 export type AdminRangeDays = (typeof ADMIN_RANGE_DAYS)[number];
 export type AdminUploadKind = (typeof ADMIN_UPLOAD_KINDS)[number];
+export type AdminUserSort = (typeof ADMIN_USER_SORTS)[number];
+export type AdminSortDirection = "asc" | "desc";
+
+export type AdminUserView = {
+  page: number;
+  query: string;
+  sort: AdminUserSort;
+  direction: AdminSortDirection;
+};
+
+export type AdminViewPatch = Partial<AdminUserView> & {
+  rangeDays?: AdminRangeDays;
+};
 
 export type DailyUploadAggregate = {
   day: Date;
@@ -27,6 +51,59 @@ export function parseAdminRange(value: unknown): AdminRangeDays {
   if (candidate === "7") return 7;
   if (candidate === "90") return 90;
   return 30;
+}
+
+function scalar(value: unknown): string | undefined {
+  const candidate = Array.isArray(value) ? value[0] : value;
+  return typeof candidate === "string" ? candidate : undefined;
+}
+
+export function parseAdminUserView(
+  params: Record<string, string | string[] | undefined>,
+): AdminUserView {
+  const requestedPage = Number.parseInt(scalar(params.page) ?? "1", 10);
+  const requestedSort = scalar(params.sort);
+  const sort: AdminUserSort = ADMIN_USER_SORTS.some(
+    (candidate) => candidate === requestedSort,
+  )
+    ? (requestedSort as AdminUserSort)
+    : "joined";
+  const requestedDirection = scalar(params.direction);
+
+  return {
+    page:
+      Number.isSafeInteger(requestedPage) && requestedPage > 0
+        ? requestedPage
+        : 1,
+    query: (scalar(params.q) ?? "").normalize("NFC").trim().slice(0, 100),
+    sort,
+    direction:
+      requestedDirection === "asc" || requestedDirection === "desc"
+        ? requestedDirection
+        : sort === "account"
+          ? "asc"
+          : "desc",
+  };
+}
+
+export function buildAdminHref(
+  rangeDays: AdminRangeDays,
+  view: AdminUserView,
+  patch: AdminViewPatch,
+): Route {
+  const nextRange = patch.rangeDays ?? rangeDays;
+  const next = { ...view, ...patch };
+  const params = new URLSearchParams();
+  if (nextRange !== 30) params.set("range", String(nextRange));
+  if (next.query) params.set("q", next.query);
+  if (next.sort !== "joined") params.set("sort", next.sort);
+  const defaultDirection = next.sort === "account" ? "asc" : "desc";
+  if (next.direction !== defaultDirection) {
+    params.set("direction", next.direction);
+  }
+  if (next.page > 1) params.set("page", String(next.page));
+  const query = params.toString();
+  return query ? `/admin?${query}` : "/admin";
 }
 
 export function adminRangeStart(now: Date, days: AdminRangeDays): Date {

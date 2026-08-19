@@ -20,6 +20,7 @@ import {
 } from "~/components/detail/upload-preview";
 import { TextReadView } from "~/components/detail/text-read-view";
 import { PasswordProtection } from "~/components/detail/password-protection";
+import { PublicSlugControl } from "~/components/detail/public-slug-control";
 import {
   UrlHeading,
   UrlHeadingSkeleton,
@@ -94,6 +95,12 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
         </div>
 
         <div className="space-y-6">
+          <PublicSlugControl
+            uploadId={upload.id}
+            currentSlug={upload.publicSlug}
+            extension={upload.extension}
+          />
+
           <PasswordProtection
             uploadId={upload.id}
             protected={upload.passwordProtected}
