@@ -236,6 +236,15 @@ Disaster recovery order:
 4. start app read-only if inconsistency is material;
 5. repair or accept named losses before writes resume.
 
+## S3 credential root secret
+
+The deployment must provide a stable, randomly generated `S3_MASTER_SECRET` of
+at least 32 characters. Seedyn derives client signing secrets from it and never
+stores those client secrets in Postgres. The S3 route fails closed when the
+variable is absent. Replacing it invalidates every issued S3 credential, so
+users must rotate their per-key S3 credentials after an intentional root-secret
+rotation.
+
 ## Operator commands
 
 The implemented image/package exposes:

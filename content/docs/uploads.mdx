@@ -23,6 +23,19 @@ Seedyn does not provide a server-side CORS or SSRF proxy.
 Original uploads are capped at 64 MiB. Image and text compatibility endpoints
 use a 16 MiB cap.
 
+## Custom public URLs
+
+The browser uploader can reserve an optional readable slug before bytes are
+sent. Seedyn checks availability as you type; leave the field blank to keep the
+default random URL. Custom slugs use 3–48 lowercase letters, numbers, and single
+hyphens, for example `launch-screenshot`.
+
+Every upload detail page also has a **Public URL** control. Changing the slug
+rotates the direct `i.dave.tips` URL immediately, so the previous direct link
+stops working. Password protection may perform its own URL rotation when first
+enabled. S3 object aliases remain stable and continue resolving to the upload's
+current direct URL.
+
 Member accounts receive 5 GB of storage by default. Original objects and stored
 GIF variants both count. The library shows committed usage and any bytes
 currently reserved by an upload. Administrators are unlimited and can raise a

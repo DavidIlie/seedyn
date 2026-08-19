@@ -120,7 +120,7 @@ function S3CredentialDialog({
           <p className="text-muted-foreground mt-1 text-xs">
             {enabled
               ? "The secret is hidden. Rotate only when you can update the client immediately."
-              : "Enable this key for Shottr or another compatible S3 client."}
+              : "Generate a separate Access Key ID and one-time Secret Access Key for Shottr or another compatible S3 client."}
           </p>
         </div>
 

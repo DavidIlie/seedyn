@@ -8,6 +8,10 @@ import {
   escapePostgresLikePattern,
   normalizeUploadSearchQuery,
 } from "~/lib/upload-search";
+import {
+  customPublicSlugError,
+  normalizeCustomPublicSlug,
+} from "~/lib/public-slug";
 import { gifVariantObjectKey, originalObjectKey } from "~/server/storage/keys";
 import { objectStore } from "~/server/storage/minio";
 import type { ObjectStore } from "~/server/storage/object-store";
@@ -192,6 +196,128 @@ async function serializableTransaction<T>(
   throw lastConflict;
 }
 
+async function lockPublicSlug(
+  transaction: Prisma.TransactionClient,
+  publicSlug: string,
+): Promise<void> {
+  await transaction.$queryRaw(Prisma.sql`
+    SELECT pg_advisory_xact_lock(hashtextextended(${publicSlug}, 0)) IS NULL AS "locked"
+  `);
+}
+
+async function assertPublicSlugAvailable(
+  transaction: Prisma.TransactionClient,
+  publicSlug: string,
+  excludeUploadId?: string,
+): Promise<void> {
+  const [upload, variant] = await Promise.all([
+    transaction.upload.findFirst({
+      where: {
+        publicSlug,
+        ...(excludeUploadId ? { id: { not: excludeUploadId } } : {}),
+      },
+      select: { id: true },
+    }),
+    transaction.uploadVariant.findUnique({
+      where: { publicSlug },
+      select: { id: true },
+    }),
+  ]);
+  if (upload || variant) {
+    throw new DomainError("conflict", {
+      message: "That public slug is already in use.",
+    });
+  }
+}
+
+export type PublicSlugAvailability = {
+  slug: string;
+  valid: boolean;
+  available: boolean;
+  message: string;
+};
+
+export async function readPublicSlugAvailability(input: {
+  userId: string;
+  slug: string;
+  excludeUploadId?: string;
+}): Promise<PublicSlugAvailability> {
+  const slug = normalizeCustomPublicSlug(input.slug);
+  const validationError = customPublicSlugError(slug);
+  if (validationError) {
+    return {
+      slug,
+      valid: false,
+      available: false,
+      message: validationError,
+    };
+  }
+  if (input.excludeUploadId) {
+    const owned = await db.upload.findFirst({
+      where: { id: input.excludeUploadId, userId: input.userId },
+      select: { id: true },
+    });
+    if (!owned) throw new DomainError("not_found");
+  }
+  const [upload, variant] = await Promise.all([
+    db.upload.findFirst({
+      where: {
+        publicSlug: slug,
+        ...(input.excludeUploadId
+          ? { id: { not: input.excludeUploadId } }
+          : {}),
+      },
+      select: { id: true },
+    }),
+    db.uploadVariant.findUnique({
+      where: { publicSlug: slug },
+      select: { id: true },
+    }),
+  ]);
+  const available = !upload && !variant;
+  return {
+    slug,
+    valid: true,
+    available,
+    message: available ? "Available" : "Already in use",
+  };
+}
+
+export async function changeOwnedUploadPublicSlug(input: {
+  userId: string;
+  uploadId: string;
+  slug: string;
+}): Promise<{ publicSlug: string; extension: string; url: string }> {
+  const publicSlug = normalizeCustomPublicSlug(input.slug);
+  const validationError = customPublicSlugError(publicSlug);
+  if (validationError) {
+    throw new DomainError("invalid_input", { message: validationError });
+  }
+
+  try {
+    const upload = await serializableTransaction(async (transaction) => {
+      await lockPublicSlug(transaction, publicSlug);
+      const owned = await transaction.upload.findFirst({
+        where: { id: input.uploadId, userId: input.userId },
+        select: { id: true, extension: true },
+      });
+      if (!owned) throw new DomainError("not_found");
+      await assertPublicSlugAvailable(transaction, publicSlug, owned.id);
+      return transaction.upload.update({
+        where: { id: owned.id },
+        data: { publicSlug },
+        select: { publicSlug: true, extension: true },
+      });
+    });
+    return {
+      ...upload,
+      url: publicUrl(upload.publicSlug, upload.extension),
+    };
+  } catch (error) {
+    throw databaseError(error);
+  }
+}
+
 async function compensateObject(input: {
   store: ObjectStore;
   audit: (event: AuditEvent) => void;
@@ -222,6 +348,7 @@ export async function createUpload(
     /** A classification produced from this exact immutable temporary file. */
     classification?: ClassifiedUpload;
     forcedKind?: ForcedUploadKind;
+    publicSlug?: string;
     signal?: AbortSignal;
   },
   injected?: UploadServiceDependencies,
@@ -240,7 +367,16 @@ export async function createUpload(
   assertForcedUploadKind(classification, input.forcedKind ?? "auto");
 
   const uploadId = createRecordId();
-  const publicSlug = createPublicSlug();
+  const requestedPublicSlug = input.publicSlug?.trim()
+    ? normalizeCustomPublicSlug(input.publicSlug)
+    : null;
+  const slugError = requestedPublicSlug
+    ? customPublicSlugError(requestedPublicSlug)
+    : null;
+  if (slugError) {
+    throw new DomainError("invalid_input", { message: slugError });
+  }
+  const publicSlug = requestedPublicSlug ?? createPublicSlug();
   const storageKey = originalObjectKey({
     userId: input.userId,
     uploadId,
@@ -321,6 +457,8 @@ export async function createUpload(
 
   try {
     const upload = await serializableTransaction(async (transaction) => {
+      await lockPublicSlug(transaction, publicSlug);
+      await assertPublicSlugAvailable(transaction, publicSlug);
       const created = await transaction.upload.create({
         data: {
           id: uploadId,

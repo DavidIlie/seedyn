@@ -8,19 +8,21 @@ normal Seedyn library, count toward the account's quota, keep upload provenance,
 and are stored in the private MinIO bucket. Seedyn never exposes MinIO
 credentials.
 
-## Operator prerequisite
+## Generate an S3 credential
 
-The deployment must provide a stable, randomly generated `S3_MASTER_SECRET` of
-at least 32 characters. Seedyn derives each client signing secret from it and
-never stores that client secret in Postgres. If the variable is absent, the S3
-route fails closed and the key page cannot enable S3. Replacing the master
-secret invalidates every issued S3 credential, so rotate client credentials in
-the UI after any intentional master-secret rotation.
+1. Open **API keys** in Seedyn.
+2. Create a named key for the app or device, such as **Shottr — David laptop**.
+3. Find that key in the list and select **Enable S3**.
+4. Copy the **Access Key ID** and **Secret Access Key** from the one-time reveal.
+5. Keep the reveal open until both values are saved in the client.
+
+The S3 credential is separate from the HTTP API key. Its secret cannot be shown
+again; use **Rotate S3** on the same key if you lose it. Revoking the parent API
+key disables both credentials.
 
 ## Shottr configuration
 
-Create a named API key for the device, enable its S3 credential, and use the
-values shown by Seedyn:
+Use the values from the one-time reveal:
 
 | Shottr field       | Value                                                                    |
 | ------------------ | ------------------------------------------------------------------------ |

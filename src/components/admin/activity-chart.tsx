@@ -4,46 +4,40 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
+  type TooltipContentProps,
+  type TooltipValueType,
 } from "recharts";
 
 import type { DailyUploadPoint } from "~/server/admin/insights-view";
 
-const SERIES = [
-  { key: "IMAGE", name: "Images", color: "var(--chart-image)" },
-  { key: "VIDEO", name: "Videos", color: "var(--chart-video)" },
-  { key: "FILE", name: "Files", color: "var(--chart-file)" },
-  { key: "TEXT", name: "Text", color: "var(--chart-text)" },
-] as const;
-
 export function ActivityChart({ data }: { data: DailyUploadPoint[] }) {
   return (
-    <div aria-hidden="true" className="h-64 min-w-0">
+    <div aria-hidden="true" className="h-40 min-w-0">
       <ResponsiveContainer
         width="100%"
         height="100%"
-        initialDimension={{ width: 720, height: 256 }}
+        initialDimension={{ width: 720, height: 160 }}
       >
         <BarChart
           data={data}
-          margin={{ top: 8, right: 4, bottom: 0, left: -12 }}
-          barCategoryGap="24%"
+          margin={{ top: 6, right: 4, bottom: 0, left: -12 }}
+          barCategoryGap="22%"
           accessibilityLayer
         >
           <CartesianGrid
             vertical={false}
             stroke="var(--border)"
-            strokeDasharray="3 4"
+            strokeDasharray="3 5"
           />
           <XAxis
             dataKey="label"
             axisLine={false}
             tickLine={false}
-            minTickGap={24}
+            minTickGap={28}
             tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
           />
           <YAxis
@@ -54,34 +48,36 @@ export function ActivityChart({ data }: { data: DailyUploadPoint[] }) {
             tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
           />
           <Tooltip
-            cursor={{ fill: "var(--sunken)" }}
-            contentStyle={{
-              background: "var(--panel)",
-              border: "1px solid var(--border)",
-              borderRadius: "0.5rem",
-              color: "var(--foreground)",
-              fontSize: "0.75rem",
-            }}
-            labelStyle={{ color: "var(--muted-foreground)" }}
+            cursor={{ fill: "var(--accent)", fillOpacity: 0.06 }}
+            content={ActivityTooltip}
           />
-          <Legend
-            iconType="square"
-            iconSize={8}
-            wrapperStyle={{ fontSize: "0.75rem", color: "var(--foreground)" }}
+          <Bar
+            dataKey="total"
+            name="Uploads"
+            fill="var(--chart-image)"
+            radius={[3, 3, 0, 0]}
+            maxBarSize={18}
+            isAnimationActive={false}
           />
-          {SERIES.map((series) => (
-            <Bar
-              key={series.key}
-              dataKey={series.key}
-              name={series.name}
-              stackId="uploads"
-              fill={series.color}
-              radius={series.key === "TEXT" ? [3, 3, 0, 0] : 0}
-              isAnimationActive={false}
-            />
-          ))}
         </BarChart>
       </ResponsiveContainer>
+    </div>
+  );
+}
+
+function ActivityTooltip({
+  active,
+  payload,
+  label,
+}: TooltipContentProps<TooltipValueType, number | string>) {
+  if (!active || !payload?.length) return null;
+  const count = Number(payload[0]?.value ?? 0);
+  return (
+    <div className="border-border bg-panel rounded-lg border px-3 py-2 text-xs shadow-lg">
+      <p className="text-muted-foreground">{label}</p>
+      <p className="mt-0.5 font-semibold tabular-nums">
+        {count.toLocaleString("en-US")} {count === 1 ? "upload" : "uploads"}
+      </p>
     </div>
   );
 }

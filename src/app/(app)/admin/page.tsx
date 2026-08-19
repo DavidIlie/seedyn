@@ -1,10 +1,16 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
+import { cache, Suspense } from "react";
 
-import { AdminLedger } from "~/components/admin/admin-ledger";
+import { AdminFleet, AdminOperations } from "~/components/admin/admin-ledger";
+import { AdminUploadInventory } from "~/components/admin/admin-upload-inventory";
+import { AdminUserTable } from "~/components/admin/admin-user-table";
 import { PageHeader } from "~/components/ui/page-header";
-import { loadAdminInsights } from "~/server/admin/insights";
-import { parseAdminRange } from "~/server/admin/insights-view";
+import { loadAdminOverview, loadAdminUserPage } from "~/server/admin/insights";
+import { loadAdminUploadPage } from "~/server/admin/uploads";
+import {
+  parseAdminRange,
+  parseAdminUserView,
+} from "~/server/admin/insights-view";
 
 export const metadata: Metadata = {
   title: "Admin",
@@ -13,51 +19,119 @@ export const metadata: Metadata = {
 
 export const instant = true;
 
+const loadOverview = cache(loadAdminOverview);
+
 export default function AdminPage(props: PageProps<"/admin">) {
   return (
     <>
       <PageHeader
         title="Admin"
-        subtitle="All users, stored content, and upload activity."
+        subtitle="People, storage, and upload operations."
       />
-      <Suspense fallback={<AdminLedgerSkeleton />}>
-        <AdminContent searchParams={props.searchParams} />
-      </Suspense>
+      <div className="space-y-8 pb-16">
+        <Suspense fallback={<FleetSkeleton />}>
+          <FleetContent searchParams={props.searchParams} />
+        </Suspense>
+        <Suspense fallback={<PeopleSkeleton />}>
+          <PeopleContent searchParams={props.searchParams} />
+        </Suspense>
+        <Suspense fallback={<ContentSkeleton />}>
+          <ContentContent />
+        </Suspense>
+        <Suspense fallback={<OperationsSkeleton />}>
+          <OperationsContent searchParams={props.searchParams} />
+        </Suspense>
+      </div>
     </>
   );
 }
 
-async function AdminContent({
+async function FleetContent({
   searchParams,
-}: {
-  searchParams: PageProps<"/admin">["searchParams"];
-}) {
+}: Pick<PageProps<"/admin">, "searchParams">) {
   const query = await searchParams;
-  const rangeDays = parseAdminRange(query.range);
-  const insights = await loadAdminInsights(rangeDays);
-  return <AdminLedger insights={insights} />;
+  const overview = await loadOverview(parseAdminRange(query.range));
+  return <AdminFleet overview={overview} />;
 }
 
-function AdminLedgerSkeleton() {
+async function PeopleContent({
+  searchParams,
+}: Pick<PageProps<"/admin">, "searchParams">) {
+  const query = await searchParams;
+  const rangeDays = parseAdminRange(query.range);
+  const users = await loadAdminUserPage(parseAdminUserView(query));
+  return <AdminUserTable users={users} rangeDays={rangeDays} />;
+}
+
+async function OperationsContent({
+  searchParams,
+}: Pick<PageProps<"/admin">, "searchParams">) {
+  const query = await searchParams;
+  const rangeDays = parseAdminRange(query.range);
+  const userView = parseAdminUserView(query);
+  const overview = await loadOverview(rangeDays);
+  return <AdminOperations overview={overview} userView={userView} />;
+}
+
+async function ContentContent() {
+  const initialPage = await loadAdminUploadPage();
+  return <AdminUploadInventory initialPage={initialPage} />;
+}
+
+function FleetSkeleton() {
   return (
-    <div aria-hidden="true" className="space-y-8 pb-16">
-      <div className="border-border bg-panel grid grid-cols-2 overflow-hidden rounded-xl border lg:grid-cols-5">
-        {Array.from({ length: 5 }, (_, index) => (
-          <div
-            key={index}
-            className="border-border space-y-3 border-r border-b px-4 py-4 last:col-span-2 lg:border-b-0 lg:last:col-span-1"
-          >
-            <div className="bg-border h-3 w-20 rounded" />
-            <div className="bg-border h-6 w-24 rounded" />
-            <div className="bg-border h-3 w-16 rounded" />
-          </div>
-        ))}
-      </div>
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(17rem,1fr)]">
-        <div className="border-border bg-panel h-[22rem] rounded-xl border" />
-        <div className="border-border bg-panel h-[22rem] rounded-xl border" />
-      </div>
-      <div className="border-border bg-panel h-52 rounded-xl border" />
+    <div
+      aria-hidden="true"
+      className="border-border grid grid-cols-2 border-y lg:grid-cols-4"
+    >
+      {Array.from({ length: 4 }, (_, index) => (
+        <div
+          key={index}
+          className="border-border space-y-3 border-r px-4 py-4 last:border-r-0"
+        >
+          <div className="bg-border h-3 w-20 rounded" />
+          <div className="bg-border h-7 w-24 rounded" />
+          <div className="bg-border h-3 w-28 rounded" />
+        </div>
+      ))}
     </div>
+  );
+}
+
+function PeopleSkeleton() {
+  return (
+    <div
+      aria-hidden="true"
+      className="border-border bg-panel overflow-hidden rounded-xl border"
+    >
+      <div className="border-border flex items-center gap-3 border-b px-5 py-4">
+        <div className="bg-border size-9 rounded-lg" />
+        <div className="space-y-2">
+          <div className="bg-border h-4 w-24 rounded" />
+          <div className="bg-border h-3 w-64 max-w-full rounded" />
+        </div>
+      </div>
+      <div className="bg-sunken/45 border-border h-16 border-b" />
+      <div className="h-36" />
+      <div className="border-border h-14 border-t" />
+    </div>
+  );
+}
+
+function OperationsSkeleton() {
+  return (
+    <div
+      aria-hidden="true"
+      className="border-border bg-panel h-72 rounded-xl border"
+    />
+  );
+}
+
+function ContentSkeleton() {
+  return (
+    <div
+      aria-hidden="true"
+      className="border-border bg-panel h-80 rounded-xl border"
+    />
   );
 }

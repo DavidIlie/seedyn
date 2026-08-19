@@ -21,7 +21,7 @@ export function KeyList({ keys }: { keys: ApiKeySummary[] }) {
     return (
       <EmptyState
         title="No API keys"
-        body="Create a scoped key for a script, desktop tool, or another HTTP client."
+        body="Create a named key above. For an S3 client, use Enable S3 on the new key to reveal its Access Key ID and Secret Access Key."
       />
     );
   }

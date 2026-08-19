@@ -102,7 +102,12 @@ export async function POST(request: Request): Promise<Response> {
   try {
     file = await parseMultipartUpload(request, {
       permittedFileFields: new Set(["file"]),
-      permittedScalarFields: new Set(["kind", "filename", "textLanguage"]),
+      permittedScalarFields: new Set([
+        "kind",
+        "filename",
+        "textLanguage",
+        "slug",
+      ]),
       maxFileBytes: UPLOAD_LIMITS.generic,
     });
     const forcedKind = requestedKind(file.fields.kind);
@@ -119,6 +124,7 @@ export async function POST(request: Request): Promise<Response> {
       file,
       provenance: { origin: "BROWSER" },
       forcedKind,
+      publicSlug: file.fields.slug,
       signal: request.signal,
     });
     authorization.rateHeaders.set("Cache-Control", "no-store");

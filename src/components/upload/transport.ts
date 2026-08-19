@@ -95,6 +95,7 @@ export function postMultipart(input: {
   body: Blob;
   filename: string;
   fieldName?: string;
+  fields?: Readonly<Record<string, string>>;
   signal: AbortSignal;
   /** `total` is null while the browser cannot compute a length. */
   onProgress: (loaded: number, total: number | null) => void;
@@ -111,6 +112,9 @@ export function postMultipart(input: {
       input.body,
       input.filename,
     );
+    for (const [name, value] of Object.entries(input.fields ?? {})) {
+      form.append(name, value);
+    }
 
     const request = new XMLHttpRequest();
     request.open("POST", input.endpoint, true);
