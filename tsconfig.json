@@ -39,5 +39,11 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules", ".deepsec", "public/ffmpeg"]
+  "exclude": [
+    "node_modules",
+    ".deepsec",
+    "playwright-report",
+    "public/ffmpeg",
+    "test-results"
+  ]
 }

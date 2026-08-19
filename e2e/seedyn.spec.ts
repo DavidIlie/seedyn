@@ -1,6 +1,11 @@
 import { instant } from "@next/playwright";
 import { PrismaClient } from "@prisma/client";
-import { expect, test, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type Page,
+} from "@playwright/test";
 
 import {
   createProductionTestIdentity,
@@ -26,6 +31,42 @@ const DOCS_READING_ORDER = [
   { path: "/docs/operations", title: "Operations" },
 ];
 
+const E2E_PORT = process.env.E2E_PRODUCTION === "true" ? 3101 : 3000;
+const E2E_APP_ORIGIN = `http://seedyn.localhost:${E2E_PORT}`;
+type RequestOptions = NonNullable<Parameters<APIRequestContext["fetch"]>[1]>;
+
+function requestLocal(
+  request: APIRequestContext,
+  input: string,
+  options: RequestOptions = {},
+) {
+  const url = new URL(input, E2E_APP_ORIGIN);
+  if (url.hostname !== "localhost" && !url.hostname.endsWith(".localhost")) {
+    return request.fetch(url.toString(), options);
+  }
+
+  const authority = url.host;
+  url.hostname = "127.0.0.1";
+  return request.fetch(url.toString(), {
+    ...options,
+    headers: { ...options.headers, Host: authority },
+  });
+}
+
+async function mirrorAppCookiesToLoopback(page: Page): Promise<void> {
+  const cookies = await page.context().cookies(E2E_APP_ORIGIN);
+  await page.context().addCookies(
+    cookies.map(({ name, value, expires, httpOnly, sameSite }) => ({
+      name,
+      value,
+      expires,
+      httpOnly,
+      sameSite,
+      url: `http://127.0.0.1:${E2E_PORT}`,
+    })),
+  );
+}
+
 async function signIn(page: Page) {
   if (process.env.E2E_PRODUCTION === "true") {
     const prisma = new PrismaClient();
@@ -49,19 +90,21 @@ async function signIn(page: Page) {
     await expect(
       page.getByRole("heading", { name: "Library", exact: true }),
     ).toBeVisible();
+    await mirrorAppCookiesToLoopback(page);
     return;
   }
 
   await page.goto("/sign-in");
-  if (new URL(page.url()).pathname === "/dashboard") return;
-
-  await page
-    .getByRole("button", { name: "Continue with local development sign-in" })
-    .click();
-  await page.waitForURL((url) => url.pathname === "/dashboard");
+  if (new URL(page.url()).pathname !== "/dashboard") {
+    await page
+      .getByRole("button", { name: "Continue with local development sign-in" })
+      .click();
+    await page.waitForURL((url) => url.pathname === "/dashboard");
+  }
   await expect(
     page.getByRole("heading", { name: "Library", exact: true }),
   ).toBeVisible();
+  await mirrorAppCookiesToLoopback(page);
 }
 
 const productionIdentities: ProductionTestIdentity[] = [];
@@ -467,7 +510,8 @@ test("pasting a clipboard image immediately creates selectable PNG and GIF URLs"
     expect(errors).toEqual([]);
   } finally {
     if (uploadId) {
-      await page.request.delete(`/api/uploads/${uploadId}`, {
+      await requestLocal(page.request, `/api/uploads/${uploadId}`, {
+        method: "DELETE",
         headers: {
           Accept: "application/json",
           Origin: new URL(page.url()).origin,
@@ -490,7 +534,8 @@ test("signed-out documentation discloses neither prose nor the page tree", async
 
   const requestHeaders: Record<string, string>[] = [{}, { RSC: "1" }];
   for (const headers of requestHeaders) {
-    const response = await request.get("/docs", {
+    const response = await requestLocal(request, "/docs", {
+      method: "GET",
       headers,
       maxRedirects: 0,
     });
@@ -499,7 +544,10 @@ test("signed-out documentation discloses neither prose nor the page tree", async
   }
 
   for (const path of ["/docs.md", "/llms.txt", "/llms-full.txt"]) {
-    const response = await request.get(path, { maxRedirects: 0 });
+    const response = await requestLocal(request, path, {
+      method: "GET",
+      maxRedirects: 0,
+    });
     expect(response.status()).toBe(401);
   }
 });
@@ -531,23 +579,33 @@ test("documentation surfaces share the authored reading order", async ({
   await expect(docsLinks.first()).toHaveAttribute("data-active", "true");
   await expect(page.locator("#nd-toc")).toContainText("Start here");
 
-  const indexResponse = await page.request.get("/llms.txt");
+  const indexResponse = await requestLocal(page.request, "/llms.txt", {
+    method: "GET",
+  });
   expect(indexResponse.status()).toBe(200);
   const indexTitles = [
     ...(await indexResponse.text()).matchAll(/^- \[([^\]]+)]\(/gm),
   ].map((match) => match[1]);
   expect(indexTitles).toEqual(DOCS_READING_ORDER.map((entry) => entry.title));
 
-  const fullResponse = await page.request.get("/llms-full.txt");
+  const fullResponse = await requestLocal(page.request, "/llms-full.txt", {
+    method: "GET",
+  });
   expect(fullResponse.status()).toBe(200);
   const canonicalPaths = [
     ...(await fullResponse.text()).matchAll(/^- Canonical: (\S+)$/gm),
   ].map((match) => new URL(match[1]!).pathname);
   expect(canonicalPaths).toEqual(DOCS_READING_ORDER.map((entry) => entry.path));
 
-  const malformedMarkdown = await page.request.get("/llms.mdx/docs/%25");
+  const malformedMarkdown = await requestLocal(
+    page.request,
+    "/llms.mdx/docs/%25",
+    { method: "GET" },
+  );
   expect(malformedMarkdown.status()).toBe(404);
-  const malformedHtml = await page.request.get("/docs/%25");
+  const malformedHtml = await requestLocal(page.request, "/docs/%25", {
+    method: "GET",
+  });
   expect(malformedHtml.status()).toBe(404);
 
   // Fumadocs' page, TOC popover, and article must remain direct grid items.
@@ -595,14 +653,18 @@ test("Proxy-excluded upload methods retain the strict host boundary", async ({
     "/api/uploads/123e4567-e89b-42d3-a456-426614174000/gif",
   ];
 
-  const appOptions = await request.fetch(`${baseURL}/api/upload`, {
+  const appOptions = await requestLocal(request, `${baseURL}/api/upload`, {
     method: "OPTIONS",
   });
   expect(appOptions.status()).toBe(204);
   expect(appOptions.headers().allow).toBe("OPTIONS, POST");
 
   for (const path of paths) {
-    const media = await request.get(`http://i.localhost:${port}${path}`);
+    const media = await requestLocal(
+      request,
+      `http://i.localhost:${port}${path}`,
+      { method: "GET" },
+    );
     expect(media.status()).toBe(404);
 
     const unknown = await request.fetch(`http://127.0.0.1:${port}${path}`, {
@@ -701,7 +763,9 @@ test("a browser upload becomes a permanent GIF and can be deleted", async ({
       new RegExp(`^http://i\\.localhost:${mediaPort}/[A-Za-z0-9_-]+\\.gif$`),
     );
 
-    const originalResponse = await request.get(originalUrl!);
+    const originalResponse = await requestLocal(request, originalUrl!, {
+      method: "GET",
+    });
     expect(originalResponse.status()).toBe(200);
     expect(originalResponse.headers()["content-type"]).toBe("image/png");
     expect(originalResponse.headers()["content-security-policy"]).toBe(
@@ -712,7 +776,8 @@ test("a browser upload becomes a permanent GIF and can be deleted", async ({
     );
     await expect(originalResponse.body()).resolves.toEqual(PNG);
 
-    const partialResponse = await request.get(originalUrl!, {
+    const partialResponse = await requestLocal(request, originalUrl!, {
+      method: "GET",
       headers: { Range: "bytes=0-3" },
     });
     expect(partialResponse.status()).toBe(206);
@@ -725,20 +790,23 @@ test("a browser upload becomes a permanent GIF and can be deleted", async ({
     );
     await expect(partialResponse.body()).resolves.toEqual(PNG.subarray(0, 4));
 
-    const ignoredRangeResponse = await request.get(originalUrl!, {
+    const ignoredRangeResponse = await requestLocal(request, originalUrl!, {
+      method: "GET",
       headers: { Range: "items=0-1" },
     });
     expect(ignoredRangeResponse.status()).toBe(200);
     await expect(ignoredRangeResponse.body()).resolves.toEqual(PNG);
 
-    const headResponse = await request.head(originalUrl!);
+    const headResponse = await requestLocal(request, originalUrl!, {
+      method: "HEAD",
+    });
     expect(headResponse.status()).toBe(200);
     expect(headResponse.headers()["content-length"]).toBe(
       String(PNG.byteLength),
     );
     await expect(headResponse.body()).resolves.toHaveLength(0);
 
-    const gifResponse = await request.get(gifUrl!);
+    const gifResponse = await requestLocal(request, gifUrl!, { method: "GET" });
     expect(gifResponse.status()).toBe(200);
     expect(gifResponse.headers()["content-type"]).toBe("image/gif");
     expect(gifResponse.headers()["content-disposition"]).toContain(
@@ -772,8 +840,12 @@ test("a browser upload becomes a permanent GIF and can be deleted", async ({
         .getByText(filename, { exact: true }),
     ).toHaveCount(0);
 
-    expect((await request.get(originalUrl!)).status()).toBe(404);
-    expect((await request.get(gifUrl!)).status()).toBe(404);
+    expect(
+      (await requestLocal(request, originalUrl!, { method: "GET" })).status(),
+    ).toBe(404);
+    expect(
+      (await requestLocal(request, gifUrl!, { method: "GET" })).status(),
+    ).toBe(404);
     expect(errors).toEqual([]);
   } finally {
     if (new URL(page.url()).pathname.startsWith("/uploads/")) {
@@ -793,7 +865,8 @@ test("an upload larger than Next's default Proxy clone limit remains intact", as
   let uploadId: string | undefined;
 
   try {
-    const response = await page.request.post("/api/uploads", {
+    const response = await requestLocal(page.request, "/api/uploads", {
+      method: "POST",
       headers: { Accept: "application/json", Origin: origin },
       multipart: {
         file: {
@@ -814,9 +887,14 @@ test("an upload larger than Next's default Proxy clone limit remains intact", as
     );
   } finally {
     if (uploadId) {
-      const deleted = await page.request.delete(`/api/uploads/${uploadId}`, {
-        headers: { Accept: "application/json", Origin: origin },
-      });
+      const deleted = await requestLocal(
+        page.request,
+        `/api/uploads/${uploadId}`,
+        {
+          method: "DELETE",
+          headers: { Accept: "application/json", Origin: origin },
+        },
+      );
       expect(deleted.status()).toBe(204);
     }
   }
