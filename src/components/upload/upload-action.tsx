@@ -103,6 +103,13 @@ function uploadedFormat(record: UploadedRecord): string {
   }
 }
 
+function isHtmlFile(file: File): boolean {
+  return (
+    /\.(?:html?|xhtml)$/iu.test(file.name) ||
+    file.type.toLowerCase().split(";", 1)[0] === "text/html"
+  );
+}
+
 function percent(loaded: number, total: number | null): number | null {
   if (total === null || total <= 0) return null;
   return Math.min(100, Math.round((loaded / total) * 100));
@@ -206,6 +213,7 @@ export function UploadProvider({
   const [urlValue, setUrlValue] = useState("");
   const [slugValue, setSlugValue] = useState("");
   const [mediaDomain, setMediaDomain] = useState("");
+  const [renderHtml, setRenderHtml] = useState(false);
   const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
   const [confirmingClose, setConfirmingClose] = useState(false);
   const [quickGifBusy, setQuickGifBusy] = useState(false);
@@ -220,6 +228,7 @@ export function UploadProvider({
       quickGif = false,
       customSlug = slugValue,
       requestedMediaDomain = mediaDomain,
+      renderHtmlPage = renderHtml,
     ) => {
       if (controller.current) return;
       if (customSlug && slugAvailable !== true) {
@@ -256,6 +265,7 @@ export function UploadProvider({
         const fields: Record<string, string> = {};
         if (customSlug) fields.slug = customSlug;
         if (requestedMediaDomain) fields.mediaDomain = requestedMediaDomain;
+        if (renderHtmlPage) fields.renderHtml = "true";
         const record = await postMultipart({
           endpoint: BROWSER_UPLOAD_ENDPOINT,
           body: file,
@@ -296,7 +306,7 @@ export function UploadProvider({
         if (ownsOperation()) controller.current = null;
       }
     },
-    [mediaDomain, router, slugAvailable, slugValue],
+    [mediaDomain, renderHtml, router, slugAvailable, slugValue],
   );
 
   const changeSlug = useCallback((value: string) => {
@@ -306,6 +316,7 @@ export function UploadProvider({
 
   const chooseFile = useCallback((file: File) => {
     if (controller.current) return;
+    if (!isHtmlFile(file)) setRenderHtml(false);
     setPhase({ name: "selected", file });
   }, []);
 
@@ -329,7 +340,9 @@ export function UploadProvider({
       const file = data.files.item(0);
       if (file) {
         event.preventDefault();
-        void send(file, clipboardLabel(file), file.type.startsWith("image/"));
+        if (isHtmlFile(file)) chooseFile(file);
+        else
+          void send(file, clipboardLabel(file), file.type.startsWith("image/"));
         return;
       }
       const text = data.getData("text/plain").trim();
@@ -337,7 +350,7 @@ export function UploadProvider({
     };
     document.addEventListener("paste", onPaste);
     return () => document.removeEventListener("paste", onPaste);
-  }, [busy, open, send]);
+  }, [busy, chooseFile, open, send]);
 
   useEffect(() => {
     if (confirmingClose) keepUploadingButton.current?.focus();
@@ -368,6 +381,7 @@ export function UploadProvider({
       setUrlValue("");
       setSlugValue("");
       setMediaDomain("");
+      setRenderHtml(false);
       setSlugAvailable(null);
       dragDepth.current = 0;
       setDragging(false);
@@ -383,6 +397,7 @@ export function UploadProvider({
           options.quickGif ?? false,
           "",
           "",
+          false,
         );
       }
     },
@@ -437,6 +452,7 @@ export function UploadProvider({
     setUrlValue("");
     setSlugValue("");
     setMediaDomain("");
+    setRenderHtml(false);
     setSlugAvailable(null);
     dragDepth.current = 0;
     setDragging(false);
@@ -596,6 +612,14 @@ export function UploadProvider({
                     />
                   </div>
                 </div>
+                {phase.record.contentType
+                  ?.toLowerCase()
+                  .startsWith("text/html;") ? (
+                  <p className="border-accent/25 bg-accent/10 text-foreground rounded-lg border px-3 py-2 text-sm">
+                    Sandboxed HTML page · scripts, forms, frames, and network
+                    requests are blocked.
+                  </p>
+                ) : null}
                 {phase.quickGif && phase.record.id ? (
                   <QuickGifUrl
                     uploadId={phase.record.id}
@@ -659,6 +683,7 @@ export function UploadProvider({
                       setQuickGifBusy(false);
                       setSlugValue("");
                       setSlugAvailable(null);
+                      setRenderHtml(false);
                       setPhase({ name: "idle" });
                     }}
                     className={buttonQuiet}
@@ -688,7 +713,10 @@ export function UploadProvider({
                     dragDepth.current = 0;
                     setDragging(false);
                     const file = event.dataTransfer.files.item(0);
-                    if (file) void send(file, file.name || "Dropped file");
+                    if (file) {
+                      if (isHtmlFile(file)) chooseFile(file);
+                      else void send(file, file.name || "Dropped file");
+                    }
                   }}
                   className={
                     "rounded-xl border border-dashed p-5 transition-[background-color,border-color] duration-150 " +
@@ -764,6 +792,33 @@ export function UploadProvider({
                     The returned link uses this domain. The same object remains
                     available on every configured media host.
                   </p>
+                </div>
+
+                <div className="border-border bg-sunken/55 flex items-start gap-3 rounded-lg border p-3">
+                  <input
+                    id={`${instanceId}-render-html`}
+                    type="checkbox"
+                    checked={renderHtml}
+                    onChange={(event) => setRenderHtml(event.target.checked)}
+                    disabled={
+                      busy ||
+                      (phase.name === "selected" && !isHtmlFile(phase.file))
+                    }
+                    className="border-border-strong text-accent focus-visible:ring-accent mt-0.5 size-4 rounded"
+                  />
+                  <span className="min-w-0">
+                    <label
+                      htmlFor={`${instanceId}-render-html`}
+                      className="block cursor-pointer text-sm font-medium"
+                    >
+                      Render HTML as a page
+                    </label>
+                    <span className="text-muted-foreground mt-0.5 block text-sm leading-5">
+                      Opt in for a UTF-8 HTML file. It opens on the separate
+                      media domain inside a restrictive browser sandbox;
+                      scripts, forms, frames, and network requests stay blocked.
+                    </span>
+                  </span>
                 </div>
 
                 {phase.name === "selected" ? (

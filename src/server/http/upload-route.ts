@@ -61,6 +61,12 @@ function requestedKind(value: string | undefined): ForcedUploadKind | null {
   return null;
 }
 
+function requestedHtmlRendering(value: string | undefined): boolean | null {
+  if (value === undefined || value === "false") return false;
+  if (value === "true") return true;
+  return null;
+}
+
 export async function handleMachineUpload(
   request: Request,
   route: MachineUploadRoute,
@@ -162,7 +168,7 @@ export async function handleMachineUpload(
       permittedScalarFields:
         route.origin === "SHAREX"
           ? new Set(["filename", "textLanguage"])
-          : new Set(["kind", "filename", "textLanguage"]),
+          : new Set(["kind", "filename", "textLanguage", "renderHtml"]),
       maxFileBytes: maximum,
     });
     const forcedKind =
@@ -177,10 +183,20 @@ export async function handleMachineUpload(
         requestId,
       );
     }
+    const renderHtml = requestedHtmlRendering(file.fields.renderHtml);
+    if (renderHtml === null) {
+      return safeJsonError(
+        400,
+        "invalid_input",
+        "The renderHtml field must be true or false.",
+        requestId,
+      );
+    }
 
     const classification = await classifyUpload(file, {
       forcedKind,
       textLanguage: file.fields.textLanguage,
+      renderHtml,
     });
     assertClassificationSize(file, classification);
     assertForcedUploadKind(classification, forcedKind);
@@ -211,6 +227,7 @@ export async function handleMachineUpload(
       },
       classification,
       forcedKind,
+      renderHtml,
       signal: request.signal,
     });
     const headers = successRateLimitHeaders(uploadLimit);
@@ -222,6 +239,11 @@ export async function handleMachineUpload(
       {
         id: result.upload.id,
         kind: result.upload.kind.toLowerCase(),
+        contentType: result.upload.contentType,
+        disposition: result.upload.disposition.toLowerCase(),
+        renderedHtml:
+          result.upload.contentType.startsWith("text/html;") &&
+          result.upload.disposition === "INLINE",
         url: result.url,
         message: result.url,
       },

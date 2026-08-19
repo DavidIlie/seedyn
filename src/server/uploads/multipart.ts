@@ -14,7 +14,7 @@ export const UPLOAD_LIMITS = {
   generic: 64 * MEBIBYTE,
   imageOrText: 16 * MEBIBYTE,
   gif: 25 * MEBIBYTE,
-  scalarFields: 4,
+  scalarFields: 6,
   scalarFieldBytes: 4 * 1024,
   sniffBytes: 8 * 1024,
 } as const;

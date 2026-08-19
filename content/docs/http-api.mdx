@@ -14,7 +14,11 @@ file=<binary>
 ```
 
 Optional `kind` is a hint: `auto`, `image`, `file`, or `text`. Server byte
-classification remains authoritative.
+classification remains authoritative. Optional `renderHtml=true` explicitly
+promotes a verified non-empty UTF-8 HTML file to a sandboxed inline page. It is
+valid only on the canonical endpoint, requires the `upload:file` scope, and
+fails unless the selected media domain is separate from the application host.
+Omitting the field keeps HTML attachment-only.
 
 ## Success
 
@@ -24,6 +28,9 @@ The canonical endpoint returns HTTP 201:
 {
   "id": "upload-id",
   "kind": "image",
+  "contentType": "image/png",
+  "disposition": "inline",
+  "renderedHtml": false,
   "url": "https://i.dave.tips/unguessable.png",
   "message": "https://i.dave.tips/unguessable.png"
 }

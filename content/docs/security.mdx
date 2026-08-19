@@ -21,11 +21,20 @@ so the user count means identities that have signed in to Seedyn.
 
 The MinIO bucket is private. Link and password access goes through the media
 handler, which looks up an exact READY slug and extension and derives headers
-from trusted database classification. Dangerous or unknown content is attachment-only;
-every response is `nosniff`, and the media origin receives no app cookie. Its
-CSP has no script, network, object, or frame sources and remains sandboxed; it
-permits forms only so the same-origin password unlock can submit, while uploaded
-HTML is always inert text or an attachment.
+from trusted database classification. Dangerous or unknown content is
+attachment-only; every response is `nosniff`, and the media origin receives no
+app cookie. The default media CSP has no script, network, object, or frame
+sources and permits forms only so the password unlock can submit.
+
+HTML gains active MIME semantics only through the explicit `renderHtml=true`
+upload field or the corresponding browser toggle. Classification requires a
+non-empty UTF-8 HTML document and the service verifies that the chosen origin
+resolves exclusively as a configured media host before writing storage. The
+rendered response uses `sandbox` without capability tokens or same-origin,
+blocks script, forms, connections, media, frames, objects, workers, and
+manifests, and adds noindex, opener isolation, and a restrictive permissions
+policy. Inline CSS and HTTPS/data images are the only extra document resources.
+The app host continues to return not found for every public asset path.
 
 Optional per-upload passwords are encoded with Argon2id using an independently
 generated salt and the OWASP minimum memory-hard profile (19 MiB, two passes,

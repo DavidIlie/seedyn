@@ -25,6 +25,12 @@ export type ClassifiedUpload = {
   frameCount: number | null;
 };
 
+export type ClassificationOptions = {
+  forcedKind?: ForcedUploadKind;
+  textLanguage?: string;
+  renderHtml?: boolean;
+};
+
 const TEXT_LANGUAGES = {
   bash: "sh",
   c: "c",
@@ -205,6 +211,44 @@ function unsafeTextFormat(prefix: Uint8Array): { extension: string } | null {
   return null;
 }
 
+function hasHtmlFilename(value: string): boolean {
+  return /\.(?:html?|xhtml)$/iu.test(value.trim());
+}
+
+function looksLikeHtml(prefix: Uint8Array): boolean {
+  const value = new TextDecoder("utf-8", { fatal: false })
+    .decode(prefix)
+    .replace(/^\uFEFF/u, "")
+    .trimStart();
+  return /^(?:(?:<!--[\s\S]*?-->\s*)*)(?:<!doctype\s+html\b|<html\b|<head\b|<body\b|<title\b|<style\b|<script\b)/iu.test(
+    value,
+  );
+}
+
+function htmlClassification(): ClassifiedUpload {
+  return {
+    kind: "FILE",
+    textLanguage: null,
+    extension: "html",
+    contentType: "text/html; charset=utf-8",
+    disposition: "INLINE",
+    width: null,
+    height: null,
+    durationMs: null,
+    frameCount: null,
+  };
+}
+
+export function isRenderedHtmlClassification(
+  value: Pick<ClassifiedUpload, "contentType" | "disposition" | "extension">,
+): boolean {
+  return (
+    value.disposition === "INLINE" &&
+    value.extension === "html" &&
+    value.contentType.toLowerCase().startsWith("text/html;")
+  );
+}
+
 async function isStrictPlainText(path: string): Promise<boolean> {
   const decoder = new TextDecoder("utf-8", { fatal: true });
   try {
@@ -255,9 +299,14 @@ async function rasterMetadata(path: string): Promise<{
 
 export async function classifyUpload(
   file: ParsedUploadFile,
-  options?: { forcedKind?: ForcedUploadKind; textLanguage?: string },
+  options?: ClassificationOptions,
 ): Promise<ClassifiedUpload> {
   if (file.byteSize === 0) {
+    if (options?.renderHtml) {
+      throw new DomainError("invalid_input", {
+        message: "Only a non-empty UTF-8 HTML document can be rendered.",
+      });
+    }
     if (options?.forcedKind === "text") {
       return textClassification(file, options.textLanguage);
     }
@@ -281,6 +330,11 @@ export async function classifyUpload(
   }
 
   if (detected) {
+    if (options?.renderHtml) {
+      throw new DomainError("invalid_input", {
+        message: "Only a UTF-8 HTML document can be rendered as a page.",
+      });
+    }
     const image = SAFE_IMAGES.get(detected.ext);
     if (image) {
       // The byte signature is enough to apply the image ceiling before sharp
@@ -330,7 +384,18 @@ export async function classifyUpload(
   }
 
   if (await isStrictPlainText(file.path)) {
-    const unsafe = unsafeTextFormat(file.sniffPrefix);
+    const originalName = file.originalName || file.fields.filename || "upload";
+    if (options?.renderHtml) {
+      if (!hasHtmlFilename(originalName) && !looksLikeHtml(file.sniffPrefix)) {
+        throw new DomainError("invalid_input", {
+          message: "Only a UTF-8 HTML document can be rendered as a page.",
+        });
+      }
+      return htmlClassification();
+    }
+    const unsafe = hasHtmlFilename(originalName)
+      ? { extension: "html" }
+      : unsafeTextFormat(file.sniffPrefix);
     if (unsafe && options?.forcedKind !== "text") {
       return {
         kind: "FILE",
@@ -345,6 +410,12 @@ export async function classifyUpload(
       };
     }
     return textClassification(file, options?.textLanguage);
+  }
+
+  if (options?.renderHtml) {
+    throw new DomainError("invalid_input", {
+      message: "Only a UTF-8 HTML document can be rendered as a page.",
+    });
   }
 
   return {
@@ -362,10 +433,12 @@ export async function classifyUpload(
 
 export function assertClassificationSize(
   file: Pick<ParsedUploadFile, "byteSize">,
-  classification: Pick<ClassifiedUpload, "kind">,
+  classification: Pick<ClassifiedUpload, "kind" | "contentType">,
 ): void {
   const maximum =
-    classification.kind === "IMAGE" || classification.kind === "TEXT"
+    classification.kind === "IMAGE" ||
+    classification.kind === "TEXT" ||
+    classification.contentType.toLowerCase().startsWith("text/html;")
       ? UPLOAD_LIMITS.imageOrText
       : UPLOAD_LIMITS.generic;
   if (file.byteSize > maximum) {

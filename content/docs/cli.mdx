@@ -1,0 +1,68 @@
+---
+title: Seedyn CLI
+description: Upload files and publish sandboxed HTML from a terminal or agent.
+---
+
+The `seedyn` package is a small Node.js CLI for the canonical upload API. It
+accepts any file, prints the durable URL, and can copy or open that URL without
+putting the API key in the request path.
+
+## Connect an API key
+
+Create a scoped key on the **API keys** page, then save it through the CLI's
+hidden prompt:
+
+```bash
+npx seedyn auth set
+```
+
+The config directory is owner-only (`0700`) and the config file is `0600`.
+For CI or an ephemeral agent, set `SEEDYN_API_KEY` instead. Credential
+precedence is `--api-key`, `SEEDYN_API_KEY`, then the stored config; prefer the
+environment or hidden prompt because command-line arguments can appear in
+shell history and process inspection.
+
+## Upload
+
+The file shorthand is the fastest path:
+
+```bash
+npx seedyn ./capture.png --copy
+npx seedyn ./brief.pdf
+```
+
+The explicit command adds the complete API controls:
+
+```bash
+npx seedyn upload ./capture.png --slug launch-shot --domain gurt
+npx seedyn upload - --filename report.md --kind text --language markdown
+```
+
+Use `--json` for scripts, `--quiet` for only the URL, `--open` to launch the
+system URL handler, and `--api-url http://seedyn.localhost:3000` for local
+development.
+
+## Publish an HTML page
+
+HTML remains an attachment unless the request explicitly opts in:
+
+```bash
+npx seedyn ./plan.html --render-html --open
+generate-plan | npx seedyn upload - --filename plan.html --render-html
+```
+
+Seedyn verifies that the upload is non-empty UTF-8 HTML and limits it to
+16 MiB. Its direct URL returns the original bytes as `text/html` from the
+separate public media origin. The response uses an originless browser sandbox:
+scripts, forms, connections, media, frames, objects, workers, and manifests are
+blocked. Inline CSS and HTTPS/data images are allowed. The app origin never
+serves uploaded HTML, and an overlapping app/media host configuration makes the
+upload fail before storage.
+
+Password protection works normally. A visitor first receives the existing
+non-cacheable unlock page; after successful verification, the same media URL
+returns the strictly sandboxed HTML response.
+
+The CLI workflow credits the MIT-licensed `postplan@0.0.4`; its complete notice
+ships in the npm package. Seedyn uses its own API, storage, auth, and serving
+model.

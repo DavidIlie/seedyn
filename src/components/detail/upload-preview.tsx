@@ -76,6 +76,20 @@ export function UploadPreview({
     );
   }
 
+  if (
+    upload.disposition === "INLINE" &&
+    upload.contentType.toLowerCase().startsWith("text/html;")
+  ) {
+    return (
+      <Frame>
+        <p className="text-muted-foreground max-w-md text-center text-sm">
+          This HTML page renders only on its isolated public media origin. Open
+          the original to view it inside the scriptless Seedyn sandbox.
+        </p>
+      </Frame>
+    );
+  }
+
   return (
     <Frame>
       <p className="text-muted-foreground flex items-center gap-3 text-sm">

@@ -44,6 +44,20 @@ library, detail, GIF, and API responses keep presenting the same canonical URL
 after account defaults change. The object remains available by the same slug
 on every configured Seedyn media domain.
 
+## Sandboxed HTML pages
+
+The upload dialog includes **Render HTML as a page**. This is an explicit
+per-upload choice and is available for a selected `.html`, `.htm`, or `.xhtml`
+file and for URL imports. Seedyn verifies non-empty UTF-8 HTML, stores it as
+`text/html; charset=utf-8`, and returns its direct media URL. Without the
+toggle, the same bytes remain a normal attachment.
+
+Rendered pages never enter the authenticated app document. They are served
+only from a configured public media domain with an originless CSP sandbox that
+blocks scripts, forms, connections, media, frames, objects, workers, and
+manifests. Inline CSS and HTTPS/data images are allowed. Password protection
+continues to use the normal unlock flow before the sandboxed page is returned.
+
 Member accounts receive 5 GB of storage by default. Original objects and stored
 GIF variants both count. The library shows committed usage and any bytes
 currently reserved by an upload. Administrators are unlimited and can raise a
@@ -79,11 +93,10 @@ view parses the Markdown through the same bounded schema, removes unsafe link
 targets, and renders it on the server with Tiptap's static renderer rather than
 shipping a read-only editor.
 
-The permanent media URL is the raw consumable form. Source extensions are
-preserved, but every text object is deliberately served as
-`text/plain; charset=utf-8` with `nosniff` and the media-origin sandbox policy;
-HTML, SVG, XML, and JavaScript are never promoted to executable browser MIME
-types.
+The permanent media URL is the raw consumable form. Authored text objects are
+served as `text/plain; charset=utf-8` with `nosniff`; SVG, XML, and JavaScript
+are never promoted to executable browser MIME types. HTML is attachment-only
+unless the uploader makes the separate sandboxed-page opt-in described above.
 
 Images, files, and texts use cursor-backed infinite loading. The initial page
 is server-rendered and retains real next-page links without JavaScript. Once

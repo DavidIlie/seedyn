@@ -69,7 +69,9 @@ export function uploadKindLabel(kind: string, contentType: string): string {
     case "TEXT":
       return "Text";
     default:
-      return "File";
+      return contentType.toLowerCase().startsWith("text/html;")
+        ? "HTML page"
+        : "File";
   }
 }
 

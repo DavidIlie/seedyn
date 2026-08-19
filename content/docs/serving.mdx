@@ -54,8 +54,12 @@ including `HEAD` and ranges, is `private, no-store` and varies on `Cookie` and
 `Authorization`.
 
 Content disposition is recorded with the upload. Safe media may render inline;
-other files download with a sanitized form of the original filename. Every
-response uses `nosniff` and a sandboxed content security policy.
+other files download with a sanitized form of the original filename. Explicitly
+opted-in UTF-8 HTML uses `text/html` and `inline` only on a public media host.
+Its CSP creates an originless sandbox and blocks script, form, connection,
+media, frame, object, worker, and manifest capabilities; inline CSS and
+HTTPS/data images remain available for static documents. Every response uses
+`nosniff` and the applicable sandboxed policy.
 
 ## Deletion
 

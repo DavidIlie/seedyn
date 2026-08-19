@@ -1,6 +1,7 @@
 import "server-only";
 
-import { mediaDomainCatalog } from "~/env";
+import { env, mediaDomainCatalog } from "~/env";
+import { parseHostSet, resolveOriginRole } from "~/lib/origin";
 import {
   buildPublicMediaUrl,
   findMediaDomain,
@@ -31,6 +32,26 @@ export function validMediaOrigin(
   return (
     typeof value === "string" &&
     mediaDomainCatalog.domains.some((domain) => domain.origin === value)
+  );
+}
+
+const appHosts = parseHostSet(env.APP_HOSTS);
+const mediaHosts = parseHostSet(env.MEDIA_HOSTS);
+
+/**
+ * Active uploaded documents may only use an origin that the host boundary
+ * classifies exclusively as public media. An accidental app/media hostname
+ * overlap resolves to the application role and therefore fails closed here.
+ */
+export function isIsolatedMediaOrigin(
+  value: string | null | undefined,
+): value is string {
+  const domain = mediaDomainCatalog.domains.find(
+    (candidate) => candidate.origin === value,
+  );
+  return (
+    domain !== undefined &&
+    resolveOriginRole(domain.host, appHosts, mediaHosts) === "media"
   );
 }
 

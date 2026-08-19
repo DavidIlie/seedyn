@@ -3,6 +3,24 @@ import type { ByteRange } from "~/server/storage/object-store";
 
 const MEDIA_CONTENT_SECURITY_POLICY =
   "sandbox allow-forms allow-same-origin; default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
+const RENDERED_HTML_CONTENT_SECURITY_POLICY = [
+  "sandbox",
+  "default-src 'none'",
+  "script-src 'none'",
+  "style-src 'unsafe-inline'",
+  "img-src https: data:",
+  "font-src data:",
+  "connect-src 'none'",
+  "media-src 'none'",
+  "object-src 'none'",
+  "frame-src 'none'",
+  "child-src 'none'",
+  "worker-src 'none'",
+  "manifest-src 'none'",
+  "form-action 'none'",
+  "base-uri 'none'",
+  "frame-ancestors 'none'",
+].join("; ");
 
 export type PublicMediaMetadata = {
   byteSize: number;
@@ -22,6 +40,9 @@ export function buildPublicMediaHeaders(
   media: PublicMediaMetadata,
   range?: ByteRange,
 ): Headers {
+  const renderedHtml =
+    media.disposition === "INLINE" &&
+    media.contentType.toLowerCase().startsWith("text/html;");
   const headers = new Headers({
     "Accept-Ranges": "bytes",
     "Access-Control-Allow-Origin": "*",
@@ -35,7 +56,9 @@ export function buildPublicMediaHeaders(
       media.originalName,
     ),
     "Content-Length": String(range?.length ?? media.byteSize),
-    "Content-Security-Policy": MEDIA_CONTENT_SECURITY_POLICY,
+    "Content-Security-Policy": renderedHtml
+      ? RENDERED_HTML_CONTENT_SECURITY_POLICY
+      : MEDIA_CONTENT_SECURITY_POLICY,
     "Content-Type": media.contentType,
     "Cross-Origin-Resource-Policy": "cross-origin",
     ETag: sha256Etag(media.sha256),
@@ -43,6 +66,17 @@ export function buildPublicMediaHeaders(
     "Referrer-Policy": "no-referrer",
     "X-Content-Type-Options": "nosniff",
   });
+  if (renderedHtml) {
+    headers.set("Cross-Origin-Opener-Policy", "same-origin");
+    headers.set("Origin-Agent-Cluster", "?1");
+    headers.set(
+      "Permissions-Policy",
+      "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()",
+    );
+    headers.set("X-Frame-Options", "DENY");
+    headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+    headers.set("X-Seedyn-Rendered-HTML", "1");
+  }
   if (range) {
     // Keep an intermediary from collapsing a cached 206 onto the complete
     // representation. `private` is the primary guard; Vary makes the response

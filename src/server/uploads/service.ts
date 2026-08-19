@@ -15,6 +15,7 @@ import { gifVariantObjectKey, originalObjectKey } from "~/server/storage/keys";
 import { objectStore } from "~/server/storage/minio";
 import {
   publicMediaUrl,
+  isIsolatedMediaOrigin,
   validMediaOrigin,
 } from "~/server/media/origin-preferences";
 import type { ObjectStore } from "~/server/storage/object-store";
@@ -29,6 +30,7 @@ import {
   assertClassificationSize,
   assertForcedUploadKind,
   classifyUpload,
+  isRenderedHtmlClassification,
   sanitizeOriginalName,
   validateGifVariant,
   type ClassifiedUpload,
@@ -350,6 +352,7 @@ export async function createUpload(
     /** A classification produced from this exact immutable temporary file. */
     classification?: ClassifiedUpload;
     forcedKind?: ForcedUploadKind;
+    renderHtml?: boolean;
     publicSlug?: string;
     mediaOrigin: string;
     signal?: AbortSignal;
@@ -368,11 +371,21 @@ export async function createUpload(
     (await classifyUpload(input.file, {
       forcedKind: input.forcedKind,
       textLanguage: input.file.fields.textLanguage,
+      renderHtml: input.renderHtml,
     }));
   // Keep validation in the service even when a route reuses its precomputed
   // classification for scope authorization.
   assertClassificationSize(input.file, classification);
   assertForcedUploadKind(classification, input.forcedKind ?? "auto");
+  if (
+    isRenderedHtmlClassification(classification) &&
+    !isIsolatedMediaOrigin(input.mediaOrigin)
+  ) {
+    throw new DomainError("invalid_input", {
+      message:
+        "Rendered HTML requires a configured public media domain separate from the Seedyn app.",
+    });
+  }
 
   const uploadId = createRecordId();
   const requestedPublicSlug = input.publicSlug?.trim()

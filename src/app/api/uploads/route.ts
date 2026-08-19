@@ -36,6 +36,12 @@ function requestedKind(value: string | undefined): ForcedUploadKind | null {
   return null;
 }
 
+function requestedHtmlRendering(value: string | undefined): boolean | null {
+  if (value === undefined || value === "false") return false;
+  if (value === "true") return true;
+  return null;
+}
+
 export async function GET(request: Request): Promise<Response> {
   const session = await auth();
   if (!session?.user?.id) {
@@ -117,6 +123,7 @@ export async function POST(request: Request): Promise<Response> {
         "textLanguage",
         "slug",
         "mediaDomain",
+        "renderHtml",
       ]),
       maxFileBytes: UPLOAD_LIMITS.generic,
     });
@@ -126,6 +133,15 @@ export async function POST(request: Request): Promise<Response> {
         400,
         "invalid_input",
         "The kind field must be auto, image, file, or text.",
+        authorization.requestId,
+      );
+    }
+    const renderHtml = requestedHtmlRendering(file.fields.renderHtml);
+    if (renderHtml === null) {
+      return safeJsonError(
+        400,
+        "invalid_input",
+        "The renderHtml field must be true or false.",
         authorization.requestId,
       );
     }
@@ -159,6 +175,7 @@ export async function POST(request: Request): Promise<Response> {
       file,
       provenance: { origin: "BROWSER" },
       forcedKind,
+      renderHtml,
       publicSlug: file.fields.slug,
       signal: request.signal,
     });

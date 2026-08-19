@@ -9,6 +9,19 @@ application with two host roles:
 The same process serves both hosts. A fixed host resolver rejects unknown hosts
 and rewrites only valid public media paths to the internal streaming route.
 
+The dependency-free CLI lives in `packages/cli` and is prepared as the npm
+package `seedyn`. Until it is published, run it directly with Node:
+
+```bash
+node packages/cli/bin/seedyn.mjs auth set
+node packages/cli/bin/seedyn.mjs ./page.html --render-html
+```
+
+It uploads any file through `/api/upload`; `--render-html` is the explicit
+opt-in for serving verified UTF-8 HTML as a strictly sandboxed page on the
+separate media origin. The package retains its Postplan MIT attribution in
+`packages/cli/THIRD_PARTY_NOTICES.md`.
+
 ## Local development
 
 Seedyn expects reachable local PostgreSQL and Redis services plus MinIO

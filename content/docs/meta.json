@@ -4,6 +4,7 @@
     "index",
     "---Upload and serve---",
     "uploads",
+    "cli",
     "http-api",
     "api-keys",
     "serving",
