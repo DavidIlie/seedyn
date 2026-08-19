@@ -1,4 +1,3 @@
-import { PrismaAdapter } from "@auth/prisma-adapter";
 import type { DefaultSession, NextAuthConfig, Profile } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import type { OIDCConfig } from "next-auth/providers";
@@ -11,6 +10,7 @@ import {
   assertLocalDevelopmentServerBinding,
   ensureLocalDevelopmentUser,
 } from "./local-development-user";
+import { seedynAuthAdapter } from "./adapter";
 import { seedynRoleFromDavidAppsClaim, type SeedynRole } from "./app-role";
 import { resolveAuthRedirect } from "./redirect";
 
@@ -150,7 +150,37 @@ export const authConfig = {
   providers: developmentAuthEnabled
     ? [developmentProvider()]
     : [davidAppsProvider()],
-  adapter: developmentAuthEnabled ? undefined : PrismaAdapter(db),
+  adapter: developmentAuthEnabled ? undefined : seedynAuthAdapter(),
+  pages: {
+    signIn: "/sign-in",
+    error: "/sign-in",
+  },
+  logger: {
+    error(error) {
+      const rawType =
+        "type" in error && typeof error.type === "string"
+          ? error.type
+          : error.name;
+      const errorType = /^[A-Za-z0-9_-]{1,80}$/u.test(rawType)
+        ? rawType
+        : "UnknownAuthError";
+
+      // Auth errors can contain provider responses, tokens, and request data.
+      // Emit only a bounded operational category; never serialize the Error.
+      console.error(
+        JSON.stringify({
+          event: "authentication_failed",
+          provider: developmentAuthEnabled
+            ? DEVELOPMENT_PROVIDER_ID
+            : DAVIDAPPS_PROVIDER_ID,
+          errorType,
+        }),
+      );
+    },
+    warn(code) {
+      console.warn(JSON.stringify({ event: "authentication_warning", code }));
+    },
+  },
   session: {
     strategy: developmentAuthEnabled ? "jwt" : "database",
     // DavidApps application grants are re-evaluated on every OIDC login. A

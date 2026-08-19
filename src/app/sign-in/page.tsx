@@ -138,6 +138,7 @@ async function SignInPanel({
  */
 function SignInError({ code }: { code: string }) {
   const denied = code === "AccessDenied";
+  const incidentCode = authIncidentCode(code);
 
   return (
     <div
@@ -160,13 +161,26 @@ function SignInError({ code }: { code: string }) {
         </>
       ) : (
         <>
-          <span className="block font-medium">Sign-in did not complete</span>
-          The identity provider returned an error before a session was created.
-          Nothing was changed. Try again.
+          <span className="block font-medium">Sign-in did not complete</span>A
+          session could not be created. Nothing was changed. Try again. If it
+          keeps happening, report incident code{" "}
+          <span className="font-mono font-medium">{incidentCode}</span>.
         </>
       )}
     </div>
   );
+}
+
+function authIncidentCode(code: string): string {
+  const knownCodes: Record<string, string> = {
+    Configuration: "AUTH-CFG-01",
+    OAuthCallbackError: "AUTH-OIDC-02",
+    OAuthAccountNotLinked: "AUTH-LINK-03",
+    RateLimited: "AUTH-RATE-04",
+    RequestRejected: "AUTH-REQ-05",
+  };
+
+  return knownCodes[code] ?? "AUTH-UNKNOWN-00";
 }
 
 function ShieldGlyph() {
