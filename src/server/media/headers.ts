@@ -40,6 +40,7 @@ export function buildPublicMediaHeaders(
     "Cross-Origin-Resource-Policy": "cross-origin",
     ETag: sha256Etag(media.sha256),
     "Last-Modified": media.createdAt.toUTCString(),
+    "Referrer-Policy": "no-referrer",
     "X-Content-Type-Options": "nosniff",
   });
   if (range) {
@@ -69,6 +70,7 @@ export function buildRangeNotSatisfiableHeaders(totalLength: number): Headers {
     "Content-Security-Policy": MEDIA_CONTENT_SECURITY_POLICY,
     "Content-Range": `bytes */${totalLength}`,
     "Cross-Origin-Resource-Policy": "cross-origin",
+    "Referrer-Policy": "no-referrer",
     "X-Content-Type-Options": "nosniff",
   });
 }
@@ -106,6 +108,7 @@ export function publicOptionsHeaders(): Headers {
     "Cache-Control": "public, max-age=86400",
     "Content-Security-Policy": MEDIA_CONTENT_SECURITY_POLICY,
     "Cross-Origin-Resource-Policy": "cross-origin",
+    "Referrer-Policy": "no-referrer",
     "X-Content-Type-Options": "nosniff",
   });
 }
