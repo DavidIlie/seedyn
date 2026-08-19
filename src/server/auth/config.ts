@@ -183,10 +183,10 @@ export const authConfig = {
   },
   session: {
     strategy: developmentAuthEnabled ? "jwt" : "database",
-    // DavidApps application grants are re-evaluated on every OIDC login. A
-    // short hard session cap prevents a removed admin grant from surviving in
-    // Seedyn for Auth.js' default 30 days.
-    maxAge: 15 * 60,
+    // Keep normal browser sessions durable. DavidApps application grants are
+    // re-evaluated on every OIDC login, while explicit sign-out and account
+    // revocation remain the mechanisms for ending an existing Seedyn session.
+    maxAge: 30 * 24 * 60 * 60,
   },
   callbacks: {
     async signIn({ account, profile }) {
