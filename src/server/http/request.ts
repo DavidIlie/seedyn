@@ -234,6 +234,28 @@ export async function checkBrowserMutationRateLimit(input: {
   return accountLimit.allowed ? sourceLimit : accountLimit;
 }
 
+export async function checkBrowserUploadPartRateLimit(input: {
+  userId: string;
+  sourceAddress: string;
+}): Promise<UploadRateLimitResult> {
+  const sourceLimit = await checkUploadRateLimit({
+    apiKeyId: "browser-upload-part-source",
+    userId: input.userId,
+    sourceAddress: input.sourceAddress,
+    limit: 300,
+    windowMs: 60_000,
+  });
+  if (!sourceLimit.allowed) return sourceLimit;
+  const accountLimit = await checkUploadRateLimit({
+    apiKeyId: "browser-upload-part-account",
+    userId: input.userId,
+    sourceAddress: "0.0.0.0",
+    limit: 600,
+    windowMs: 60_000,
+  });
+  return accountLimit.allowed ? sourceLimit : accountLimit;
+}
+
 /**
  * Protect the session lookup itself. This bucket deliberately has no user
  * dimension: unauthenticated requests do not have one yet, and authenticated
@@ -247,6 +269,18 @@ export async function checkBrowserMutationPreAuthRateLimit(
     userId: "all-sessions",
     sourceAddress,
     limit: 120,
+    windowMs: 60_000,
+  });
+}
+
+export async function checkBrowserUploadPartPreAuthRateLimit(
+  sourceAddress: string,
+): Promise<UploadRateLimitResult> {
+  return checkUploadRateLimit({
+    apiKeyId: "browser-upload-part-pre-auth-source",
+    userId: "all-sessions",
+    sourceAddress,
+    limit: 360,
     windowMs: 60_000,
   });
 }

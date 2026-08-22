@@ -28,9 +28,13 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
   MINIO_URL=127.0.0.1 \
   MINIO_PORT=9000 \
   MINIO_SECURE=false \
+  MINIO_PUBLIC_URL=http://127.0.0.1:9000 \
+  MINIO_REGION=us-east-1 \
   MINIO_KEY_ID=seedyn-build \
   MINIO_PASSWORD=seedyn-build-placeholder \
   MINIO_BUCKET=seedyn-build \
+  DIRECT_UPLOAD_MAX_BYTES=2147483648 \
+  DIRECT_UPLOAD_TRANSPORT=proxy \
   TRUSTED_PROXY_HOPS=1
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .

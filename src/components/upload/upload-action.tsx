@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FileCheck2, FileUp, Link2, XIcon } from "lucide-react";
+import {
+  FileCheck2,
+  FileUp,
+  Link2,
+  Pause,
+  Play,
+  WifiOff,
+  XIcon,
+} from "lucide-react";
 import {
   createContext,
   useCallback,
@@ -34,6 +42,7 @@ import {
 } from "~/components/ui/styles";
 import type { MediaDomainChoice } from "~/server/media/origin-preferences";
 
+import { startDirectUpload, type DirectTransfer } from "./direct-transport";
 import { BROWSER_UPLOAD_ENDPOINT, browserGifEndpoint } from "./endpoints";
 import {
   postMultipart,
@@ -63,7 +72,11 @@ type Phase =
   | { name: "idle" }
   | { name: "selected"; file: File }
   | { name: "fetching"; label: string; loaded: number; total: number | null }
+  | { name: "preparing"; label: string; total: number }
   | { name: "uploading"; label: string; loaded: number; total: number | null }
+  | { name: "paused"; label: string; loaded: number; total: number }
+  | { name: "offline"; label: string; loaded: number; total: number }
+  | { name: "verifying"; label: string; loaded: number; total: number }
   | {
       name: "done";
       record: UploadedRecord;
@@ -73,7 +86,28 @@ type Phase =
     }
   | { name: "failed"; code: string; message: string };
 
-const MAX_UPLOAD_BYTES = URL_INGEST_BYTE_CAP;
+function isTransferPhase(phase: Phase): phase is Extract<
+  Phase,
+  {
+    name:
+      | "fetching"
+      | "preparing"
+      | "uploading"
+      | "paused"
+      | "offline"
+      | "verifying";
+  }
+> {
+  return [
+    "fetching",
+    "preparing",
+    "uploading",
+    "paused",
+    "offline",
+    "verifying",
+  ].includes(phase.name);
+}
+
 type OpenDialogOptions = { autoStart?: boolean; quickGif?: boolean };
 type OpenUploadDialog = (file?: File, options?: OpenDialogOptions) => void;
 const UploadDialogContext = createContext<OpenUploadDialog | null>(null);
@@ -191,9 +225,11 @@ export function UploadAction({
 export function UploadProvider({
   children,
   mediaDomains,
+  directUploadMaxBytes,
 }: {
   children: React.ReactNode;
   mediaDomains: MediaDomainChoice[];
+  directUploadMaxBytes: number;
 }) {
   const instanceId = useId();
   const fileInputId = `${instanceId}-upload-file`;
@@ -204,6 +240,7 @@ export function UploadProvider({
   const keepUploadingButton = useRef<HTMLButtonElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const controller = useRef<AbortController | null>(null);
+  const directTransfer = useRef<DirectTransfer | null>(null);
   const dragDepth = useRef(0);
   const router = useRouter();
 
@@ -218,7 +255,7 @@ export function UploadProvider({
   const [confirmingClose, setConfirmingClose] = useState(false);
   const [quickGifBusy, setQuickGifBusy] = useState(false);
 
-  const transferBusy = phase.name === "uploading" || phase.name === "fetching";
+  const transferBusy = isTransferPhase(phase);
   const busy = transferBusy || quickGifBusy;
 
   const send = useCallback(
@@ -239,11 +276,26 @@ export function UploadProvider({
         });
         return;
       }
-      if (file.size > MAX_UPLOAD_BYTES) {
+      if (file.size > directUploadMaxBytes) {
         setPhase({
           name: "failed",
           code: "too_large",
-          message: `${sourceLabel} is ${formatBytes(file.size)}. The limit is ${formatBytes(MAX_UPLOAD_BYTES)}.`,
+          message: `${sourceLabel} is ${formatBytes(file.size)}. The limit is ${formatBytes(directUploadMaxBytes)}.`,
+        });
+        return;
+      }
+      const useDirectUpload = file.size > URL_INGEST_BYTE_CAP;
+      if (
+        useDirectUpload &&
+        (renderHtmlPage ||
+          file.type.startsWith("image/") ||
+          file.type.startsWith("text/"))
+      ) {
+        setPhase({
+          name: "failed",
+          code: "too_large",
+          message:
+            "Large direct uploads are available for videos and downloadable files. Images and text remain limited to 16 MiB.",
         });
         return;
       }
@@ -254,32 +306,59 @@ export function UploadProvider({
       const setOwnedPhase = (next: Phase) => {
         if (ownsOperation()) setPhase(next);
       };
-      setOwnedPhase({
-        name: "uploading",
-        label: sourceLabel,
-        loaded: 0,
-        total: file.size,
-      });
+      setOwnedPhase(
+        useDirectUpload
+          ? { name: "preparing", label: sourceLabel, total: file.size }
+          : {
+              name: "uploading",
+              label: sourceLabel,
+              loaded: 0,
+              total: file.size,
+            },
+      );
 
       try {
         const fields: Record<string, string> = {};
         if (customSlug) fields.slug = customSlug;
         if (requestedMediaDomain) fields.mediaDomain = requestedMediaDomain;
         if (renderHtmlPage) fields.renderHtml = "true";
-        const record = await postMultipart({
-          endpoint: BROWSER_UPLOAD_ENDPOINT,
-          body: file,
-          filename: file.name || "upload",
-          fields: Object.keys(fields).length > 0 ? fields : undefined,
-          signal: abort.signal,
-          onProgress: (loaded, total) =>
-            setOwnedPhase({
-              name: "uploading",
-              label: sourceLabel,
-              loaded,
-              total,
-            }),
-        });
+        let record: UploadedRecord;
+        if (useDirectUpload) {
+          const transfer = startDirectUpload({
+            file,
+            slug: customSlug || undefined,
+            mediaDomain: requestedMediaDomain || undefined,
+            signal: abort.signal,
+            onState: (state) => {
+              if (state.name === "preparing") {
+                setOwnedPhase({
+                  name: "preparing",
+                  label: sourceLabel,
+                  total: file.size,
+                });
+                return;
+              }
+              setOwnedPhase({ ...state, label: sourceLabel });
+            },
+          });
+          directTransfer.current = transfer;
+          record = await transfer.completion;
+        } else {
+          record = await postMultipart({
+            endpoint: BROWSER_UPLOAD_ENDPOINT,
+            body: file,
+            filename: file.name || "upload",
+            fields: Object.keys(fields).length > 0 ? fields : undefined,
+            signal: abort.signal,
+            onProgress: (loaded, total) =>
+              setOwnedPhase({
+                name: "uploading",
+                label: sourceLabel,
+                loaded,
+                total,
+              }),
+          });
+        }
         if (!ownsOperation() || abort.signal.aborted) return;
         setOwnedPhase({
           name: "done",
@@ -303,10 +382,20 @@ export function UploadProvider({
             : { name: "failed", code: failure.code, message: failure.message },
         );
       } finally {
-        if (ownsOperation()) controller.current = null;
+        if (ownsOperation()) {
+          controller.current = null;
+          directTransfer.current = null;
+        }
       }
     },
-    [mediaDomain, renderHtml, router, slugAvailable, slugValue],
+    [
+      directUploadMaxBytes,
+      mediaDomain,
+      renderHtml,
+      router,
+      slugAvailable,
+      slugValue,
+    ],
   );
 
   const changeSlug = useCallback((value: string) => {
@@ -324,6 +413,7 @@ export function UploadProvider({
     return () => {
       const active = controller.current;
       controller.current = null;
+      directTransfer.current = null;
       active?.abort();
     };
   }, []);
@@ -469,6 +559,7 @@ export function UploadProvider({
   function cancelAndClose() {
     const active = controller.current;
     controller.current = null;
+    directTransfer.current = null;
     active?.abort();
     finishClose();
   }
@@ -842,24 +933,64 @@ export function UploadProvider({
                   </div>
                 ) : null}
 
-                {transferBusy ? (
+                {isTransferPhase(phase) ? (
                   <div className="border-border bg-sunken/55 space-y-4 rounded-lg border p-4">
                     <Progress
-                      loaded={phase.loaded}
-                      total={phase.total}
+                      loaded={phase.name === "preparing" ? 0 : phase.loaded}
+                      total={phase.name === "preparing" ? null : phase.total}
                       caption={
                         phase.name === "fetching"
                           ? `Fetching ${phase.label} —`
-                          : `Uploading ${phase.label} —`
+                          : phase.name === "preparing"
+                            ? `Preparing ${phase.label} — checking the file on this device`
+                            : phase.name === "verifying"
+                              ? `Verifying ${phase.label} — all bytes sent, waiting for the server to confirm`
+                              : phase.name === "paused"
+                                ? `Paused — ${formatBytes(phase.loaded)} of ${formatBytes(phase.total)} uploaded. Progress is kept while this dialog stays open.`
+                                : phase.name === "offline"
+                                  ? `Connection lost — ${formatBytes(phase.loaded)} of ${formatBytes(phase.total)} kept. Reconnecting…`
+                                  : `Uploading ${phase.label} —`
                       }
                     />
-                    <button
-                      type="button"
-                      onClick={() => controller.current?.abort()}
-                      className={buttonQuiet}
-                    >
-                      Cancel transfer
-                    </button>
+                    {phase.name === "offline" ? (
+                      <p
+                        role="alert"
+                        className="border-danger/40 bg-danger/5 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm"
+                      >
+                        <WifiOff className="size-4" aria-hidden="true" />
+                        Connection lost. Completed parts are safe; Seedyn will
+                        resume when the browser reconnects.
+                      </p>
+                    ) : null}
+                    <div className="flex flex-wrap gap-2">
+                      {directTransfer.current &&
+                      (phase.name === "uploading" ||
+                        phase.name === "paused") ? (
+                        <button
+                          type="button"
+                          onClick={() => directTransfer.current?.pauseResume()}
+                          className={buttonQuiet}
+                        >
+                          {phase.name === "paused" ? (
+                            <Play className="size-4" aria-hidden="true" />
+                          ) : (
+                            <Pause className="size-4" aria-hidden="true" />
+                          )}
+                          {phase.name === "paused"
+                            ? "Resume upload"
+                            : "Pause upload"}
+                        </button>
+                      ) : null}
+                      {phase.name !== "verifying" ? (
+                        <button
+                          type="button"
+                          onClick={() => controller.current?.abort()}
+                          className={buttonQuiet}
+                        >
+                          Cancel transfer
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                 ) : null}
 
@@ -926,11 +1057,14 @@ export function UploadProvider({
                     className="border-danger bg-danger/5 rounded-lg border p-4"
                   >
                     <p className="font-display text-sm font-semibold">
-                      Cancel this transfer?
+                      {phase.name === "verifying"
+                        ? "Verification in progress"
+                        : "Cancel this transfer?"}
                     </p>
                     <p className="text-muted-foreground mt-1 text-sm">
-                      Closing now stops the active transfer. Nothing incomplete
-                      is added to your library.
+                      {phase.name === "verifying"
+                        ? "All bytes have reached storage. Keep this dialog open while Seedyn confirms the file."
+                        : `Closing discards the ${"loaded" in phase ? formatBytes(phase.loaded) : "bytes"} already uploaded. Nothing incomplete is added to your library.`}
                     </p>
                     <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                       <button
@@ -939,15 +1073,19 @@ export function UploadProvider({
                         onClick={() => setConfirmingClose(false)}
                         className={buttonQuiet}
                       >
-                        Keep uploading
+                        {phase.name === "verifying"
+                          ? "Keep verifying"
+                          : "Keep uploading"}
                       </button>
-                      <button
-                        type="button"
-                        onClick={cancelAndClose}
-                        className={buttonDanger}
-                      >
-                        Cancel and close
-                      </button>
+                      {phase.name !== "verifying" ? (
+                        <button
+                          type="button"
+                          onClick={cancelAndClose}
+                          className={buttonDanger}
+                        >
+                          Cancel and close
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                 ) : null}

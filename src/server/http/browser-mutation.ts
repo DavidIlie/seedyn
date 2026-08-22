@@ -7,6 +7,8 @@ import { getUserResult } from "~/server/auth";
 import {
   checkBrowserMutationPreAuthRateLimit,
   checkBrowserMutationRateLimit,
+  checkBrowserUploadPartPreAuthRateLimit,
+  checkBrowserUploadPartRateLimit,
   checkSignInStartRateLimit,
   createRequestId,
   hasExactAppOrigin,
@@ -27,6 +29,7 @@ type AuthorizedPublicMutation = Omit<AuthorizedBrowserMutation, "userId">;
 
 export async function authorizeBrowserMutation(
   request: Request,
+  options?: { rateClass?: "mutation" | "upload-part" },
 ): Promise<AuthorizedBrowserMutation | Response> {
   const requestId = createRequestId();
   if (!isAppHostRequest(request)) {
@@ -51,7 +54,9 @@ export async function authorizeBrowserMutation(
     );
   }
   const preAuthLimit =
-    await checkBrowserMutationPreAuthRateLimit(sourceAddress);
+    options?.rateClass === "upload-part"
+      ? await checkBrowserUploadPartPreAuthRateLimit(sourceAddress)
+      : await checkBrowserMutationPreAuthRateLimit(sourceAddress);
   if (!preAuthLimit.allowed) {
     return rateLimitFailureResponse(preAuthLimit, requestId);
   }
@@ -76,10 +81,16 @@ export async function authorizeBrowserMutation(
     );
   }
 
-  const rateLimit = await checkBrowserMutationRateLimit({
-    userId: userResult.user.id,
-    sourceAddress,
-  });
+  const rateLimit =
+    options?.rateClass === "upload-part"
+      ? await checkBrowserUploadPartRateLimit({
+          userId: userResult.user.id,
+          sourceAddress,
+        })
+      : await checkBrowserMutationRateLimit({
+          userId: userResult.user.id,
+          sourceAddress,
+        });
   if (!rateLimit.allowed) {
     return rateLimitFailureResponse(rateLimit, requestId);
   }
@@ -88,6 +99,41 @@ export async function authorizeBrowserMutation(
     userId: userResult.user.id,
     rateHeaders: successRateLimitHeaders(rateLimit),
   };
+}
+
+/**
+ * Same protection for a same-origin browser control read. Browsers do not
+ * consistently attach Origin to GET, so require an exact-origin Referer and
+ * feed its serialized origin through the mutation guard.
+ */
+export async function authorizeBrowserControlRead(
+  request: Request,
+): Promise<AuthorizedBrowserMutation | Response> {
+  if (request.headers.has("origin")) return authorizeBrowserMutation(request);
+  const referer = request.headers.get("referer");
+  let refererOrigin: string | null = null;
+  try {
+    refererOrigin = referer ? new URL(referer).origin : null;
+  } catch {
+    refererOrigin = null;
+  }
+  if (refererOrigin !== new URL(env.APP_URL).origin) {
+    return safeJsonError(
+      403,
+      "forbidden",
+      "The request origin is not permitted.",
+      createRequestId(),
+    );
+  }
+  const forwardedHeaders = new Headers(request.headers);
+  forwardedHeaders.set("Origin", refererOrigin);
+  return authorizeBrowserMutation(
+    new Request(request.url, {
+      method: request.method,
+      headers: forwardedHeaders,
+      signal: request.signal,
+    }),
+  );
 }
 
 /** Apply the same host, exact-Origin, session, and Redis checks to Server Actions. */

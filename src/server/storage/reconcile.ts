@@ -15,6 +15,7 @@ export async function inspectStorageConsistency(input: {
   store: ObjectStore;
   prefix: string;
   expectedKeys: ReadonlySet<string>;
+  protectedKeys?: ReadonlySet<string>;
   orphanedBefore?: Date;
 }): Promise<StorageConsistencyReport> {
   const prefix = assertManagedListPrefix(input.prefix);
@@ -32,6 +33,7 @@ export async function inspectStorageConsistency(input: {
     }
     if (
       !input.expectedKeys.has(object.key) &&
+      !input.protectedKeys?.has(object.key) &&
       (!input.orphanedBefore || object.lastModified <= input.orphanedBefore)
     ) {
       orphanObjectKeys.push(object.key);

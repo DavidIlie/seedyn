@@ -20,6 +20,16 @@ enum UploadState {
   DELETE_FAILED
 }
 
+enum DirectUploadState {
+  CREATING
+  UPLOADING
+  VERIFYING
+  PUBLISHED
+  ABORTING
+  ABORTED
+  FAILED
+}
+
 enum VariantKind {
   GIF
 }
@@ -85,24 +95,25 @@ model Session {
 }
 
 model User {
-  id                   String               @id @default(cuid())
+  id                   String                @id @default(cuid())
   name                 String?
-  email                String?              @unique
+  email                String?               @unique
   emailVerified        DateTime?
   image                String?
   identityIssuer       String?
   identitySubject      String?
-  appRole              SeedynRole           @default(MEMBER)
+  appRole              SeedynRole            @default(MEMBER)
   storageLimitBytes    BigInt?
-  storageUsedBytes     BigInt               @default(0)
-  storageReservedBytes BigInt               @default(0)
+  storageUsedBytes     BigInt                @default(0)
+  storageReservedBytes BigInt                @default(0)
   defaultMediaDomain   String?
-  createdAt            DateTime             @default(now())
-  updatedAt            DateTime             @updatedAt
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
   accounts             Account[]
   sessions             Session[]
   apiKeys              ApiKey[]
   uploads              Upload[]
+  directUploadSessions DirectUploadSession[]
   storageReservations  StorageReservation[]
 
   @@unique([identityIssuer, identitySubject])
@@ -155,16 +166,16 @@ model ApiKey {
 }
 
 model Upload {
-  id                        String             @id
+  id                        String               @id
   userId                    String
-  publicSlug                String             @unique
+  publicSlug                String               @unique
   kind                      UploadKind
-  state                     UploadState        @default(READY)
+  state                     UploadState          @default(READY)
   originalName              String
   textLanguage              String?
   passwordHash              String?
-  passwordVersion           Int                @default(0)
-  origin                    UploadOrigin       @default(LEGACY_UNKNOWN)
+  passwordVersion           Int                  @default(0)
+  origin                    UploadOrigin         @default(LEGACY_UNKNOWN)
   apiKeyIdSnapshot          String?
   apiKeyNameSnapshot        String?
   apiKeySlugSnapshot        String?
@@ -177,16 +188,17 @@ model Upload {
   disposition               ContentDisposition
   byteSize                  BigInt
   sha256                    Bytes
-  storageKey                String             @unique
+  storageKey                String               @unique
   width                     Int?
   height                    Int?
   durationMs                Int?
-  createdAt                 DateTime           @default(now())
-  updatedAt                 DateTime           @updatedAt
+  createdAt                 DateTime             @default(now())
+  updatedAt                 DateTime             @updatedAt
   deleteErrorCode           String?
   deleteErrorAt             DateTime?
-  user                      User               @relation(fields: [userId], references: [id], onDelete: Restrict)
+  user                      User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
   variants                  UploadVariant[]
+  directUploadSession       DirectUploadSession? @relation("PublishedDirectUpload")
 
   @@unique([s3PublicNamespaceSnapshot, s3ObjectKey])
   @@index([userId, createdAt(sort: Desc), id(sort: Desc)])
@@ -196,6 +208,44 @@ model Upload {
   @@index([origin, createdAt(sort: Desc), id(sort: Desc)])
   @@index([userId, apiKeyIdSnapshot, createdAt(sort: Desc), id(sort: Desc)])
   @@index([state, updatedAt])
+}
+
+model DirectUploadSession {
+  id                 String             @id
+  userId             String
+  uploadId           String             @unique
+  publishedUploadId  String?            @unique
+  state              DirectUploadState  @default(CREATING)
+  storageKey         String             @unique
+  s3UploadId         String?
+  declaredBytes      BigInt
+  declaredSha256     Bytes
+  sniffPrefix        Bytes
+  partSize           Int
+  partCount          Int
+  kind               UploadKind
+  extension          String
+  contentType        String
+  disposition        ContentDisposition
+  originalName       String
+  publicSlug         String
+  mediaOrigin        String
+  observedParts      Json?
+  storageCompletedAt DateTime?
+  leaseOwner         String?
+  leaseExpiresAt     DateTime?
+  expiresAt          DateTime
+  hardExpiresAt      DateTime
+  failureCode        String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  publishedUpload    Upload?            @relation("PublishedDirectUpload", fields: [publishedUploadId], references: [id], onDelete: Cascade)
+
+  @@index([state, expiresAt])
+  @@index([state, leaseExpiresAt])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([publicSlug, state])
 }
 
 model UploadVariant {
