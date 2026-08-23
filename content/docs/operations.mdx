@@ -18,6 +18,47 @@ Object writes use predetermined managed keys. If the database insert fails,
 Seedyn compensates by deleting the object. `pnpm storage:check` compares
 managed MinIO markers to PostgreSQL after a safety age and defaults to dry-run.
 
+## Direct multipart uploads
+
+Browser files above 64 MiB use S3 multipart upload with 16 MiB parts and three
+concurrent transfers. `DIRECT_UPLOAD_MAX_BYTES` sets the admission ceiling and
+defaults to 2 GiB. It cannot exceed 5,000,000,000 bytes; account quota still
+applies independently.
+
+`DIRECT_UPLOAD_TRANSPORT=proxy` is the default. Each part stays on the Seedyn
+origin, passes cookie, origin, ownership, length, and rate-limit checks, then
+streams to S3 without a temporary file. Since each request is only 16 MiB, this
+mode remains below Cloudflare's 100 MB request-body limit.
+
+`DIRECT_UPLOAD_TRANSPORT=presigned` sends parts from the browser to the public
+S3 endpoint instead. Set `MINIO_PUBLIC_URL` to that browser-reachable origin
+and configure the bucket to allow the exact `APP_URL` origin, the `PUT` method,
+and to expose `ETag`. Presigned URLs expire after ten minutes and identify only
+one part of one upload. Prefer proxy mode when the S3 gateway cannot enforce
+that CORS policy.
+
+Direct sessions have a renewable 24-hour idle deadline and a seven-day hard
+deadline. Schedule `pnpm uploads:sweep` at least hourly from an operational
+checkout with production environment access. Also configure the bucket or S3
+gateway to abort incomplete multipart uploads after seven days. Storage
+lifecycle cleanup is mandatory because a process can stop in the narrow window
+after S3 creates an upload ID but before PostgreSQL records it; the application
+sweeper cannot identify that orphan.
+
+`pnpm storage:setup` prepares development and CI buckets. Some S3-compatible
+gateways do not implement CORS or lifecycle configuration; the command reports
+that explicitly instead of claiming the policy exists. Exercise the complete
+server/storage lifecycle against a non-production `-dev` or `-ci` bucket with:
+
+```bash
+pnpm test:direct-upload
+DIRECT_UPLOAD_SMOKE_MIB=500 pnpm test:direct-upload
+```
+
+The smoke test covers exact part manifests, a 500 MiB transfer when requested,
+completion retry after a simulated process crash, competing finalizers, abort,
+quota release, invalid hash and prefix rejection, and expired-session cleanup.
+
 Deletion removes current public visibility immediately at the origin. Existing
 recipients and compliant edge caches may retain bytes for up to 24 hours.
 That shared cache window applies to complete media responses; partial `206`

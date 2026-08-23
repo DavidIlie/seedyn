@@ -1,5 +1,8 @@
 import { instant } from "@next/playwright";
 import { PrismaClient } from "@prisma/client";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   expect,
   test,
@@ -399,6 +402,156 @@ test("an active transfer cannot be dismissed without an explicit choice", async 
   releaseRequest?.();
   await expect(uploadDialog).toBeHidden({ timeout: 1_000 });
   await expect(uploadTrigger).toBeFocused();
+});
+
+test("an 80 MiB upload pauses, resumes, verifies, and serves exact ranges", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  const byteSize = 80 * 1024 * 1024;
+  let releaseParts: (() => void) | undefined;
+  const partsMayStart = new Promise<void>((resolve) => {
+    releaseParts = resolve;
+  });
+  let holdParts = true;
+  let completionAcknowledgementLost = false;
+  await page.route("**/api/uploads/direct/*/parts/*", async (route) => {
+    if (route.request().method() !== "PUT" || !holdParts) {
+      await route.continue();
+      return;
+    }
+    await partsMayStart;
+    await route.continue().catch(() => undefined);
+  });
+  await page.route("**/api/uploads/direct/*/complete", async (route) => {
+    const upstream = await route.fetch();
+    if (!completionAcknowledgementLost && upstream.ok()) {
+      completionAcknowledgementLost = true;
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: {
+            code: "storage_unavailable",
+            message: "Object storage is temporarily unavailable.",
+          },
+        }),
+      });
+      return;
+    }
+    await route.fulfill({ response: upstream });
+  });
+  await signIn(page);
+  let uploadId: string | undefined;
+  const fixtureDirectory = await mkdtemp(join(tmpdir(), "seedyn-e2e-direct-"));
+  const fixturePath = join(fixtureDirectory, "direct-80mib.bin");
+  await writeFile(fixturePath, Buffer.alloc(byteSize, 0xa5));
+
+  try {
+    await page.getByRole("button", { name: "Upload", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Upload" });
+    await dialog.locator('input[type="file"]').setInputFiles(fixturePath);
+    await dialog.getByRole("button", { name: "Upload file" }).click();
+    await expect(
+      dialog.getByText(/checking the file on this device/u),
+    ).toBeVisible();
+    const pause = dialog.getByRole("button", { name: "Pause upload" });
+    await expect(pause).toBeVisible({ timeout: 30_000 });
+    await pause.click();
+    const paused = dialog.getByText(/Paused —/u);
+    await expect(paused).toBeVisible();
+    const frozen = await paused.textContent();
+    await page.waitForTimeout(500);
+    await expect(paused).toHaveText(frozen ?? "");
+
+    holdParts = false;
+    releaseParts?.();
+    await dialog.getByRole("button", { name: "Resume upload" }).click();
+    await expect(
+      dialog.getByText("direct-80mib.bin is stored and ready to share."),
+    ).toBeVisible({ timeout: 180_000 });
+    expect(completionAcknowledgementLost).toBe(true);
+
+    const detailHref = await dialog
+      .getByRole("link", { name: "View upload" })
+      .getAttribute("href");
+    uploadId = detailHref?.split("/").at(-1);
+    expect(uploadId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u,
+    );
+    const publicUrl = (
+      await dialog.locator("p.font-mono").textContent()
+    )?.trim();
+    expect(publicUrl).toMatch(
+      /^http:\/\/i\.localhost:\d+\/[A-Za-z0-9_-]+\.bin$/u,
+    );
+    const head = await requestLocal(page.request, publicUrl!, {
+      method: "HEAD",
+    });
+    expect(head.status()).toBe(200);
+    expect(head.headers()["content-length"]).toBe(String(byteSize));
+    const tail = await requestLocal(page.request, publicUrl!, {
+      headers: { Range: `bytes=${byteSize - 4}-${byteSize - 1}` },
+    });
+    expect(tail.status()).toBe(206);
+    await expect(tail.body()).resolves.toEqual(Buffer.alloc(4, 0xa5));
+  } finally {
+    holdParts = false;
+    releaseParts?.();
+    if (uploadId) {
+      await requestLocal(page.request, `/api/uploads/${uploadId}`, {
+        method: "DELETE",
+        headers: { Origin: new URL(page.url()).origin },
+      });
+    }
+    await rm(fixtureDirectory, { recursive: true, force: true });
+  }
+});
+
+test("cancelling a direct upload publishes no library row", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  let releaseParts: (() => void) | undefined;
+  const partsMayStart = new Promise<void>((resolve) => {
+    releaseParts = resolve;
+  });
+  await page.route("**/api/uploads/direct/*/parts/*", async (route) => {
+    if (route.request().method() !== "PUT") {
+      await route.continue();
+      return;
+    }
+    await partsMayStart;
+    await route.continue().catch(() => undefined);
+  });
+  await signIn(page);
+  const prisma = new PrismaClient();
+  const fixtureDirectory = await mkdtemp(join(tmpdir(), "seedyn-e2e-cancel-"));
+  const fixturePath = join(fixtureDirectory, "cancel-direct.bin");
+  await writeFile(fixturePath, Buffer.alloc(65 * 1024 * 1024, 0xb6));
+  try {
+    await page.getByRole("button", { name: "Upload", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Upload" });
+    await dialog.locator('input[type="file"]').setInputFiles(fixturePath);
+    await dialog.getByRole("button", { name: "Upload file" }).click();
+    await expect(
+      dialog.getByRole("button", { name: "Pause upload" }),
+    ).toBeVisible({
+      timeout: 30_000,
+    });
+    await dialog.getByRole("button", { name: "Cancel transfer" }).click();
+    await expect(dialog.getByRole("progressbar")).toBeHidden();
+    releaseParts?.();
+    await expect
+      .poll(() =>
+        prisma.upload.count({ where: { originalName: "cancel-direct.bin" } }),
+      )
+      .toBe(0);
+  } finally {
+    releaseParts?.();
+    await prisma.$disconnect();
+    await rm(fixtureDirectory, { recursive: true, force: true });
+  }
 });
 
 test("pasting a clipboard image immediately creates selectable PNG and GIF URLs", async ({

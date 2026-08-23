@@ -40,9 +40,18 @@ const parsedEnv = createEnv({
     MINIO_URL: z.string().min(1),
     MINIO_PORT: z.coerce.number().int().min(1).max(65535),
     MINIO_SECURE: z.stringbool().default(true),
+    MINIO_PUBLIC_URL: originUrl.optional(),
+    MINIO_REGION: z.string().min(1).max(64).default("us-east-1"),
     MINIO_KEY_ID: z.string().min(1),
     MINIO_PASSWORD: z.string().min(1),
     MINIO_BUCKET: z.string().min(3),
+    DIRECT_UPLOAD_MAX_BYTES: z.coerce
+      .number()
+      .int()
+      .min(64 * 1024 * 1024 + 1)
+      .max(5_000_000_000)
+      .default(2 * 1024 * 1024 * 1024),
+    DIRECT_UPLOAD_TRANSPORT: z.enum(["proxy", "presigned"]).default("proxy"),
     SEEDYN_DEV_AUTH: z.stringbool().default(false),
     SEEDYN_DEV_AUTH_EMAIL: z.email().optional(),
     TRUSTED_PROXY_HOPS: z.coerce.number().int().min(0).max(4).default(1),
@@ -69,11 +78,21 @@ export const mediaHostAllowlist = resolveMediaHostAllowlist(
   parsedEnv.MEDIA_HOSTS,
 );
 
+function configuredMinioPublicOrigin(): string {
+  if (parsedEnv.MINIO_PUBLIC_URL) return parsedEnv.MINIO_PUBLIC_URL;
+  const protocol = parsedEnv.MINIO_SECURE ? "https" : "http";
+  const defaultPort = parsedEnv.MINIO_SECURE ? 443 : 80;
+  const port =
+    parsedEnv.MINIO_PORT === defaultPort ? "" : `:${parsedEnv.MINIO_PORT}`;
+  return `${protocol}://${parsedEnv.MINIO_URL}${port}`;
+}
+
 // Keep the established `env.MEDIA_HOSTS` interface while making the catalog
 // authoritative. Existing consumers automatically receive every configured
 // media host without each request module reparsing process environment.
 export const env = {
   ...parsedEnv,
+  MINIO_PUBLIC_URL: configuredMinioPublicOrigin(),
   MEDIA_HOSTS: mediaHostAllowlist.join(","),
 } as const;
 

@@ -40,6 +40,26 @@ const MEDIA_HOSTS = new Set(
         : "i.dave.tips,i.localhost"),
   ),
 );
+function uploadStorageOrigin(): string | null {
+  const configured = process.env.MINIO_PUBLIC_URL;
+  if (configured) {
+    try {
+      return new URL(configured).origin;
+    } catch {
+      return null;
+    }
+  }
+  const host = process.env.MINIO_URL;
+  const port = Number(process.env.MINIO_PORT);
+  if (!host || !Number.isInteger(port) || port < 1 || port > 65_535)
+    return null;
+  const secure = !new Set(["0", "false", "no", "off"]).has(
+    (process.env.MINIO_SECURE ?? "true").toLowerCase(),
+  );
+  const defaultPort = secure ? 443 : 80;
+  return `${secure ? "https" : "http"}://${host}${port === defaultPort ? "" : `:${port}`}`;
+}
+const UPLOAD_STORAGE_ORIGIN = uploadStorageOrigin();
 const APP_CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${process.env.NODE_ENV === "production" ? "" : " 'unsafe-eval'"}`,
@@ -48,7 +68,7 @@ const APP_CONTENT_SECURITY_POLICY = [
   `media-src 'self' blob: ${MEDIA_DOMAIN_CATALOG.origins.join(" ")}`,
   // Fetching a user-supplied URL is an explicit upload workflow. Script,
   // style, frame, worker, and form destinations stay independently bounded.
-  `connect-src 'self' blob: ${MEDIA_DOMAIN_CATALOG.origins.join(" ")} https:`,
+  `connect-src 'self' blob: ${MEDIA_DOMAIN_CATALOG.origins.join(" ")} ${UPLOAD_STORAGE_ORIGIN ?? ""} https:`,
   "worker-src 'self' blob:",
   "font-src 'self' data:",
   "object-src 'none'",
@@ -215,5 +235,5 @@ export const config = {
   // streaming and password form bodies under the media route's strict 2 KiB
   // reader rather than a framework clone.
   matcher:
-    "/((?!api/files/?$|api/images/?$|api/texts/?$|api/upload/?$|api/uploads/?$|api/uploads/[^/]+/gif/?$|seedyn(?:/|$)|[A-Za-z0-9](?:[A-Za-z0-9_-]{1,62}[A-Za-z0-9])?\\.[a-z0-9]{1,10}/?$).*)",
+    "/((?!api/files/?$|api/images/?$|api/texts/?$|api/upload/?$|api/uploads/?$|api/uploads/[^/]+/gif/?$|api/uploads/direct/[^/]+/parts/[^/]+/?$|seedyn(?:/|$)|[A-Za-z0-9](?:[A-Za-z0-9_-]{1,62}[A-Za-z0-9])?\\.[a-z0-9]{1,10}/?$).*)",
 };

@@ -2,6 +2,7 @@ export type DomainErrorCode =
   | "invalid_input"
   | "missing_file"
   | "payload_too_large"
+  | "integrity_mismatch"
   | "storage_quota_exceeded"
   | "unsupported_media"
   | "not_found"
@@ -22,6 +23,10 @@ const defaults = {
   payload_too_large: {
     status: 413,
     message: "The upload exceeds the permitted size.",
+  },
+  integrity_mismatch: {
+    status: 422,
+    message: "The stored bytes do not match the file that was prepared.",
   },
   storage_quota_exceeded: {
     status: 413,

@@ -3,8 +3,9 @@ title: Browser uploads
 description: Upload local files or fetch eligible HTTPS URLs in your browser.
 ---
 
-The browser uploader uses your DavidApps-backed Seedyn session. It sends bytes
-to `/api/uploads` and shows actual transfer progress.
+The browser uploader uses your DavidApps-backed Seedyn session. Files through
+64 MiB use the original single-request path. Larger local files use resumable
+S3 multipart sessions and show actual transfer progress for each part.
 
 The dialog has one job before a file exists: take the file. Drop it, paste it,
 or press **Browse files**. There is no slug field, no domain picker, and no
@@ -27,14 +28,31 @@ so a mis-picked file is stored as what it actually is rather than rejected.
 
 URL ingestion happens only in the browser. The URL must be HTTPS, CORS must
 allow the fetch, redirects must remain HTTPS, and the streamed bytes must stay
-within the upload cap. URLs containing embedded credentials are rejected. The
-request omits cookies, authorization, and referrer information; the app CSP
-allows arbitrary HTTPS connection destinations solely for this user-selected
-fetch and does not broaden script, style, worker, form, or frame sources.
-Seedyn does not provide a server-side CORS or SSRF proxy.
+within 64 MiB. URLs containing embedded credentials are rejected. The request
+omits cookies, authorization, and referrer information; the app CSP allows
+arbitrary HTTPS connection destinations solely for this user-selected fetch
+and does not broaden script, style, worker, form, or frame sources. Seedyn does
+not provide a server-side CORS or SSRF proxy.
 
-Original uploads are capped at 64 MiB. Image and text compatibility endpoints
-use a 16 MiB cap.
+## Large local files
+
+Large video and downloadable-file uploads are allowed up to the deployment's
+configured direct-upload limit, 2 GiB by default. Image, text, rendered HTML,
+URL-ingest, API, and compatibility endpoints retain their existing 16 MiB or
+64 MiB limits.
+
+Before opening a server session, the browser computes the file's SHA-256 digest
+in a worker and checks its leading bytes. Seedyn then transfers three 16 MiB
+parts at a time. A part can be retried without replaying the full file, and no
+request approaches Cloudflare's 100 MB request-body ceiling.
+
+**Pause upload** stops active part requests. **Resume upload** asks storage
+which parts arrived and continues from the missing ones. Going offline behaves
+the same way and resumes after connectivity returns. Once every byte has been
+sent, the dialog changes to **Verifying** and remains open while Seedyn checks
+the stored size, prefix, media classification, and full SHA-256 digest. The
+upload appears in the library only after those checks and quota accounting
+commit together.
 
 ## Custom public URLs
 

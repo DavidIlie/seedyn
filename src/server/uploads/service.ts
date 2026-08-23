@@ -186,7 +186,7 @@ function isSerializableConflict(error: unknown): boolean {
   );
 }
 
-async function serializableTransaction<T>(
+export async function serializableUploadTransaction<T>(
   operation: (transaction: Prisma.TransactionClient) => Promise<T>,
 ): Promise<T> {
   let lastConflict: unknown;
@@ -203,7 +203,7 @@ async function serializableTransaction<T>(
   throw lastConflict;
 }
 
-async function lockPublicSlug(
+export async function lockPublicSlug(
   transaction: Prisma.TransactionClient,
   publicSlug: string,
 ): Promise<void> {
@@ -212,12 +212,12 @@ async function lockPublicSlug(
   `);
 }
 
-async function assertPublicSlugAvailable(
+export async function assertPublicSlugAvailable(
   transaction: Prisma.TransactionClient,
   publicSlug: string,
   excludeUploadId?: string,
 ): Promise<void> {
-  const [upload, variant] = await Promise.all([
+  const [upload, variant, directSession] = await Promise.all([
     transaction.upload.findFirst({
       where: {
         publicSlug,
@@ -229,8 +229,16 @@ async function assertPublicSlugAvailable(
       where: { publicSlug },
       select: { id: true },
     }),
+    transaction.directUploadSession.findFirst({
+      where: {
+        publicSlug,
+        state: { in: ["CREATING", "UPLOADING", "VERIFYING"] },
+        ...(excludeUploadId ? { uploadId: { not: excludeUploadId } } : {}),
+      },
+      select: { id: true },
+    }),
   ]);
-  if (upload || variant) {
+  if (upload || variant || directSession) {
     throw new DomainError("conflict", {
       message: "That public slug is already in use.",
     });
@@ -266,7 +274,7 @@ export async function readPublicSlugAvailability(input: {
     });
     if (!owned) throw new DomainError("not_found");
   }
-  const [upload, variant] = await Promise.all([
+  const [upload, variant, directSession] = await Promise.all([
     db.upload.findFirst({
       where: {
         publicSlug: slug,
@@ -280,8 +288,18 @@ export async function readPublicSlugAvailability(input: {
       where: { publicSlug: slug },
       select: { id: true },
     }),
+    db.directUploadSession.findFirst({
+      where: {
+        publicSlug: slug,
+        state: { in: ["CREATING", "UPLOADING", "VERIFYING"] },
+        ...(input.excludeUploadId
+          ? { uploadId: { not: input.excludeUploadId } }
+          : {}),
+      },
+      select: { id: true },
+    }),
   ]);
-  const available = !upload && !variant;
+  const available = !upload && !variant && !directSession;
   return {
     slug,
     valid: true,
@@ -302,7 +320,7 @@ export async function changeOwnedUploadPublicSlug(input: {
   }
 
   try {
-    const upload = await serializableTransaction(async (transaction) => {
+    const upload = await serializableUploadTransaction(async (transaction) => {
       await lockPublicSlug(transaction, publicSlug);
       const owned = await transaction.upload.findFirst({
         where: { id: input.uploadId, userId: input.userId },
@@ -548,7 +566,7 @@ export async function createUpload(
   }
 
   try {
-    const upload = await serializableTransaction(async (transaction) => {
+    const upload = await serializableUploadTransaction(async (transaction) => {
       await lockPublicSlug(transaction, publicSlug);
       await assertPublicSlugAvailable(transaction, publicSlug);
       const created = await transaction.upload.create({
@@ -688,7 +706,7 @@ export async function updateOwnedUploadPassword(input: {
   passwordHash: string | null;
 }) {
   try {
-    const row = await serializableTransaction(async (transaction) => {
+    const row = await serializableUploadTransaction(async (transaction) => {
       const existing = await transaction.upload.findFirst({
         where: { id: input.uploadId, userId: input.userId },
         select: { id: true, passwordHash: true },
@@ -853,7 +871,7 @@ export async function createGifVariant(
   }
 
   try {
-    const variant = await serializableTransaction(async (transaction) => {
+    const variant = await serializableUploadTransaction(async (transaction) => {
       const ownedSource = await transaction.upload.findFirst({
         where: { id: input.uploadId, userId: input.userId, state: "READY" },
         select: { id: true, kind: true },
@@ -980,7 +998,7 @@ export async function deleteOwnedUpload(
     variants: { id: string; storageKey: string; byteSize: bigint }[];
   };
   try {
-    row = await serializableTransaction(async (transaction) => {
+    row = await serializableUploadTransaction(async (transaction) => {
       const owned = await transaction.upload.findFirst({
         where: { id: input.uploadId, userId: input.userId },
         include: {
@@ -1037,7 +1055,7 @@ export async function deleteOwnedUpload(
   }
 
   try {
-    await serializableTransaction(async (transaction) => {
+    await serializableUploadTransaction(async (transaction) => {
       await transaction.uploadVariant.deleteMany({
         where: { uploadId: input.uploadId, upload: { userId: input.userId } },
       });

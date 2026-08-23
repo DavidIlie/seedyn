@@ -85,6 +85,7 @@ export function assertProductionEnvironment() {
     const mediaDomainCatalog = parseMediaDomainCatalog({
       fallbackOrigin: process.env.CDN_URL ?? "",
       serialized: process.env.MEDIA_DOMAINS,
+      allowLocalHttp: true,
     });
     resolveMediaHostAllowlist(mediaDomainCatalog, process.env.MEDIA_HOSTS);
   } catch {
@@ -97,6 +98,11 @@ export function assertProductionEnvironment() {
     !mediaDomainsValid ||
     !validUrl(process.env.DATABASE_URL) ||
     !validUrl(process.env.REDIS_URL) ||
+    (process.env.DIRECT_UPLOAD_TRANSPORT === "presigned" &&
+      !validOrigin(process.env.MINIO_PUBLIC_URL)) ||
+    (process.env.DIRECT_UPLOAD_TRANSPORT !== undefined &&
+      process.env.DIRECT_UPLOAD_TRANSPORT !== "proxy" &&
+      process.env.DIRECT_UPLOAD_TRANSPORT !== "presigned") ||
     !/^\d{1,5}$/u.test(port) ||
     Number(port) < 1 ||
     Number(port) > 65_535 ||

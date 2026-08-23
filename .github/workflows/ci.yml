@@ -94,6 +94,9 @@ jobs:
 
       - run: pnpm format:check
       - run: pnpm check
+      - run: pnpm test:unit
+      - name: Test direct multipart uploads (100 MiB)
+        run: pnpm test:direct-upload
 
       - name: Validate container build
         if: github.event_name == 'pull_request'
