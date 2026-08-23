@@ -65,6 +65,10 @@ export function LibraryScreen({
   description: string;
   noun: string;
   searchParams: SearchParams;
+  /**
+   * The page's create affordance. It appears in the header and again in the
+   * empty state, so a library with nothing in it is never a dead end.
+   */
   action?: React.ReactNode;
 }) {
   return (
@@ -80,7 +84,13 @@ export function LibraryScreen({
       </Suspense>
 
       <Suspense fallback={<UploadListSkeleton rows={PAGE_SIZE} />}>
-        <Rows kind={kind} path={path} noun={noun} searchParams={searchParams} />
+        <Rows
+          kind={kind}
+          path={path}
+          noun={noun}
+          searchParams={searchParams}
+          action={action}
+        />
       </Suspense>
     </>
   );
@@ -126,11 +136,13 @@ async function Rows({
   path,
   noun,
   searchParams,
+  action,
 }: {
   kind: LibraryKind;
   path: LibraryPath;
   noun: string;
   searchParams: SearchParams;
+  action?: React.ReactNode;
 }) {
   const params = await searchParams;
   const user = await requireSessionUser();
@@ -155,7 +167,11 @@ async function Rows({
   if (page.items.length === 0) {
     return (
       <>
-        <LibraryEmpty searching={query.length > 0} noun={noun} />
+        <LibraryEmpty
+          searching={query.length > 0}
+          noun={noun}
+          action={query.length > 0 ? undefined : action}
+        />
         <LibraryPagination
           basePath={path}
           page={page}

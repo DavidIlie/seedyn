@@ -1,6 +1,9 @@
+import { Upload } from "lucide-react";
 import { Suspense } from "react";
 
 import { SeedynLogo } from "~/components/brand/seedyn-logo";
+import { buttonVariants } from "~/components/ui/button";
+import { cn } from "~/lib/utils";
 import { AccountMenuPlaceholder } from "./account-menu-placeholder";
 import { ActionBearingHeader } from "./action-bearing-header";
 import { PrimaryNav } from "./primary-nav";
@@ -43,24 +46,21 @@ export function AppHeader() {
   );
 }
 
+/**
+ * The inert twin of `UploadAction`, built from the same Button variant so the
+ * two cannot drift apart. It occupies the trigger's space while the header's
+ * request-time half streams in.
+ */
 function UploadActionFallback() {
   return (
     <span
       aria-hidden="true"
-      className="border-accent bg-accent text-accent-foreground inline-flex h-11 items-center gap-2 rounded-lg border px-4 text-sm font-medium max-[390px]:size-11 max-[390px]:px-0 lg:ml-auto lg:h-10"
+      className={cn(
+        buttonVariants(),
+        "max-[390px]:size-11 max-[390px]:px-0 lg:ml-auto",
+      )}
     >
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 16 16"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M8 11V2.75M4.75 6 8 2.75 11.25 6M2.5 10.5v2.75h11V10.5" />
-      </svg>
+      <Upload className="size-4" />
       <span className="max-[390px]:sr-only">Upload</span>
     </span>
   );

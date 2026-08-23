@@ -25,10 +25,19 @@ export type ClassifiedUpload = {
   frameCount: number | null;
 };
 
+/**
+ * `true` demands a rendered page and fails loudly when the bytes are not an
+ * HTML document. `"auto"` asks for one only when the file really is HTML and
+ * never throws — it is what the browser sends, so someone who saves a page and
+ * uploads it gets a page without ticking anything, while a PNG dropped through
+ * the same code path is classified as a PNG.
+ */
+export type HtmlRenderingRequest = boolean | "auto";
+
 export type ClassificationOptions = {
   forcedKind?: ForcedUploadKind;
   textLanguage?: string;
-  renderHtml?: boolean;
+  renderHtml?: HtmlRenderingRequest;
 };
 
 const TEXT_LANGUAGES = {
@@ -239,9 +248,32 @@ function htmlClassification(): ClassifiedUpload {
   };
 }
 
-export function isRenderedHtmlClassification(
-  value: Pick<ClassifiedUpload, "contentType" | "disposition" | "extension">,
-): boolean {
+/**
+ * The same document as a download rather than a page.
+ *
+ * `createUpload` degrades to this when an installation has no media origin
+ * isolated from the application, which is the only condition under which an
+ * automatic render is unsafe.
+ */
+export function htmlAttachmentClassification(): ClassifiedUpload {
+  return {
+    kind: "FILE",
+    textLanguage: null,
+    extension: "html",
+    contentType: "application/octet-stream",
+    disposition: "ATTACHMENT",
+    width: null,
+    height: null,
+    durationMs: null,
+    frameCount: null,
+  };
+}
+
+export function isRenderedHtmlClassification(value: {
+  contentType: string;
+  disposition: string;
+  extension: string;
+}): boolean {
   return (
     value.disposition === "INLINE" &&
     value.extension === "html" &&
@@ -301,8 +333,12 @@ export async function classifyUpload(
   file: ParsedUploadFile,
   options?: ClassificationOptions,
 ): Promise<ClassifiedUpload> {
+  // Only an explicit `renderHtml=true` may fail the upload. `"auto"` always
+  // falls through to whatever the bytes actually are.
+  const demandsHtml = options?.renderHtml === true;
+
   if (file.byteSize === 0) {
-    if (options?.renderHtml) {
+    if (demandsHtml) {
       throw new DomainError("invalid_input", {
         message: "Only a non-empty UTF-8 HTML document can be rendered.",
       });
@@ -330,7 +366,7 @@ export async function classifyUpload(
   }
 
   if (detected) {
-    if (options?.renderHtml) {
+    if (demandsHtml) {
       throw new DomainError("invalid_input", {
         message: "Only a UTF-8 HTML document can be rendered as a page.",
       });
@@ -385,12 +421,23 @@ export async function classifyUpload(
 
   if (await isStrictPlainText(file.path)) {
     const originalName = file.originalName || file.fields.filename || "upload";
-    if (options?.renderHtml) {
-      if (!hasHtmlFilename(originalName) && !looksLikeHtml(file.sniffPrefix)) {
+    const isHtmlDocument =
+      hasHtmlFilename(originalName) || looksLikeHtml(file.sniffPrefix);
+    if (demandsHtml) {
+      if (!isHtmlDocument) {
         throw new DomainError("invalid_input", {
           message: "Only a UTF-8 HTML document can be rendered as a page.",
         });
       }
+      return htmlClassification();
+    }
+    // A saved web page is the common case for `"auto"`, so it renders unless
+    // the caller pinned the upload to another kind.
+    if (
+      options?.renderHtml === "auto" &&
+      isHtmlDocument &&
+      (options.forcedKind ?? "auto") === "auto"
+    ) {
       return htmlClassification();
     }
     const unsafe = hasHtmlFilename(originalName)
@@ -412,7 +459,7 @@ export async function classifyUpload(
     return textClassification(file, options?.textLanguage);
   }
 
-  if (options?.renderHtml) {
+  if (demandsHtml) {
     throw new DomainError("invalid_input", {
       message: "Only a UTF-8 HTML document can be rendered as a page.",
     });

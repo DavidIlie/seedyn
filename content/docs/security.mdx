@@ -26,10 +26,13 @@ attachment-only; every response is `nosniff`, and the media origin receives no
 app cookie. The default media CSP has no script, network, object, or frame
 sources and permits forms only so the password unlock can submit.
 
-HTML gains active MIME semantics only through the explicit `renderHtml=true`
-upload field or the corresponding browser toggle. Classification requires a
-non-empty UTF-8 HTML document and the service verifies that the chosen origin
-resolves exclusively as a configured media host before writing storage. The
+HTML gains active MIME semantics only through the `renderHtml` upload field:
+`true` from a machine client, or `auto` from the browser uploader. Either way
+classification requires a non-empty UTF-8 HTML document and the service verifies
+that the chosen origin resolves exclusively as a configured media host before
+writing storage. `auto` degrades to a plain attachment when it does not, so an
+automatic render can never widen the boundary that `true` would have refused
+to cross. The
 rendered response uses `sandbox` without capability tokens or same-origin,
 blocks script, forms, connections, media, frames, objects, workers, and
 manifests, and adds noindex, opener isolation, and a restrictive permissions

@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 
-import { UploadAction } from "~/components/upload/upload-action";
+import { UploadAction } from "~/components/upload/upload-button";
 import { getOptionalUser } from "~/server/auth";
 
 import { AccountMenu } from "./account-menu";

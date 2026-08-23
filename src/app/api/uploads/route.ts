@@ -12,7 +12,11 @@ import {
   uploadMethodNotAllowed,
   uploadOptions,
 } from "~/server/http/upload-route-methods";
-import type { ForcedUploadKind } from "~/server/uploads/classification";
+import {
+  requestedHtmlRendering,
+  requestedKind,
+} from "~/server/http/upload-fields";
+import { isRenderedHtmlClassification } from "~/server/uploads/classification";
 import {
   parseMultipartUpload,
   UPLOAD_LIMITS,
@@ -29,18 +33,6 @@ export const HEAD = uploadMethodNotAllowed;
 export const OPTIONS = uploadOptions;
 export const PATCH = uploadMethodNotAllowed;
 export const PUT = uploadMethodNotAllowed;
-
-function requestedKind(value: string | undefined): ForcedUploadKind | null {
-  if (value === undefined || value === "auto") return "auto";
-  if (value === "image" || value === "file" || value === "text") return value;
-  return null;
-}
-
-function requestedHtmlRendering(value: string | undefined): boolean | null {
-  if (value === undefined || value === "false") return false;
-  if (value === "true") return true;
-  return null;
-}
 
 export async function GET(request: Request): Promise<Response> {
   const session = await auth();
@@ -141,7 +133,7 @@ export async function POST(request: Request): Promise<Response> {
       return safeJsonError(
         400,
         "invalid_input",
-        "The renderHtml field must be true or false.",
+        "The renderHtml field must be true, false, or auto.",
         authorization.requestId,
       );
     }
@@ -183,9 +175,13 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json(
       {
         id: result.upload.id,
+        // `kind` and `message` are ShareX-compatible aliases. The browser reads
+        // the nested `upload` object and `rendered`, which say what the server
+        // actually decided rather than making the client re-sniff a MIME type.
         kind: result.upload.kind.toLowerCase(),
         url: result.url,
         message: result.url,
+        rendered: isRenderedHtmlClassification(result.upload),
         upload: result.upload,
       },
       { status: 201, headers: authorization.rateHeaders },

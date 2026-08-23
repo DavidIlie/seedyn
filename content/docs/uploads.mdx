@@ -6,11 +6,24 @@ description: Upload local files or fetch eligible HTTPS URLs in your browser.
 The browser uploader uses your DavidApps-backed Seedyn session. It sends bytes
 to `/api/uploads` and shows actual transfer progress.
 
-A file dropped onto an authenticated page or pasted from the clipboard starts
-uploading immediately. File-picker selection keeps an explicit **Upload file**
-step. For a pasted PNG, JPEG, WebP, or AVIF, the completion dialog exposes the
-original URL and a **Create GIF URL** action together. GIF encoding happens in
-your browser and stores the validated derivative without a detail-page detour.
+The dialog has one job before a file exists: take the file. Drop it, paste it,
+or press **Browse files**. There is no slug field, no domain picker, and no
+file-type option to read first — the transfer starts the moment a file arrives,
+whether it came from the picker, a drop anywhere in the app, or the clipboard.
+
+Everything optional lives on the step after the upload, where it applies to a
+link that already works. That step is shaped by what the server decided the file
+is: a PNG, JPEG, WebP, or AVIF offers **Create GIF URL** (encoded in your
+browser, stored without a detail-page detour), a rendered page offers **Open
+page**, and a format with no extra capability offers nothing extra. Under
+**Customise link** you can change the slug and the media domain; ignore it and
+you keep a permanent random URL on your account default.
+
+Each library page carries its own entry point — **Upload image** on Images,
+**Upload file** on Files, **Upload text** and **New text** on Texts — and the
+header keeps a general **Upload** on every page. The per-page buttons narrow the
+operating system file picker; the server still classifies whatever it receives,
+so a mis-picked file is stored as what it actually is rather than rejected.
 
 URL ingestion happens only in the browser. The URL must be HTTPS, CORS must
 allow the fetch, redirects must remain HTTPS, and the streamed bytes must stay
@@ -25,10 +38,10 @@ use a 16 MiB cap.
 
 ## Custom public URLs
 
-The browser uploader can reserve an optional readable slug before bytes are
-sent. Seedyn checks availability as you type; leave the field blank to keep the
-default random URL. Custom slugs use 3–48 lowercase letters, numbers, and single
-hyphens, for example `launch-screenshot`.
+Every upload gets a permanent random URL immediately. To choose a readable one,
+open **Customise link** on the completed upload and type a slug; Seedyn checks
+availability as you type. Custom slugs use 3–48 lowercase letters, numbers, and
+single hyphens, for example `launch-screenshot`.
 
 Every upload detail page also has a **Public URL** control. Changing the slug
 rotates the direct `i.dave.tips` URL immediately, so the previous direct link
@@ -38,19 +51,25 @@ current direct URL.
 
 ## Media domain
 
-The upload dialog can use the account default or choose `i.dave.tips` or
-`i.gurt.ing` for one upload. Seedyn stores that choice with the upload, so its
-library, detail, GIF, and API responses keep presenting the same canonical URL
-after account defaults change. The object remains available by the same slug
-on every configured Seedyn media domain.
+An upload uses the account default unless you say otherwise. When more than one
+media domain is configured, **Customise link** offers the alternatives on the
+completed upload. Seedyn stores that choice with the upload, so its library,
+detail, GIF, and API responses keep presenting the same canonical URL after
+account defaults change. Only the presented link changes — the object remains
+available by the same slug on every configured Seedyn media domain.
 
 ## Sandboxed HTML pages
 
-The upload dialog includes **Render HTML as a page**. This is an explicit
-per-upload choice and is available for a selected `.html`, `.htm`, or `.xhtml`
-file and for URL imports. Seedyn verifies non-empty UTF-8 HTML, stores it as
-`text/html; charset=utf-8`, and returns its direct media URL. Without the
-toggle, the same bytes remain a normal attachment.
+Save a web page with Cmd+S, upload it, and it is a page. The browser uploader
+sends `renderHtml=auto`: Seedyn renders a non-empty UTF-8 HTML document as
+`text/html; charset=utf-8` and treats everything else as itself. There is
+nothing to tick.
+
+If an installation has no media domain isolated from the app, an automatic
+render degrades to a plain download rather than failing the upload. Machine
+clients are unchanged — `/api/upload` and the ShareX endpoints still default to
+`renderHtml=false` and still reject `renderHtml=true` for bytes that are not an
+HTML document.
 
 Rendered pages never enter the authenticated app document. They are served
 only from a configured public media domain with an originless CSP sandbox that
@@ -95,8 +114,9 @@ shipping a read-only editor.
 
 The permanent media URL is the raw consumable form. Authored text objects are
 served as `text/plain; charset=utf-8` with `nosniff`; SVG, XML, and JavaScript
-are never promoted to executable browser MIME types. HTML is attachment-only
-unless the uploader makes the separate sandboxed-page opt-in described above.
+are never promoted to executable browser MIME types. For machine clients HTML
+stays attachment-only unless they send `renderHtml=true`; browser uploads render
+it automatically as described above.
 
 Images, files, and texts use cursor-backed infinite loading. The initial page
 is server-rendered and retains real next-page links without JavaScript. Once

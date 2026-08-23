@@ -18,7 +18,9 @@ classification remains authoritative. Optional `renderHtml=true` explicitly
 promotes a verified non-empty UTF-8 HTML file to a sandboxed inline page. It is
 valid only on the canonical endpoint, requires the `upload:file` scope, and
 fails unless the selected media domain is separate from the application host.
-Omitting the field keeps HTML attachment-only.
+Omitting the field keeps HTML attachment-only. `renderHtml=auto` is the browser
+uploader's setting: render the file as a page when it really is an HTML
+document, otherwise classify it normally, and never fail the upload over it.
 
 ## Success
 

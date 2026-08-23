@@ -5,7 +5,7 @@ import { NavigationBlockerProvider } from "~/components/navigation/navigation-bl
 import { AppHeader } from "~/components/shell/app-header";
 import { RouteLayoutMarker } from "~/components/shell/route-layout-marker";
 import { SessionGate } from "~/components/shell/session-gate";
-import { UploadProvider } from "~/components/upload/upload-action";
+import { UploadProvider } from "~/components/upload/upload-context";
 import { listMediaDomainChoices } from "~/server/media/origin-preferences";
 
 /**

@@ -380,23 +380,22 @@ test("an active transfer cannot be dismissed without an explicit choice", async 
     mimeType: "image/png",
     buffer: PNG,
   });
-  await uploadDialog.getByRole("button", { name: "Upload file" }).click();
   await expect(uploadDialog.getByRole("progressbar")).toBeVisible();
 
   await page.mouse.click(8, 8);
   await expect(uploadDialog).toBeVisible();
-  const closeWarning = uploadDialog.getByRole("alert");
+  const closeWarning = page.getByRole("alertdialog");
   await expect(closeWarning).toContainText("Cancel this transfer?");
   await expect(
-    uploadDialog.getByRole("button", { name: "Keep uploading" }),
+    closeWarning.getByRole("button", { name: "Keep working" }),
   ).toBeFocused();
 
-  await uploadDialog.getByRole("button", { name: "Keep uploading" }).click();
+  await closeWarning.getByRole("button", { name: "Keep working" }).click();
   await expect(closeWarning).toBeHidden();
   await page.keyboard.press("Escape");
   await expect(closeWarning).toContainText("Cancel this transfer?");
 
-  await uploadDialog.getByRole("button", { name: "Cancel and close" }).click();
+  await closeWarning.getByRole("button", { name: "Cancel and close" }).click();
   releaseRequest?.();
   await expect(uploadDialog).toBeHidden({ timeout: 1_000 });
   await expect(uploadTrigger).toBeFocused();
@@ -442,11 +441,11 @@ test("pasting a clipboard image immediately creates selectable PNG and GIF URLs"
       dialog.getByText(filename + " is stored and ready to share."),
     ).toBeVisible({ timeout: 15_000 });
     await expect(
-      dialog.getByRole("button", { name: "Upload file" }),
+      dialog.getByRole("button", { name: "Browse files" }),
     ).toHaveCount(0);
 
     const copyPng = dialog.getByRole("button", {
-      name: "Copy the PNG URL",
+      name: "Copy the uploaded URL",
     });
     await expect(copyPng).toBeVisible();
     await dialog.getByRole("button", { name: "Create GIF URL" }).click();
@@ -639,6 +638,55 @@ test("documentation surfaces share the authored reading order", async ({
   await expect(dialog).toBeHidden();
 });
 
+test("a saved HTML page renders without any opt-in", async ({ page }) => {
+  const errors = collectBrowserErrors(page);
+  const filename = `saved-page-${Date.now()}.html`;
+  let uploadId: string | undefined;
+  await signIn(page);
+
+  try {
+    await page.getByRole("button", { name: "Upload", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Upload" });
+    await expect(dialog).toBeVisible();
+    // Nothing about HTML is asked before the file exists.
+    await expect(dialog.getByText("Render HTML as a page")).toHaveCount(0);
+    await expect(dialog.getByLabel("Media domain")).toHaveCount(0);
+    await expect(dialog.getByText("Custom URL slug")).toHaveCount(0);
+
+    await dialog.locator('input[type="file"]').setInputFiles({
+      name: filename,
+      mimeType: "text/html",
+      buffer: Buffer.from(
+        "<!doctype html><title>Saved</title><p>Saved page.</p>",
+        "utf8",
+      ),
+    });
+    await expect(
+      dialog.getByText(filename + " is stored and ready to share."),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(dialog.getByText("Published as a page")).toBeVisible();
+    await expect(
+      dialog.getByRole("link", { name: "Open page" }),
+    ).toHaveAttribute("href", /\.html$/u);
+
+    const detailHref = await dialog
+      .getByRole("link", { name: "View upload" })
+      .getAttribute("href");
+    uploadId = detailHref?.split("/").at(-1);
+    expect(errors).toEqual([]);
+  } finally {
+    if (uploadId) {
+      await requestLocal(page.request, `/api/uploads/${uploadId}`, {
+        method: "DELETE",
+        headers: {
+          Accept: "application/json",
+          Origin: new URL(page.url()).origin,
+        },
+      });
+    }
+  }
+});
+
 test("Proxy-excluded upload methods retain the strict host boundary", async ({
   request,
   baseURL,
@@ -700,7 +748,6 @@ test("a browser upload becomes a permanent GIF and can be deleted", async ({
       mimeType: "image/png",
       buffer: PNG,
     });
-    await dialog.getByRole("button", { name: "Upload file" }).click();
     await expect(
       page.getByText(filename + " is stored and ready to share."),
     ).toBeVisible();

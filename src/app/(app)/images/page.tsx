@@ -4,6 +4,7 @@ import {
   LibraryScreen,
   type SearchParams,
 } from "~/components/library/library-screen";
+import { UploadAction } from "~/components/upload/upload-button";
 
 export const metadata: Metadata = { title: "Images" };
 
@@ -22,6 +23,7 @@ export default function ImagesPage({
       description="Screenshots and other image uploads."
       noun="images"
       searchParams={searchParams}
+      action={<UploadAction label="Upload image" accept="image/*" />}
     />
   );
 }

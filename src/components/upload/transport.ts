@@ -19,12 +19,23 @@ export class TransportError extends Error {
   }
 }
 
+/**
+ * What the browser knows about a stored object.
+ *
+ * `kind` is always Prisma casing (`IMAGE`, `VIDEO`, `TEXT`, `FILE`) so the GIF
+ * capability matrix can be consulted directly, and `rendered` is the server's
+ * own answer to "did this become a page?" rather than a client re-sniff of the
+ * content type.
+ */
 export type UploadedRecord = {
   id: string;
-  kind?: string;
-  contentType?: string;
-  extension?: string;
+  kind: string;
+  contentType: string;
+  extension: string;
   url: string;
+  rendered: boolean;
+  publicSlug: string;
+  mediaOrigin: string | null;
 };
 
 type ErrorEnvelope = {
@@ -60,33 +71,53 @@ function readEnvelope(status: number, body: string): TransportError {
   );
 }
 
+function nested(
+  record: Record<string, unknown>,
+  key: string,
+): Record<string, unknown> | null {
+  const value = record[key];
+  return typeof value === "object" && value !== null
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function text(...candidates: unknown[]): string {
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.length > 0) return candidate;
+  }
+  return "";
+}
+
 function readRecord(body: string): UploadedRecord {
   const parsed: unknown = JSON.parse(body);
   if (typeof parsed !== "object" || parsed === null) {
     throw new TransportError("invalid_response", "The server sent no upload.");
   }
   const record = parsed as Record<string, unknown>;
-  const upload =
-    typeof record.upload === "object" && record.upload !== null
-      ? (record.upload as Record<string, unknown>)
-      : null;
-  const url = typeof record.url === "string" ? record.url : record.message;
-  if (typeof url !== "string" || url.length === 0) {
+  // `/api/uploads` nests the serialized row under `upload` and the GIF endpoint
+  // under `variant`; both carry the same field names.
+  const detail = nested(record, "upload") ?? nested(record, "variant");
+  const url = text(record.url, record.message);
+  if (!url) {
     throw new TransportError("invalid_response", "The server sent no URL.");
   }
+  const contentType = text(detail?.contentType, record.contentType);
   return {
-    id: typeof record.id === "string" ? record.id : "",
-    kind:
-      typeof upload?.kind === "string"
-        ? upload.kind
-        : typeof record.kind === "string"
-          ? record.kind
-          : undefined,
-    contentType:
-      typeof upload?.contentType === "string" ? upload.contentType : undefined,
-    extension:
-      typeof upload?.extension === "string" ? upload.extension : undefined,
+    id: text(detail?.id, record.id),
+    // The top-level `kind` is lowercased for ShareX. Normalising here keeps the
+    // GIF capability matrix, which matches on `IMAGE`/`VIDEO`, from silently
+    // failing whenever the nested row is absent.
+    kind: text(detail?.kind, record.kind).toUpperCase(),
+    contentType,
+    extension: text(detail?.extension, record.extension),
     url,
+    rendered:
+      typeof record.rendered === "boolean"
+        ? record.rendered
+        : contentType.toLowerCase().startsWith("text/html"),
+    publicSlug: text(detail?.publicSlug, record.publicSlug),
+    mediaOrigin:
+      typeof detail?.mediaOrigin === "string" ? detail.mediaOrigin : null,
   };
 }
 

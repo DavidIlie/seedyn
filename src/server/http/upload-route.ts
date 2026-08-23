@@ -4,6 +4,10 @@ import { parseApiKeyAuthorization } from "~/server/api-keys/authorization";
 import type { ApiKeyScope } from "~/server/api-keys/constants";
 import { resolveApiKeyIdentity } from "~/server/api-keys/service";
 import { domainErrorResponse } from "~/server/http/errors";
+import {
+  requestedHtmlRendering,
+  requestedKind,
+} from "~/server/http/upload-fields";
 import { resolveMediaDomainPreference } from "~/server/media/origin-preferences";
 import {
   checkAuthenticatedUploadRateLimit,
@@ -53,18 +57,6 @@ function maximumBytes(route: MachineUploadRoute): number {
   return route.forcedKind === "image" || route.forcedKind === "text"
     ? UPLOAD_LIMITS.imageOrText
     : UPLOAD_LIMITS.generic;
-}
-
-function requestedKind(value: string | undefined): ForcedUploadKind | null {
-  if (value === undefined || value === "auto") return "auto";
-  if (value === "image" || value === "file" || value === "text") return value;
-  return null;
-}
-
-function requestedHtmlRendering(value: string | undefined): boolean | null {
-  if (value === undefined || value === "false") return false;
-  if (value === "true") return true;
-  return null;
 }
 
 export async function handleMachineUpload(
@@ -188,7 +180,7 @@ export async function handleMachineUpload(
       return safeJsonError(
         400,
         "invalid_input",
-        "The renderHtml field must be true or false.",
+        "The renderHtml field must be true, false, or auto.",
         requestId,
       );
     }

@@ -16,6 +16,7 @@ import { objectStore } from "~/server/storage/minio";
 import {
   publicMediaUrl,
   isIsolatedMediaOrigin,
+  resolveMediaDomainPreference,
   validMediaOrigin,
 } from "~/server/media/origin-preferences";
 import type { ObjectStore } from "~/server/storage/object-store";
@@ -30,11 +31,13 @@ import {
   assertClassificationSize,
   assertForcedUploadKind,
   classifyUpload,
+  htmlAttachmentClassification,
   isRenderedHtmlClassification,
   sanitizeOriginalName,
   validateGifVariant,
   type ClassifiedUpload,
   type ForcedUploadKind,
+  type HtmlRenderingRequest,
 } from "./classification";
 import { DomainError, safeErrorCategory } from "./errors";
 import { createPublicSlug, createRecordId } from "./identifiers";
@@ -322,6 +325,67 @@ export async function changeOwnedUploadPublicSlug(input: {
   }
 }
 
+/**
+ * Move an upload's public link to another configured media domain.
+ *
+ * This is a column update and nothing more: the stored object key never
+ * contains the origin, and every configured media host already serves it. The
+ * domain is therefore a display preference, which is why the upload dialog can
+ * offer it after the transfer instead of demanding a decision before one.
+ */
+export async function changeOwnedUploadMediaOrigin(input: {
+  userId: string;
+  uploadId: string;
+  /** A configured media domain id, or null for the account default. */
+  mediaDomainId: string | null;
+}): Promise<{ mediaOrigin: string; url: string }> {
+  const account = await db.user.findUnique({
+    where: { id: input.userId },
+    select: { defaultMediaDomain: true },
+  });
+  if (!account) throw new DomainError("not_found");
+  const domain = resolveMediaDomainPreference(
+    input.mediaDomainId,
+    account.defaultMediaDomain,
+  );
+  if (!validMediaOrigin(domain.origin)) {
+    throw new DomainError("invalid_input", {
+      message: "Choose a configured media domain.",
+    });
+  }
+
+  try {
+    const owned = await db.upload.findFirst({
+      where: { id: input.uploadId, userId: input.userId },
+      select: {
+        id: true,
+        contentType: true,
+        disposition: true,
+        extension: true,
+      },
+    });
+    if (!owned) throw new DomainError("not_found");
+    if (
+      isRenderedHtmlClassification(owned) &&
+      !isIsolatedMediaOrigin(domain.origin)
+    ) {
+      throw new DomainError("invalid_input", {
+        message:
+          "A rendered page can only be served from a media domain separate from the Seedyn app.",
+      });
+    }
+    const updated = await db.upload.update({
+      where: { id: owned.id },
+      data: { mediaOrigin: domain.origin },
+      select: { publicSlug: true, extension: true, mediaOrigin: true },
+    });
+    return { mediaOrigin: domain.origin, url: publicMediaUrl(updated) };
+  } catch (error) {
+    if (error instanceof DomainError) throw error;
+    throw databaseError(error);
+  }
+}
+
 async function compensateObject(input: {
   store: ObjectStore;
   audit: (event: AuditEvent) => void;
@@ -352,7 +416,7 @@ export async function createUpload(
     /** A classification produced from this exact immutable temporary file. */
     classification?: ClassifiedUpload;
     forcedKind?: ForcedUploadKind;
-    renderHtml?: boolean;
+    renderHtml?: HtmlRenderingRequest;
     publicSlug?: string;
     mediaOrigin: string;
     signal?: AbortSignal;
@@ -366,26 +430,33 @@ export async function createUpload(
     });
   }
   const provenanceFields = uploadProvenanceFields(input.provenance);
-  const classification =
+  let classification =
     input.classification ??
     (await classifyUpload(input.file, {
       forcedKind: input.forcedKind,
       textLanguage: input.file.fields.textLanguage,
       renderHtml: input.renderHtml,
     }));
-  // Keep validation in the service even when a route reuses its precomputed
-  // classification for scope authorization.
-  assertClassificationSize(input.file, classification);
-  assertForcedUploadKind(classification, input.forcedKind ?? "auto");
   if (
     isRenderedHtmlClassification(classification) &&
     !isIsolatedMediaOrigin(input.mediaOrigin)
   ) {
-    throw new DomainError("invalid_input", {
-      message:
-        "Rendered HTML requires a configured public media domain separate from the Seedyn app.",
-    });
+    // An installation without a media origin isolated from the application
+    // cannot serve a page safely. Someone who explicitly asked for one is told
+    // so; the browser's automatic request quietly stores a download instead of
+    // failing an upload that never opted in.
+    if (input.renderHtml !== "auto") {
+      throw new DomainError("invalid_input", {
+        message:
+          "Rendered HTML requires a configured public media domain separate from the Seedyn app.",
+      });
+    }
+    classification = htmlAttachmentClassification();
   }
+  // Keep validation in the service even when a route reuses its precomputed
+  // classification for scope authorization.
+  assertClassificationSize(input.file, classification);
+  assertForcedUploadKind(classification, input.forcedKind ?? "auto");
 
   const uploadId = createRecordId();
   const requestedPublicSlug = input.publicSlug?.trim()

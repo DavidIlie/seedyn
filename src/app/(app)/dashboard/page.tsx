@@ -14,7 +14,7 @@ import {
 import { formatBytes } from "~/components/lib/format";
 import { EmptyState } from "~/components/ui/empty-state";
 import { PageHeader } from "~/components/ui/page-header";
-import { UploadAction } from "~/components/upload/upload-action";
+import { UploadAction } from "~/components/upload/upload-button";
 
 export const metadata: Metadata = { title: "Library" };
 
@@ -83,7 +83,7 @@ async function LatestUploads() {
       <EmptyState
         title="Nothing uploaded yet"
         body="Upload a local file, paste one, or fetch an eligible HTTPS URL. Every completed object gets a permanent link."
-        action={<UploadAction label="Choose a file" tone="quiet" />}
+        action={<UploadAction label="Choose a file" variant="outline" />}
       />
     );
   }
