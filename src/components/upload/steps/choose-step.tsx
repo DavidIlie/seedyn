@@ -90,6 +90,10 @@ export function ChooseStep({
           disabled={busy}
           onChange={(event) => {
             const file = event.target.files?.item(0);
+            // Clearing the input means picking the same file again still fires
+            // a change event, which matters after a refusal: the second attempt
+            // would otherwise do nothing at all.
+            event.target.value = "";
             if (file) onFile(file);
           }}
           className="sr-only"

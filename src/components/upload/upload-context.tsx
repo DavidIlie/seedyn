@@ -68,11 +68,14 @@ function clipboardLabel(file: File): string {
 export function UploadProvider({
   children,
   mediaDomains,
+  directUploadMaxBytes,
 }: {
   children: React.ReactNode;
   mediaDomains: MediaDomainChoice[];
+  /** The ceiling for a resumable multipart session, from the server env. */
+  directUploadMaxBytes: number;
 }) {
-  const transfer = useUploadTransfer();
+  const transfer = useUploadTransfer(directUploadMaxBytes);
   const [open, setOpen] = useState(false);
   const [accept, setAccept] = useState<string | undefined>(undefined);
 

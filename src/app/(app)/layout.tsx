@@ -6,6 +6,7 @@ import { AppHeader } from "~/components/shell/app-header";
 import { RouteLayoutMarker } from "~/components/shell/route-layout-marker";
 import { SessionGate } from "~/components/shell/session-gate";
 import { UploadProvider } from "~/components/upload/upload-context";
+import { env } from "~/env";
 import { listMediaDomainChoices } from "~/server/media/origin-preferences";
 
 /**
@@ -21,7 +22,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <QueryProvider>
       <NavigationBlockerProvider>
-        <UploadProvider mediaDomains={mediaDomains}>
+        <UploadProvider
+          mediaDomains={mediaDomains}
+          directUploadMaxBytes={env.DIRECT_UPLOAD_MAX_BYTES}
+        >
           <div className="min-h-dvh">
             <a
               href="#main"

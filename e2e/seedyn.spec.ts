@@ -451,7 +451,6 @@ test("an 80 MiB upload pauses, resumes, verifies, and serves exact ranges", asyn
     await page.getByRole("button", { name: "Upload", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Upload" });
     await dialog.locator('input[type="file"]').setInputFiles(fixturePath);
-    await dialog.getByRole("button", { name: "Upload file" }).click();
     await expect(
       dialog.getByText(/checking the file on this device/u),
     ).toBeVisible();
@@ -533,7 +532,6 @@ test("cancelling a direct upload publishes no library row", async ({
     await page.getByRole("button", { name: "Upload", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Upload" });
     await dialog.locator('input[type="file"]').setInputFiles(fixturePath);
-    await dialog.getByRole("button", { name: "Upload file" }).click();
     await expect(
       dialog.getByRole("button", { name: "Pause upload" }),
     ).toBeVisible({

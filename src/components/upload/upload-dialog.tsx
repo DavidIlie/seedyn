@@ -74,6 +74,10 @@ export function UploadDialog({
       : phase.name === "idle"
         ? "choose"
         : "transfer";
+  // Verification runs on the server with every byte already stored; there is
+  // nothing left to abandon, so the dialog says so instead of offering a
+  // cancel that would not cancel anything.
+  const verifying = phase.name === "verifying";
   const copy = STEP_COPY[step];
 
   useEffect(() => {
@@ -176,12 +180,11 @@ export function UploadDialog({
             />
           ) : null}
 
-          {phase.name === "uploading" || phase.name === "fetching" ? (
+          {phase.name !== "idle" && phase.name !== "done" ? (
             <TransferStep
-              kind={phase.name}
-              label={phase.label}
-              loaded={phase.loaded}
-              total={phase.total}
+              phase={phase}
+              pausable={transfer.pausable}
+              onPauseResume={transfer.pauseResume}
               onCancel={transfer.cancel}
             />
           ) : null}
@@ -210,26 +213,34 @@ export function UploadDialog({
       <AlertDialog open={confirmingCancel} onOpenChange={setConfirmingCancel}>
         <AlertDialogContent size="sm">
           <AlertDialogHeader>
-            <AlertDialogTitle>Cancel this transfer?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {verifying ? "Verification in progress" : "Cancel this transfer?"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {phase.name === "done"
-                ? "Closing now stops the GIF operation. The original URL stays stored."
-                : "Closing now stops the transfer. Nothing incomplete is added to your library."}
+              {verifying
+                ? "Every byte has reached storage. Keep this dialog open while the server confirms the file."
+                : phase.name === "done"
+                  ? "Closing now stops the GIF operation. The original URL stays stored."
+                  : "Closing now stops the transfer. Nothing incomplete is added to your library."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep working</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={() => {
-                transfer.cancel();
-                setGifBusy(false);
-                setConfirmingCancel(false);
-                onClose();
-              }}
-            >
-              Cancel and close
-            </AlertDialogAction>
+            <AlertDialogCancel>
+              {verifying ? "Keep verifying" : "Keep working"}
+            </AlertDialogCancel>
+            {verifying ? null : (
+              <AlertDialogAction
+                variant="destructive"
+                onClick={() => {
+                  transfer.cancel();
+                  setGifBusy(false);
+                  setConfirmingCancel(false);
+                  onClose();
+                }}
+              >
+                Cancel and close
+              </AlertDialogAction>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

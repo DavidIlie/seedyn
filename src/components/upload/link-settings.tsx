@@ -5,6 +5,10 @@ import { useActionState, useEffect, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 
 import { changePublicSlugAction } from "~/components/detail/slug-actions";
+import {
+  ACCOUNT_DEFAULT_MEDIA_DOMAIN,
+  MediaDomainSelect,
+} from "~/components/media/media-domain-select";
 import { SlugAvailabilityField } from "~/components/slug/slug-availability-field";
 import { Button } from "~/components/ui/button";
 import {
@@ -13,13 +17,6 @@ import {
   CollapsibleTrigger,
 } from "~/components/ui/collapsible";
 import { Label } from "~/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "~/components/ui/select";
 import type { MediaDomainChoice } from "~/server/media/origin-preferences";
 
 import { changeUploadMediaDomainAction } from "./media-domain-actions";
@@ -31,8 +28,6 @@ import { changeUploadMediaDomainAction } from "./media-domain-actions";
  * time this renders, so the whole panel is collapsed and optional. Opening it
  * changes an object that exists; ignoring it costs nothing.
  */
-
-const ACCOUNT_DEFAULT = "account-default";
 
 export function LinkSettings({
   uploadId,
@@ -165,42 +160,46 @@ function MediaDomainField({
   const matching = mediaDomains.find(
     (domain) => domain.origin === currentMediaOrigin,
   );
-  const [value, setValue] = useState(matching ? matching.id : ACCOUNT_DEFAULT);
+  const [value, setValue] = useState(
+    matching ? matching.id : ACCOUNT_DEFAULT_MEDIA_DOMAIN,
+  );
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const fieldId = `${uploadId}-media-domain`;
 
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={`${uploadId}-media-domain`}>Media domain</Label>
-      <Select
+      <Label htmlFor={fieldId}>Media domain</Label>
+      <MediaDomainSelect
+        id={fieldId}
+        // Nothing is submitted: this panel changes an upload that already
+        // exists, one selection at a time.
+        name={null}
+        mediaDomains={mediaDomains}
         value={value}
         disabled={pending}
+        aria-describedby={`${fieldId}-hint`}
         onValueChange={(next) => {
+          const previous = value;
           setValue(next);
           setMessage(null);
           startTransition(async () => {
             const result = await changeUploadMediaDomainAction({
               uploadId,
-              mediaDomainId: next === ACCOUNT_DEFAULT ? "" : next,
+              mediaDomainId: next,
             });
-            if (result.status === "saved") onUrlChange(result.url);
-            else if (result.status === "error") setMessage(result.message);
+            if (result.status === "saved") {
+              onUrlChange(result.url);
+              return;
+            }
+            // The link did not move, so neither does the control.
+            setValue(previous);
+            if (result.status === "error") setMessage(result.message);
           });
         }}
-      >
-        <SelectTrigger id={`${uploadId}-media-domain`}>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ACCOUNT_DEFAULT}>Account default</SelectItem>
-          {mediaDomains.map((domain) => (
-            <SelectItem key={domain.id} value={domain.id}>
-              {domain.host}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      />
       <p
+        id={`${fieldId}-hint`}
         aria-live="polite"
         className={`text-xs ${message ? "text-danger" : "text-muted-foreground"}`}
       >

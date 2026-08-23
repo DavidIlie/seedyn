@@ -32,7 +32,10 @@ import {
   releaseStorageReservationInTransaction,
   reserveStorageInTransaction,
 } from "~/server/storage/quota";
-import { sanitizeOriginalName } from "~/server/uploads/classification";
+import {
+  isRenderedHtmlClassification,
+  sanitizeOriginalName,
+} from "~/server/uploads/classification";
 import { DomainError } from "~/server/uploads/errors";
 import { createPublicSlug, createRecordId } from "~/server/uploads/identifiers";
 import { serializeUpload } from "~/server/uploads/serialization";
@@ -63,12 +66,20 @@ type DirectUploadDependencies = {
   now?: () => Date;
 };
 
+/**
+ * The same envelope `/api/uploads` returns, so the browser reads one shape
+ * whichever transport carried the bytes. `publicSlug` and `mediaOrigin` are
+ * part of it because the upload dialog offers both after the transfer.
+ */
 export type DirectUploadRecord = {
   id: string;
   kind: string;
   contentType: string;
   extension: string;
   url: string;
+  rendered: boolean;
+  publicSlug: string;
+  mediaOrigin: string | null;
 };
 
 export type DirectUploadStatus =
@@ -94,6 +105,7 @@ function publishedRecord(upload: {
   id: string;
   kind: string;
   contentType: string;
+  disposition: string;
   extension: string;
   publicSlug: string;
   mediaOrigin: string | null;
@@ -104,6 +116,9 @@ function publishedRecord(upload: {
     contentType: upload.contentType,
     extension: upload.extension,
     url: publicMediaUrl(upload),
+    rendered: isRenderedHtmlClassification(upload),
+    publicSlug: upload.publicSlug,
+    mediaOrigin: upload.mediaOrigin,
   };
 }
 
@@ -437,6 +452,7 @@ async function readPublishedUpload(
       id: true,
       kind: true,
       contentType: true,
+      disposition: true,
       extension: true,
       publicSlug: true,
       mediaOrigin: true,

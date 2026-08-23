@@ -97,8 +97,16 @@ function text(...candidates: unknown[]): string {
   return "";
 }
 
-function readRecord(body: string): UploadedRecord {
-  const parsed: unknown = JSON.parse(body);
+/**
+ * Read whatever an upload endpoint answered into the one record shape the
+ * dialog understands.
+ *
+ * Both transports go through here — the multipart POST below and the direct
+ * multipart session in `direct-transport` — so a resumable 2 GiB video and a
+ * pasted screenshot reach the result step with the same normalised `kind`,
+ * slug and origin rather than one of them quietly missing half its fields.
+ */
+export function normalizeUploadRecord(parsed: unknown): UploadedRecord {
   if (typeof parsed !== "object" || parsed === null) {
     throw new TransportError("invalid_response", "The server sent no upload.");
   }
@@ -197,7 +205,7 @@ export function postMultipart(input: {
         return;
       }
       try {
-        resolve(readRecord(body));
+        resolve(normalizeUploadRecord(JSON.parse(body)));
       } catch (error) {
         reject(
           error instanceof TransportError

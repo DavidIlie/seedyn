@@ -1,4 +1,8 @@
-import { TransportError, type UploadedRecord } from "./transport";
+import {
+  normalizeUploadRecord,
+  TransportError,
+  type UploadedRecord,
+} from "./transport";
 
 const SIGN_BATCH_SIZE = 12;
 const UPLOAD_CONCURRENCY = 3;
@@ -19,7 +23,9 @@ type StatusResponse =
       expiresAt: string;
     }
   | { state: "verifying"; uploadedBytes: number; uploadedParts: number[] }
-  | { state: "published"; record: UploadedRecord }
+  // Normalised on arrival rather than trusted as-is: the session endpoint
+  // serialises `kind` in ShareX casing like every other upload response.
+  | { state: "published"; record: unknown }
   | { state: "aborting" | "aborted" | "failed"; failureCode?: string };
 
 type DirectTransferState =
@@ -368,7 +374,7 @@ class MultipartScheduler {
       { method: "GET" },
     );
     if (status.state === "published") {
-      this.#publishedRecord = status.record;
+      this.#publishedRecord = normalizeUploadRecord(status.record);
       return;
     }
     if (
@@ -463,12 +469,12 @@ class MultipartScheduler {
     for (let attempt = 0; attempt < 180; attempt += 1) {
       try {
         const result = await jsonRequest<
-          | { state: "verifying" }
-          | { state: "published"; record: UploadedRecord }
+          { state: "verifying" } | { state: "published"; record: unknown }
         >(`/api/uploads/direct/${this.#session.sessionId}/complete`, {
           method: "POST",
         });
-        if (result.state === "published") return result.record;
+        if (result.state === "published")
+          return normalizeUploadRecord(result.record);
       } catch (error) {
         const retryable =
           error instanceof TransportError &&
@@ -486,7 +492,8 @@ class MultipartScheduler {
         `/api/uploads/direct/${this.#session.sessionId}`,
         { method: "GET" },
       ).catch(() => null);
-      if (status?.state === "published") return status.record;
+      if (status?.state === "published")
+        return normalizeUploadRecord(status.record);
       if (status?.state === "failed" || status?.state === "aborted") {
         throw new TransportError(
           status.failureCode ?? status.state,
