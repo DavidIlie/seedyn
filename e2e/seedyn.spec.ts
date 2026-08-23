@@ -451,13 +451,15 @@ test("an 80 MiB upload pauses, resumes, verifies, and serves exact ranges", asyn
     await page.getByRole("button", { name: "Upload", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Upload" });
     await dialog.locator('input[type="file"]').setInputFiles(fixturePath);
+    // The caption is rendered twice — once visibly, once in the polite live
+    // region — so pin the locator to the visible paragraph.
     await expect(
-      dialog.getByText(/checking the file on this device/u),
+      dialog.getByText(/checking the file on this device/u).last(),
     ).toBeVisible();
     const pause = dialog.getByRole("button", { name: "Pause upload" });
     await expect(pause).toBeVisible({ timeout: 30_000 });
     await pause.click();
-    const paused = dialog.getByText(/Paused —/u);
+    const paused = dialog.getByText(/Paused —/u).last();
     await expect(paused).toBeVisible();
     const frozen = await paused.textContent();
     await page.waitForTimeout(500);
