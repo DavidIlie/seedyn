@@ -2,19 +2,21 @@
 
 import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "~/components/ui/dialog";
-import { buttonDanger, buttonQuiet, inputBase } from "~/components/ui/styles";
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "~/components/ui/alert-dialog";
+import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
 import type { AdminUserRow } from "~/server/admin/insights";
 
 type ClearBatch = {
@@ -61,6 +63,7 @@ async function errorMessage(response: Response): Promise<string> {
 
 export function ClearUserUploads({ user }: { user: AdminUserRow }) {
   const router = useRouter();
+  const confirmationId = useId();
   const [open, setOpen] = useState(false);
   const [confirmation, setConfirmation] = useState("");
   const [operation, setOperation] = useState(EMPTY_OPERATION);
@@ -132,25 +135,25 @@ export function ClearUserUploads({ user }: { user: AdminUserRow }) {
   const progressTotal = operation.total ?? user.uploadCount;
 
   return (
-    <Dialog open={open} onOpenChange={changeOpen}>
-      <DialogTrigger asChild>
-        <button
+    <AlertDialog open={open} onOpenChange={changeOpen}>
+      <AlertDialogTrigger asChild>
+        <Button
           type="button"
-          className={buttonDanger}
+          variant="destructive"
           disabled={user.uploadCount === 0}
         >
           <Trash2 aria-hidden="true" className="size-4" />
           Clear uploads
-        </button>
-      </DialogTrigger>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl">
-        <DialogHeader className="pr-10">
-          <DialogTitle>Clear this member’s uploads?</DialogTitle>
-          <DialogDescription>
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Clear this member’s uploads?</AlertDialogTitle>
+          <AlertDialogDescription>
             This permanently deletes originals and generated variants. Uploads
             created after the operation begins are preserved.
-          </DialogDescription>
-        </DialogHeader>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
 
         <div className="border-danger/35 bg-danger/5 rounded-lg border p-4">
           <p className="text-sm font-medium">
@@ -166,20 +169,20 @@ export function ClearUserUploads({ user }: { user: AdminUserRow }) {
           </p>
         </div>
 
-        <label className="space-y-2">
-          <span className="text-sm font-medium">
+        <div className="space-y-2">
+          <Label htmlFor={confirmationId}>
             Type <strong className="break-all">{confirmationTarget}</strong> to
             confirm
-          </span>
-          <input
+          </Label>
+          <Input
+            id={confirmationId}
             value={confirmation}
             onChange={(event) => setConfirmation(event.target.value)}
             autoComplete="off"
             spellCheck={false}
             disabled={started || pending}
-            className={inputBase}
           />
-        </label>
+        </div>
 
         {started ? (
           <div className="border-border bg-sunken/45 rounded-lg border p-4 text-sm">
@@ -218,28 +221,26 @@ export function ClearUserUploads({ user }: { user: AdminUserRow }) {
           </p>
         ) : null}
 
-        <DialogFooter>
-          <DialogClose asChild>
-            <button type="button" className={buttonQuiet} disabled={pending}>
-              {operation.done ? "Close" : "Cancel"}
-            </button>
-          </DialogClose>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={pending}>
+            {operation.done ? "Close" : "Cancel"}
+          </AlertDialogCancel>
           {!operation.done ? (
-            <button
+            <Button
               type="button"
+              variant="destructive"
               onClick={() => void clearBatch()}
               disabled={!confirmed || pending}
-              className={buttonDanger}
             >
               {pending
                 ? "Clearing…"
                 : started
                   ? "Continue clearing"
                   : "Clear uploads"}
-            </button>
+            </Button>
           ) : null}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { buttonPrimary } from "~/components/ui/styles";
+import { Button } from "~/components/ui/button";
 
 /**
  * Rendered when a segment calls `unauthorized()`, which answers HTTP 401.
@@ -19,9 +19,9 @@ export default function Unauthorized() {
           This page belongs to a Seedyn account. Signing in will bring you back
           here.
         </p>
-        <Link href="/sign-in" className={`${buttonPrimary} mt-6`}>
-          Sign in
-        </Link>
+        <Button asChild className="mt-6">
+          <Link href="/sign-in">Sign in</Link>
+        </Button>
       </div>
     </main>
   );

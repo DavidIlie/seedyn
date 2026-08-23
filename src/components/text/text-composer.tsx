@@ -16,6 +16,18 @@ import {
   GuardedLink,
   useNavigationBlocker,
 } from "~/components/navigation/navigation-blocker";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "~/components/ui/alert-dialog";
+import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import {
   Select,
@@ -24,12 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
-import {
-  buttonPrimary,
-  buttonQuiet,
-  inputBase,
-  labelBase,
-} from "~/components/ui/styles";
+import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group";
 
 import {
   documentToMarkdown,
@@ -93,9 +100,11 @@ function isMode(value: unknown): value is ComposerMode {
 export function TextComposer() {
   const router = useRouter();
   const { setBlocked } = useNavigationBlocker();
+  const filenameFieldId = useId();
   const languageFieldId = useId();
   const fileInput = useRef<HTMLInputElement>(null);
   const [mode, setMode] = useState<ComposerMode>("code");
+  const [pendingImport, setPendingImport] = useState<File | null>(null);
   const [code, setCode] = useState<CodeDraft>(INITIAL_CODE);
   const [document, setDocument] = useState<DocumentDraft>(INITIAL_DOCUMENT);
   const [dirty, setDirty] = useState(false);
@@ -275,7 +284,7 @@ export function TextComposer() {
     setError(null);
   }
 
-  async function pickFile(event: ChangeEvent<HTMLInputElement>) {
+  function pickFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
@@ -283,8 +292,18 @@ export function TextComposer() {
       setError("That file is larger than the 16 MB limit.");
       return;
     }
-    if (dirty && !window.confirm("Replace the current draft with this file?"))
+    // Importing over unsaved work is destructive, so it asks first — through
+    // the same alert dialog every other irreversible action uses. This was a
+    // `window.confirm`, which cannot be styled, cannot be reached by the
+    // Playwright flow without a dialog handler, and blocks the main thread.
+    if (dirty) {
+      setPendingImport(file);
       return;
+    }
+    void loadFile(file);
+  }
+
+  async function loadFile(file: File) {
     try {
       const next = await file.text();
       if (mode === "document") {
@@ -335,31 +354,33 @@ export function TextComposer() {
 
   return (
     <div className="pb-10">
-      <div
-        role="tablist"
+      <ToggleGroup
+        type="single"
+        variant="segmented"
+        value={mode}
+        // Radix reports "" when the pressed item is already selected. There is
+        // no "no editor" state, so re-pressing the current mode does nothing.
+        onValueChange={(next) => {
+          if (isMode(next)) setMode(next);
+        }}
         aria-label="Editor type"
-        className="border-border bg-sunken mb-5 inline-flex rounded-xl border p-1"
+        className="mb-5"
       >
-        <ModeButton
-          selected={mode === "code"}
-          onClick={() => setMode("code")}
-          icon={Code2}
-        >
+        <ToggleGroupItem value="code">
+          <Code2 className="size-4" aria-hidden="true" />
           Code
-        </ModeButton>
-        <ModeButton
-          selected={mode === "document"}
-          onClick={() => setMode("document")}
-          icon={FileText}
-        >
+        </ToggleGroupItem>
+        <ToggleGroupItem value="document">
+          <FileText className="size-4" aria-hidden="true" />
           Document
-        </ModeButton>
-      </div>
+        </ToggleGroupItem>
+      </ToggleGroup>
 
       <div className="flex flex-col gap-3 md:flex-row md:items-end">
-        <label className="min-w-0 flex-1">
-          <span className={labelBase}>Filename</span>
-          <input
+        <div className="min-w-0 flex-1">
+          <Label htmlFor={filenameFieldId}>Filename</Label>
+          <Input
+            id={filenameFieldId}
             value={filename}
             onChange={(event) => {
               if (mode === "code") {
@@ -376,11 +397,11 @@ export function TextComposer() {
               }
               edit();
             }}
-            className={`${inputBase} mt-1 font-mono`}
+            className="mt-1 font-mono"
             maxLength={255}
             spellCheck={false}
           />
-        </label>
+        </div>
         {mode === "code" ? (
           <div className="md:w-44">
             <Label htmlFor={languageFieldId}>Language</Label>
@@ -417,38 +438,34 @@ export function TextComposer() {
                 : "text/*,.js,.jsx,.ts,.tsx,.json,.md,.py,.rs,.sql,.sh,.yaml,.yml,.xml"
             }
             className="sr-only"
-            onChange={(event) => void pickFile(event)}
+            onChange={pickFile}
           />
-          <button
+          <Button
             type="button"
-            className={buttonQuiet}
+            variant="outline"
             onClick={() => fileInput.current?.click()}
           >
-            <FileUp className="size-4" aria-hidden="true" />{" "}
+            <FileUp className="size-4" aria-hidden="true" />
             {mode === "document" ? "Import Markdown" : "Pick file"}
-          </button>
+          </Button>
           {mode === "document" ? (
-            <button
-              type="button"
-              className={buttonQuiet}
-              onClick={exportMarkdown}
-            >
-              <Download className="size-4" aria-hidden="true" /> Export .md
-            </button>
+            <Button type="button" variant="outline" onClick={exportMarkdown}>
+              <Download className="size-4" aria-hidden="true" />
+              Export .md
+            </Button>
           ) : null}
-          <button
+          <Button
             type="button"
-            className={buttonPrimary}
             disabled={submitting}
             onClick={() => void submit()}
           >
-            <Save className="size-4" aria-hidden="true" />{" "}
+            <Save className="size-4" aria-hidden="true" />
             {submitting
               ? "Creating…"
               : mode === "document"
                 ? "Create document"
                 : "Create"}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -494,32 +511,37 @@ export function TextComposer() {
         </GuardedLink>
         <span aria-hidden="true"> · </span>Press Ctrl/⌘ S to create.
       </p>
-    </div>
-  );
-}
 
-function ModeButton({
-  selected,
-  onClick,
-  icon: Icon,
-  children,
-}: {
-  selected: boolean;
-  onClick: () => void;
-  icon: typeof Code2;
-  children: string;
-}) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={selected}
-      onClick={onClick}
-      className={`inline-flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors ${selected ? "bg-panel text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-    >
-      <Icon className="size-4" aria-hidden="true" />
-      {children}
-    </button>
+      <AlertDialog
+        open={pendingImport !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingImport(null);
+        }}
+      >
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Replace the current draft?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingImport?.name ?? "This file"} replaces everything in the
+              editor. The draft it overwrites has not been published, so it
+              cannot be recovered.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep my draft</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const file = pendingImport;
+                setPendingImport(null);
+                if (file) void loadFile(file);
+              }}
+            >
+              Replace draft
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 }
 

@@ -1,4 +1,4 @@
-import { panelSurface } from "./styles";
+import { cardSurface } from "./card";
 
 /**
  * Empty states carry the reason, never a generic shrug. A library with no
@@ -16,7 +16,7 @@ export function EmptyState({
 }) {
   return (
     <div
-      className={`${panelSurface} bg-sunken/45 border-dashed px-6 py-14 text-center`}
+      className={`${cardSurface} bg-sunken/45 border-dashed px-6 py-14 text-center`}
     >
       <p className="font-display text-base font-semibold">{title}</p>
       <p className="text-muted-foreground mx-auto mt-2 max-w-[54ch] text-sm leading-6">

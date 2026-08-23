@@ -3,7 +3,8 @@
 import { useActionState } from "react";
 
 import { HydratedSubmitButton } from "~/components/ui/hydrated-submit-button";
-import { buttonCompact, inputBase, labelBase } from "~/components/ui/styles";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
 
 import { updateApiKeyNameAction, type UpdateKeyNameState } from "./actions";
 
@@ -22,22 +23,20 @@ export function KeyNameForm({
   return (
     <form action={action} className="space-y-2">
       <input type="hidden" name="apiKeyId" value={apiKeyId} />
-      <label htmlFor={`key-name-${apiKeyId}`} className={labelBase}>
-        Name
-      </label>
+      <Label htmlFor={`key-name-${apiKeyId}`}>Name</Label>
       <div className="flex gap-2">
-        <input
+        <Input
           id={`key-name-${apiKeyId}`}
           name="name"
           required
           maxLength={80}
           defaultValue={name}
-          className={inputBase}
         />
         <HydratedSubmitButton
           label="Save"
           pendingLabel="Saving…"
-          className={buttonCompact}
+          variant="outline"
+          size="sm"
         />
       </div>
       {state.status !== "idle" ? (

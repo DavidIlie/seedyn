@@ -1,6 +1,6 @@
 import { formatTimestamp } from "~/components/lib/format";
 import { EmptyState } from "~/components/ui/empty-state";
-import { panelSurface } from "~/components/ui/styles";
+import { cardSurface } from "~/components/ui/card";
 import type { ApiKeySummary } from "~/server/api-keys";
 import type { MediaDomainChoice } from "~/server/media/origin-preferences";
 
@@ -26,7 +26,7 @@ export function KeyList({
   }
 
   return (
-    <ul className={panelSurface}>
+    <ul className={cardSurface}>
       {keys.map((key) => (
         <KeyRow key={key.id} apiKey={key} mediaDomains={mediaDomains} />
       ))}
@@ -147,7 +147,7 @@ function StatusBadge({
 
 export function KeyListSkeleton({ rows = 3 }: { rows?: number }) {
   return (
-    <ul aria-hidden="true" className={panelSurface}>
+    <ul aria-hidden="true" className={cardSurface}>
       {Array.from({ length: rows }, (_, index) => (
         <li
           key={index}

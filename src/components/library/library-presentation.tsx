@@ -1,7 +1,5 @@
 "use client";
 
-/* oxlint-disable jsx-a11y/no-noninteractive-tabindex -- The table and virtual-list scroll regions must be keyboard reachable. */
-
 import {
   coreFeatures,
   createCoreRowModel,
@@ -29,6 +27,8 @@ import {
   uploadKindLabel,
 } from "~/components/lib/format";
 import { CopyButton } from "~/components/ui/copy-button";
+import { Toggle } from "~/components/ui/toggle";
+import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group";
 import { UploadOriginBadge } from "~/components/upload/origin-badge";
 import type { SerializedUpload } from "~/server/uploads/serialization";
 
@@ -60,6 +60,10 @@ const VIEWS = [
   { value: "grid", label: "Cards", icon: LayoutGrid },
 ] as const;
 
+function isViewMode(value: string): value is ViewMode {
+  return value === "list" || value === "table" || value === "grid";
+}
+
 export function LibraryPresentation({ items }: { items: PresentedUpload[] }) {
   const [view, setView] = useState<ViewMode>("list");
   // Start covered. A saved privacy preference must never briefly reveal a
@@ -68,9 +72,7 @@ export function LibraryPresentation({ items }: { items: PresentedUpload[] }) {
 
   useEffect(() => {
     const savedView = window.localStorage.getItem(VIEW_KEY);
-    if (savedView === "list" || savedView === "table" || savedView === "grid") {
-      setView(savedView);
-    }
+    if (savedView !== null && isViewMode(savedView)) setView(savedView);
     setPrivacy(window.localStorage.getItem(PRIVACY_KEY) === "true");
   }, []);
 
@@ -79,52 +81,48 @@ export function LibraryPresentation({ items }: { items: PresentedUpload[] }) {
     window.localStorage.setItem(VIEW_KEY, next);
   }
 
-  function togglePrivacy() {
-    setPrivacy((current) => {
-      const next = !current;
-      window.localStorage.setItem(PRIVACY_KEY, String(next));
-      return next;
-    });
+  function togglePrivacy(next: boolean) {
+    setPrivacy(next);
+    window.localStorage.setItem(PRIVACY_KEY, String(next));
   }
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div
-          role="group"
+        <ToggleGroup
+          type="single"
+          variant="segmented"
+          size="sm"
+          value={view}
+          // Radix reports "" when the pressed item is the selected one. A view
+          // is a required choice, so re-pressing it is a no-op, not a clear.
+          onValueChange={(next) => {
+            if (isViewMode(next)) chooseView(next);
+          }}
           aria-label="Library presentation"
-          className="border-border bg-sunken inline-flex rounded-lg border p-0.5"
         >
           {VIEWS.map(({ value, label, icon: Icon }) => (
-            <button
-              key={value}
-              type="button"
-              aria-pressed={view === value}
-              onClick={() => chooseView(value)}
-              className="text-muted-foreground hover:text-foreground aria-pressed:bg-panel aria-pressed:text-accent inline-flex h-10 items-center gap-2 rounded-md px-3 text-xs font-medium transition-colors aria-pressed:shadow-sm"
-            >
+            <ToggleGroupItem key={value} value={value} aria-label={label}>
               <Icon aria-hidden="true" className="size-3.5" />
               <span className="hidden sm:inline">{label}</span>
-            </button>
+            </ToggleGroupItem>
           ))}
-        </div>
+        </ToggleGroup>
 
-        <button
-          type="button"
-          aria-pressed={privacy}
-          onClick={togglePrivacy}
-          className="border-border bg-panel hover:bg-sunken hover:border-border-strong inline-flex h-10 items-center gap-2 rounded-lg border px-3 text-xs font-medium transition-colors"
+        <Toggle
+          variant="outline"
+          size="sm"
+          pressed={privacy}
+          onPressedChange={togglePrivacy}
+          className="rounded-lg"
         >
           {privacy ? (
-            <EyeOff aria-hidden="true" className="text-accent size-3.5" />
+            <EyeOff aria-hidden="true" className="size-3.5" />
           ) : (
-            <Eye
-              aria-hidden="true"
-              className="text-muted-foreground size-3.5"
-            />
+            <Eye aria-hidden="true" className="size-3.5" />
           )}
           Privacy {privacy ? "on" : "off"}
-        </button>
+        </Toggle>
       </div>
 
       {view === "list" ? (
@@ -156,6 +154,8 @@ function UploadTable({
     <div
       role="region"
       aria-label="Uploads table"
+      // A scroll region has to be focusable or it cannot be scrolled from the keyboard.
+      // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex
       tabIndex={0}
       className="border-border bg-panel overflow-x-auto overscroll-x-contain rounded-xl border"
     >
@@ -274,6 +274,8 @@ function VirtualCompactUploadList({
       ref={viewport}
       role="region"
       aria-label="Virtualized uploads"
+      // A scroll region has to be focusable or it cannot be scrolled from the keyboard.
+      // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex
       tabIndex={0}
       className="border-border bg-panel max-h-[min(70dvh,48rem)] overflow-auto rounded-xl border"
     >

@@ -23,7 +23,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
-import { buttonPrimary } from "~/components/ui/styles";
 import { apiKeySlugBase } from "~/lib/api-key-slug";
 import { API_KEY_SCOPES, type ApiKeyScope } from "~/server/api-keys/constants";
 import type { MediaDomainChoice } from "~/server/media/origin-preferences";
@@ -187,11 +186,7 @@ export function ConfigureKey({
             Cancel
           </Button>
         </DialogClose>
-        <HydratedSubmitButton
-          label="Create key"
-          pendingLabel="Creating…"
-          className={buttonPrimary}
-        />
+        <HydratedSubmitButton label="Create key" pendingLabel="Creating…" />
       </DialogFooter>
     </form>
   );

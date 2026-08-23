@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { buttonPrimary, buttonQuiet } from "~/components/ui/styles";
+import { Button } from "~/components/ui/button";
 
 export default function AdminError({ reset }: { reset: () => void }) {
   return (
@@ -17,12 +17,12 @@ export default function AdminError({ reset }: { reset: () => void }) {
           content was changed.
         </p>
         <div className="mt-5 flex flex-wrap justify-center gap-2">
-          <button type="button" onClick={reset} className={buttonPrimary}>
+          <Button type="button" onClick={reset}>
             Retry
-          </button>
-          <Link href="/dashboard" className={buttonQuiet}>
-            Back to library
-          </Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/dashboard">Back to library</Link>
+          </Button>
         </div>
       </div>
     </div>

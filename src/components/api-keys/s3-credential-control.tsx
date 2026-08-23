@@ -17,11 +17,7 @@ import {
   DialogTrigger,
 } from "~/components/ui/dialog";
 import { HydratedSubmitButton } from "~/components/ui/hydrated-submit-button";
-import {
-  buttonCompact,
-  buttonPrimary,
-  buttonQuiet,
-} from "~/components/ui/styles";
+import { Button } from "~/components/ui/button";
 
 import { rotateS3CredentialAction, type S3CredentialState } from "./actions";
 
@@ -129,9 +125,9 @@ function S3CredentialDialog({
 
         <Dialog open={open} onOpenChange={changeOpen}>
           <DialogTrigger asChild>
-            <button type="button" className={buttonCompact}>
+            <Button type="button" variant="outline" size="sm">
               {enabled ? "Rotate credential" : "Set up Shottr"}
-            </button>
+            </Button>
           </DialogTrigger>
           <DialogContent
             className="sm:max-w-2xl"
@@ -223,16 +219,15 @@ function CredentialConfirmation({
 
       <DialogFooter>
         <DialogClose asChild>
-          <button type="button" className={buttonQuiet}>
+          <Button type="button" variant="outline">
             Cancel
-          </button>
+          </Button>
         </DialogClose>
         <form action={action}>
           <input type="hidden" name="apiKeyId" value={apiKeyId} />
           <HydratedSubmitButton
             label={enabled ? "Rotate credential" : "Create credential"}
             pendingLabel={enabled ? "Rotating…" : "Creating…"}
-            className={buttonPrimary}
           />
         </form>
       </DialogFooter>
@@ -314,9 +309,9 @@ function CredentialReveal({
       </dl>
 
       <DialogFooter>
-        <button type="button" className={buttonPrimary} onClick={onSaved}>
+        <Button type="button" onClick={onSaved}>
           I saved it
-        </button>
+        </Button>
       </DialogFooter>
     </>
   );

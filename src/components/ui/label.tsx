@@ -5,7 +5,8 @@ import { Label as LabelPrimitive } from "radix-ui";
 
 import { cn } from "~/lib/utils";
 
-import { labelBase } from "./styles";
+export const labelVariants =
+  "block max-w-full text-sm font-medium text-foreground break-words";
 
 function Label({
   className,
@@ -15,7 +16,7 @@ function Label({
     <LabelPrimitive.Root
       data-slot="label"
       className={cn(
-        labelBase,
+        labelVariants,
         "peer-disabled:cursor-not-allowed peer-disabled:opacity-50",
         className,
       )}

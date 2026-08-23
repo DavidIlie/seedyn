@@ -2,18 +2,34 @@
 
 import { useActionState } from "react";
 
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "~/components/ui/alert-dialog";
+import { Button } from "~/components/ui/button";
 import { HydratedSubmitButton } from "~/components/ui/hydrated-submit-button";
-import { buttonDanger, buttonQuiet } from "~/components/ui/styles";
 
 import { deleteUploadAction, type DeleteState } from "./delete-actions";
 
 /**
- * Deletion, behind a native disclosure.
+ * Deletion, behind an alert dialog.
  *
- * The confirmation is a `<details>` rather than a modal because it never has to
- * interrupt. The destructive action stays disabled until hydration because its
- * result requires React; this client boundary also reports whether the
- * submission is in flight and any error from the last attempt.
+ * This was a `<details>` disclosure, which put an armed destructive button one
+ * click from the page and let a stray click past it go unnoticed. Deleting is
+ * irreversible and it is the only action on this page that is, so it gets the
+ * primitive built for irreversible actions: focus moves into the prompt, stays
+ * there, and the dialog cannot be dismissed by clicking the backdrop.
+ *
+ * The confirm control is the form's own submit rather than
+ * `AlertDialogAction`, which closes the dialog on click and would unmount the
+ * Server Action form mid-submit. A failure therefore stays on screen with its
+ * message; a success redirects away.
  */
 export function DeleteUpload({
   uploadId,
@@ -28,21 +44,22 @@ export function DeleteUpload({
   );
 
   return (
-    <details className="border-border rounded-xl border">
-      <summary className="flex h-12 cursor-pointer list-none items-center px-4 text-sm [&::-webkit-details-marker]:hidden">
-        Delete this upload…
-      </summary>
-      <div className="border-border space-y-3 border-t p-4">
-        <p className="text-muted-foreground max-w-prose text-sm">
-          Deleting removes <span className="font-medium">{filename}</span> and
-          any stored GIF variant. The URLs stop working immediately at the
-          origin, but anyone who already has the link may still be served the
-          bytes by an edge cache for up to 24 hours.
-        </p>
-        <form action={action}>
-          <input type="hidden" name="uploadId" value={uploadId} />
-          <DeleteButton />
-        </form>
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button type="button" variant="destructive">
+          Delete this upload…
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent size="sm">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete this upload?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This removes <span className="font-medium">{filename}</span> and any
+            stored GIF variant. The URLs stop working immediately at the origin,
+            but anyone who already has the link may still be served the bytes by
+            an edge cache for up to 24 hours.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
         {state.error ? (
           <p
             role="alert"
@@ -51,18 +68,19 @@ export function DeleteUpload({
             {state.error}
           </p>
         ) : null}
-      </div>
-    </details>
-  );
-}
-
-function DeleteButton() {
-  return (
-    <HydratedSubmitButton
-      label="Delete permanently"
-      pendingLabel="Deleting…"
-      className={buttonDanger}
-      pendingClassName={buttonQuiet}
-    />
+        <AlertDialogFooter>
+          <AlertDialogCancel>Keep upload</AlertDialogCancel>
+          <form action={action}>
+            <input type="hidden" name="uploadId" value={uploadId} />
+            <HydratedSubmitButton
+              label="Delete permanently"
+              pendingLabel="Deleting…"
+              variant="destructive"
+              pendingVariant="outline"
+            />
+          </form>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

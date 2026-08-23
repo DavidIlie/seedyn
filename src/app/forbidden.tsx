@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { buttonQuiet } from "~/components/ui/styles";
+import { Button } from "~/components/ui/button";
 
 /**
  * Rendered when a segment calls `forbidden()`, which answers HTTP 403.
@@ -20,9 +20,9 @@ export default function Forbidden() {
           Your account is signed in but does not have access to this. Nothing
           was changed.
         </p>
-        <Link href="/dashboard" className={`${buttonQuiet} mt-6`}>
-          Back to dashboard
-        </Link>
+        <Button variant="outline" asChild className="mt-6">
+          <Link href="/dashboard">Back to dashboard</Link>
+        </Button>
       </div>
     </main>
   );

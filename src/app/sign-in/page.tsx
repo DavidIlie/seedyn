@@ -5,7 +5,7 @@ import { Suspense } from "react";
 
 import { activeProviderLabel } from "~/components/auth/provider";
 import { SeedynMark } from "~/components/brand/seedyn-logo";
-import { buttonPrimary } from "~/components/ui/styles";
+import { Button } from "~/components/ui/button";
 import { getOptionalUser } from "~/server/auth";
 
 import { startSignIn } from "./actions";
@@ -124,9 +124,9 @@ async function SignInPanel({
       {code ? <SignInError code={code} /> : null}
 
       <form action={startSignIn}>
-        <button type="submit" className={`${buttonPrimary} w-full`}>
+        <Button type="submit" className="w-full">
           {activeProviderLabel}
-        </button>
+        </Button>
       </form>
     </div>
   );

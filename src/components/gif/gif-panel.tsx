@@ -7,7 +7,7 @@ import { formatBytes } from "~/components/lib/format";
 import { CopyButton } from "~/components/ui/copy-button";
 import { Progress } from "~/components/ui/progress";
 import { ProgressAnnouncement } from "~/components/ui/progress-announcement";
-import { buttonPrimary, buttonQuiet } from "~/components/ui/styles";
+import { Button } from "~/components/ui/button";
 import { browserGifEndpoint } from "~/components/upload/endpoints";
 import { postMultipart, TransportError } from "~/components/upload/transport";
 
@@ -287,9 +287,11 @@ export function GifPanel({
             </p>
             <div className="flex flex-wrap items-center gap-2">
               <CopyButton value={settledUrl} label="Copy the GIF URL" />
-              <a href={settledUrl} download className={buttonQuiet}>
-                Download GIF
-              </a>
+              <Button variant="outline" asChild>
+                <a href={settledUrl} download>
+                  Download GIF
+                </a>
+              </Button>
             </div>
             {storedGifBytes && stage.name !== "stored" ? (
               <p className="text-muted-foreground text-sm">
@@ -319,15 +321,11 @@ export function GifPanel({
                     ? "No stored GIF yet. Your browser keeps the original dimensions up to 1920×1080 and encodes one frame. Images with 256 colours or fewer remain exact; larger palettes use GIF’s highest-fidelity 256-colour approximation."
                     : `No stored GIF yet. Converting video needs a ${FFMPEG_APPROXIMATE_MB} MB converter, downloaded only when you ask for it. The first ${GIF_DEFAULT_CLIP_SECONDS} seconds are converted.`}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => void convert()}
-                  className={buttonPrimary}
-                >
+                <Button type="button" onClick={() => void convert()}>
                   {plan.engine === "still"
                     ? "Convert to GIF"
                     : `Load converter and convert`}
-                </button>
+                </Button>
               </>
             ) : null}
 
@@ -337,9 +335,9 @@ export function GifPanel({
             stage.name === "uploading" ? (
               <div className="space-y-3">
                 <GifProgress stage={stage} />
-                <button type="button" onClick={cancel} className={buttonQuiet}>
+                <Button type="button" variant="outline" onClick={cancel}>
                   Cancel
-                </button>
+                </Button>
               </div>
             ) : null}
 
@@ -355,20 +353,12 @@ export function GifPanel({
                   {formatBytes(stage.blob.size)}. Nothing has been stored yet.
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void upload(stage.blob)}
-                    className={buttonPrimary}
-                  >
+                  <Button type="button" onClick={() => void upload(stage.blob)}>
                     Store this GIF
-                  </button>
-                  <button
-                    type="button"
-                    onClick={cancel}
-                    className={buttonQuiet}
-                  >
+                  </Button>
+                  <Button type="button" variant="outline" onClick={cancel}>
                     Discard
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : null}

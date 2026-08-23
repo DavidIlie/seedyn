@@ -5,7 +5,6 @@ import { useActionState } from "react";
 import { MediaDomainSelect } from "~/components/media/media-domain-select";
 import { Label } from "~/components/ui/label";
 import { HydratedSubmitButton } from "~/components/ui/hydrated-submit-button";
-import { buttonCompact } from "~/components/ui/styles";
 import type { MediaDomainChoice } from "~/server/media/origin-preferences";
 
 import {
@@ -41,7 +40,8 @@ export function KeyMediaDomainForm({
         <HydratedSubmitButton
           label="Save"
           pendingLabel="Saving…"
-          className={buttonCompact}
+          variant="outline"
+          size="sm"
         />
       </div>
       {state.status !== "idle" ? (

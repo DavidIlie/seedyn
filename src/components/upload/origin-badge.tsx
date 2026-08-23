@@ -1,3 +1,4 @@
+import { Badge } from "~/components/ui/badge";
 import type {
   SerializedUploadOrigin,
   SerializedUploadProvenance,
@@ -26,18 +27,15 @@ export function uploadProvenanceLabel(
 
 export function UploadOriginBadge({
   provenance,
-  className = "",
+  className,
 }: {
   provenance: SerializedUploadProvenance;
   className?: string;
 }) {
   const label = uploadProvenanceLabel(provenance);
   return (
-    <span
-      title={label}
-      className={`border-border bg-sunken text-muted-foreground inline-flex max-w-full min-w-0 items-center rounded-md border px-1.5 py-0.5 text-[0.6875rem] leading-none font-medium ${className}`}
-    >
+    <Badge title={label} className={className}>
       <span className="truncate">{label}</span>
-    </span>
+    </Badge>
   );
 }

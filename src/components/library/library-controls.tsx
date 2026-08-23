@@ -1,9 +1,9 @@
 import Form from "next/form";
 
-import { Button } from "~/components/ui/button";
+import { Button, buttonVariants } from "~/components/ui/button";
 import { FormSelect } from "~/components/ui/form-select";
 import { Input, inputVariants } from "~/components/ui/input";
-import { buttonQuiet } from "~/components/ui/styles";
+import { cn } from "~/lib/utils";
 
 export type LibraryPath = "/images" | "/files" | "/texts";
 
@@ -79,9 +79,11 @@ export function LibraryControlsSkeleton() {
       aria-hidden="true"
       className="grid grid-cols-1 gap-2 pb-4 sm:flex sm:items-center"
     >
-      <div className={`${inputVariants} sm:max-w-xs`} />
-      <div className={`${inputVariants} !w-full sm:!w-44`} />
-      <div className={`${buttonQuiet} w-full sm:w-20`} />
+      <div className={cn(inputVariants, "sm:max-w-xs")} />
+      <div className={cn(inputVariants, "w-full sm:w-44")} />
+      <div
+        className={cn(buttonVariants({ variant: "outline" }), "w-full sm:w-20")}
+      />
     </div>
   );
 }

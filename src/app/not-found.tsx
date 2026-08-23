@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { buttonQuiet } from "~/components/ui/styles";
+import { Button } from "~/components/ui/button";
 
 export default function NotFound() {
   return (
@@ -11,9 +11,9 @@ export default function NotFound() {
           There is nothing at this address. Public media lives on the separate
           media origin, not here.
         </p>
-        <Link href="/dashboard" className={`${buttonQuiet} mt-6`}>
-          Back to dashboard
-        </Link>
+        <Button variant="outline" asChild className="mt-6">
+          <Link href="/dashboard">Back to dashboard</Link>
+        </Button>
       </div>
     </main>
   );

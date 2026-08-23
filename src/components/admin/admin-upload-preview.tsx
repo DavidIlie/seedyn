@@ -17,7 +17,7 @@ import {
   DialogTitle,
 } from "~/components/ui/dialog";
 import { CopyButton } from "~/components/ui/copy-button";
-import { buttonDanger, buttonQuiet } from "~/components/ui/styles";
+import { Button } from "~/components/ui/button";
 import { UploadOriginBadge } from "~/components/upload/origin-badge";
 import type { AdminUploadRow } from "~/server/admin/uploads";
 
@@ -144,44 +144,41 @@ export function AdminUploadPreview({
               <p className="text-muted-foreground mr-auto text-left text-sm">
                 Delete this original and every generated variant permanently?
               </p>
-              <button
+              <Button
                 type="button"
-                className={buttonQuiet}
+                variant="outline"
                 disabled={deleting}
                 onClick={() => setConfirmingDelete(false)}
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className={buttonDanger}
+                variant="destructive"
                 disabled={deleting}
                 onClick={() => void deleteUpload()}
               >
                 {deleting ? "Deleting…" : "Delete permanently"}
-              </button>
+              </Button>
             </>
           ) : (
             <>
-              <button
+              <Button
                 type="button"
-                className={buttonDanger}
+                variant="destructive"
                 onClick={() => setConfirmingDelete(true)}
               >
                 <Trash2 aria-hidden="true" className="size-4" />
                 Delete
-              </button>
+              </Button>
               <div className="flex flex-1 flex-wrap justify-end gap-2">
                 <CopyButton value={url} label="Copy public URL" />
-                <a
-                  href={url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className={buttonQuiet}
-                >
-                  Open link
-                  <ExternalLink aria-hidden="true" className="size-4" />
-                </a>
+                <Button variant="outline" asChild>
+                  <a href={url} target="_blank" rel="noreferrer">
+                    Open link
+                    <ExternalLink aria-hidden="true" className="size-4" />
+                  </a>
+                </Button>
               </div>
             </>
           )}

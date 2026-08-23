@@ -9,7 +9,6 @@ import {
 import { MediaDomainSelect } from "~/components/media/media-domain-select";
 import { Label } from "~/components/ui/label";
 import { HydratedSubmitButton } from "~/components/ui/hydrated-submit-button";
-import { buttonPrimary } from "~/components/ui/styles";
 import type { MediaDomainChoice } from "~/server/media/origin-preferences";
 
 export function AccountMediaDomainForm({
@@ -62,11 +61,7 @@ export function AccountMediaDomainForm({
         </p>
       ) : null}
 
-      <HydratedSubmitButton
-        label="Save default"
-        pendingLabel="Saving…"
-        className={buttonPrimary}
-      />
+      <HydratedSubmitButton label="Save default" pendingLabel="Saving…" />
     </form>
   );
 }

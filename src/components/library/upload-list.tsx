@@ -1,8 +1,9 @@
 import Link from "next/link";
 
 import { uploadUrl, type UploadPage } from "~/components/data/uploads";
+import { Button } from "~/components/ui/button";
+import { cardSurface } from "~/components/ui/card";
 import { EmptyState } from "~/components/ui/empty-state";
-import { buttonQuiet, panelSurface } from "~/components/ui/styles";
 import type { SerializedUpload } from "~/server/uploads/serialization";
 
 import type { LibraryPath } from "./library-controls";
@@ -24,7 +25,7 @@ export function UploadList({ items }: { items: SerializedUpload[] }) {
  */
 export function UploadListSkeleton({ rows = 10 }: { rows?: number }) {
   return (
-    <ul aria-hidden="true" className={panelSurface}>
+    <ul aria-hidden="true" className={cardSurface}>
       {Array.from({ length: rows }, (_, index) => (
         <UploadRowSkeleton key={index} />
       ))}
@@ -62,14 +63,14 @@ export function LibraryPagination({
   return (
     <nav aria-label="Pagination" className="flex items-center gap-2 pt-4">
       {atStart ? null : (
-        <Link href={`${basePath}?${start.toString()}`} className={buttonQuiet}>
-          Back to newest
-        </Link>
+        <Button variant="outline" asChild>
+          <Link href={`${basePath}?${start.toString()}`}>Back to newest</Link>
+        </Button>
       )}
       {page.nextCursor ? (
-        <Link href={`${basePath}?${next.toString()}`} className={buttonQuiet}>
-          Next page
-        </Link>
+        <Button variant="outline" asChild>
+          <Link href={`${basePath}?${next.toString()}`}>Next page</Link>
+        </Button>
       ) : null}
     </nav>
   );

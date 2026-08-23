@@ -6,9 +6,12 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  selectTriggerVariants,
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
+import { useHydrated } from "~/components/ui/use-hydrated";
+import { cn } from "~/lib/utils";
 import type { MediaDomainChoice } from "~/server/media/origin-preferences";
 
 /** The wire value that means "resolve the account preference server-side". */
@@ -66,8 +69,35 @@ export function MediaDomainSelect({
   className?: string;
   "aria-describedby"?: string;
 }) {
+  const hydrated = useHydrated();
   const [uncontrolled, setUncontrolled] = useState(defaultValue);
   const selected = value ?? uncontrolled;
+
+  // Before hydration the listbox is a button that does nothing, so these forms
+  // render the native control they replace. It needs no sentinel: an `<option>`
+  // carries the empty string that means "account default" perfectly well.
+  if (!hydrated && name) {
+    return (
+      <select
+        id={id}
+        name={name}
+        defaultValue={selected}
+        disabled={disabled}
+        aria-describedby={ariaDescribedBy}
+        data-size="default"
+        className={cn(selectTriggerVariants, className)}
+      >
+        {allowAccountDefault ? (
+          <option value={ACCOUNT_DEFAULT_MEDIA_DOMAIN}>Account default</option>
+        ) : null}
+        {mediaDomains.map((domain) => (
+          <option key={domain.id} value={domain.id}>
+            {domain.host}
+          </option>
+        ))}
+      </select>
+    );
+  }
 
   return (
     <>

@@ -1,22 +1,28 @@
 "use client";
 
-import { useState } from "react";
-
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "~/components/ui/dialog";
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "~/components/ui/alert-dialog";
+import { Button } from "~/components/ui/button";
 import { HydratedSubmitButton } from "~/components/ui/hydrated-submit-button";
-import { buttonDanger, buttonQuiet } from "~/components/ui/styles";
 
 import { revokeApiKeyAction } from "./actions";
 
+/**
+ * Revocation is irreversible, so it is an alert dialog rather than a plain one:
+ * the prompt takes focus, traps it, and cannot be dismissed by clicking past it.
+ *
+ * The confirm control is the form's own submit button rather than
+ * `AlertDialogAction`, because that primitive closes the dialog on click and
+ * would unmount the Server Action form mid-submit.
+ */
 export function RevokeKeyControl({
   apiKeyId,
   name,
@@ -24,37 +30,32 @@ export function RevokeKeyControl({
   apiKeyId: string;
   name: string;
 }) {
-  const [open, setOpen] = useState(false);
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <button type="button" className={buttonDanger}>
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button type="button" variant="destructive">
           Revoke key
-        </button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Revoke this key?</DialogTitle>
-          <DialogDescription>
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent size="sm">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Revoke this key?</AlertDialogTitle>
+          <AlertDialogDescription>
             Uploads from {name} stop immediately. Existing links keep working.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <DialogClose asChild>
-            <button type="button" className={buttonQuiet}>
-              Cancel
-            </button>
-          </DialogClose>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
           <form action={revokeApiKeyAction}>
             <input type="hidden" name="apiKeyId" value={apiKeyId} />
             <HydratedSubmitButton
               label="Revoke key"
               pendingLabel="Revoking…"
-              className={buttonDanger}
+              variant="destructive"
             />
           </form>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

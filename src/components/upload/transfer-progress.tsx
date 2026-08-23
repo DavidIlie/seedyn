@@ -2,9 +2,7 @@
 
 import { formatBytes } from "~/components/lib/format";
 import { Progress } from "~/components/ui/progress";
-
-/** Announce at most this often, plus once when the transfer reaches 100%. */
-const ANNOUNCE_EVERY_PERCENT = 10;
+import { ProgressAnnouncement } from "~/components/ui/progress-announcement";
 
 /**
  * A measured byte transfer.
@@ -31,19 +29,11 @@ export function TransferProgress({
     total === null || total <= 0
       ? null
       : Math.min(100, Math.round((loaded / total) * 100));
-  const milestone =
-    value === null
-      ? null
-      : value >= 100
-        ? 100
-        : Math.floor(value / ANNOUNCE_EVERY_PERCENT) * ANNOUNCE_EVERY_PERCENT;
 
   return (
     <div>
       <Progress value={value} aria-label={caption} />
-      <span role="status" aria-live="polite" className="sr-only">
-        {milestone === null ? caption : `${caption} ${milestone}%`}
-      </span>
+      <ProgressAnnouncement label={caption} percent={value} />
       <p aria-hidden="true" className="text-muted-foreground mt-2 text-sm">
         {caption}{" "}
         {value === null

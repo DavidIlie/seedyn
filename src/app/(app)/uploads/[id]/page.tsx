@@ -26,7 +26,7 @@ import {
   UrlHeadingSkeleton,
 } from "~/components/detail/url-heading";
 import { GifPanel } from "~/components/gif/gif-panel";
-import { buttonQuiet } from "~/components/ui/styles";
+import { Button } from "~/components/ui/button";
 import { DomainError } from "~/server/uploads/errors";
 import { getOwnedUpload } from "~/server/uploads/service";
 
@@ -121,14 +121,11 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
             passwordProtected={upload.passwordProtected}
           />
 
-          <a
-            href={url}
-            rel="noreferrer"
-            className={`${buttonQuiet} w-full`}
-            target="_blank"
-          >
-            Open original
-          </a>
+          <Button variant="outline" asChild className="w-full">
+            <a href={url} rel="noreferrer" target="_blank">
+              Open original
+            </a>
+          </Button>
         </div>
       </div>
 

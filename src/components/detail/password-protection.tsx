@@ -3,15 +3,10 @@
 import { LockKeyhole, LockOpen } from "lucide-react";
 import { useActionState } from "react";
 
+import { cardSurface } from "~/components/ui/card";
 import { HydratedSubmitButton } from "~/components/ui/hydrated-submit-button";
-import {
-  buttonPrimary,
-  buttonQuiet,
-  hintText,
-  inputBase,
-  labelBase,
-  panelSurface,
-} from "~/components/ui/styles";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
 
 import {
   updatePasswordProtectionAction,
@@ -34,7 +29,7 @@ export function PasswordProtection({
   );
 
   return (
-    <section className={panelSurface} aria-labelledby={headingId}>
+    <section className={cardSurface} aria-labelledby={headingId}>
       <div className="border-border flex items-start gap-3 border-b p-4">
         <span className="bg-sunken text-accent grid size-9 shrink-0 place-items-center rounded-lg">
           {isProtected ? (
@@ -59,10 +54,10 @@ export function PasswordProtection({
         <input type="hidden" name="uploadId" value={uploadId} />
         <input type="hidden" name="mode" value="set" />
         <div className="space-y-2">
-          <label className={labelBase} htmlFor={passwordId}>
+          <Label htmlFor={passwordId}>
             {isProtected ? "New password" : "Password"}
-          </label>
-          <input
+          </Label>
+          <Input
             id={passwordId}
             name="password"
             type="password"
@@ -70,14 +65,11 @@ export function PasswordProtection({
             maxLength={256}
             autoComplete="new-password"
             required
-            className={inputBase}
           />
         </div>
         <div className="space-y-2">
-          <label className={labelBase} htmlFor={confirmationId}>
-            Confirm password
-          </label>
-          <input
+          <Label htmlFor={confirmationId}>Confirm password</Label>
+          <Input
             id={confirmationId}
             name="passwordConfirmation"
             type="password"
@@ -85,18 +77,17 @@ export function PasswordProtection({
             maxLength={256}
             autoComplete="new-password"
             required
-            className={inputBase}
           />
         </div>
-        <p className={hintText}>
+        <p className="text-muted-foreground text-sm">
           At least 8 characters. Changing it immediately expires earlier
           unlocks.
         </p>
         <HydratedSubmitButton
           label={isProtected ? "Change password" : "Protect upload"}
           pendingLabel="Securing…"
-          className={`${buttonPrimary} w-full`}
-          pendingClassName={`${buttonQuiet} w-full`}
+          pendingVariant="outline"
+          className="w-full"
         />
       </form>
 
@@ -107,8 +98,8 @@ export function PasswordProtection({
           <HydratedSubmitButton
             label="Remove password"
             pendingLabel="Removing…"
-            className={`${buttonQuiet} w-full`}
-            pendingClassName={`${buttonQuiet} w-full`}
+            variant="outline"
+            className="w-full"
           />
         </form>
       ) : null}

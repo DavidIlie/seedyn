@@ -653,7 +653,7 @@ test("pasting a clipboard image immediately creates selectable PNG and GIF URLs"
       page.getByRole("link", { name: "Download GIF" }),
     ).toBeVisible();
 
-    await page.getByText("Delete this upload…").click();
+    await page.getByRole("button", { name: "Delete this upload…" }).click();
     await page.getByRole("button", { name: "Delete permanently" }).click();
     await page.waitForURL((url) => url.pathname === "/dashboard");
     uploadId = undefined;
@@ -1029,7 +1029,7 @@ test("a browser upload becomes a permanent GIF and can be deleted", async ({
     ).toBeVisible();
     await page.goto(detailUrl);
 
-    await page.getByText("Delete this upload…").click();
+    await page.getByRole("button", { name: "Delete this upload…" }).click();
     await page.getByRole("button", { name: "Delete permanently" }).click();
     await page.waitForURL((url) => url.pathname === "/dashboard");
     await expect(
@@ -1047,7 +1047,7 @@ test("a browser upload becomes a permanent GIF and can be deleted", async ({
     expect(errors).toEqual([]);
   } finally {
     if (new URL(page.url()).pathname.startsWith("/uploads/")) {
-      await page.getByText("Delete this upload…").click();
+      await page.getByRole("button", { name: "Delete this upload…" }).click();
       await page.getByRole("button", { name: "Delete permanently" }).click();
       await page.waitForURL((url) => url.pathname === "/dashboard");
     }

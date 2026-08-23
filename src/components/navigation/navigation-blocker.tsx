@@ -12,13 +12,15 @@ import {
 } from "react";
 
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "~/components/ui/dialog";
-import { buttonPrimary, buttonQuiet } from "~/components/ui/styles";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "~/components/ui/alert-dialog";
 
 type NavigationBlockerValue = {
   blocked: boolean;
@@ -56,31 +58,25 @@ export function NavigationBlockerProvider({
   return (
     <NavigationBlockerContext.Provider value={value}>
       {children}
-      <Dialog
+      <AlertDialog
         open={pendingHref !== null}
         onOpenChange={(open) => {
           if (!open) setPendingHref(null);
         }}
       >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Leave this draft?</DialogTitle>
-            <DialogDescription>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave this draft?</AlertDialogTitle>
+            <AlertDialogDescription>
               Your latest changes are saved in this browser and will be restored
               when you return. They have not been published to Seedyn.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button
-              type="button"
-              className={buttonQuiet}
-              onClick={() => setPendingHref(null)}
-            >
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingHref(null)}>
               Keep editing
-            </button>
-            <button
-              type="button"
-              className={buttonPrimary}
+            </AlertDialogCancel>
+            <AlertDialogAction
               onClick={() => {
                 const href = pendingHref;
                 if (!href) return;
@@ -90,10 +86,10 @@ export function NavigationBlockerProvider({
               }}
             >
               Leave editor
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </NavigationBlockerContext.Provider>
   );
 }

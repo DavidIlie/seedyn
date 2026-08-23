@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { buttonPrimary, buttonQuiet } from "~/components/ui/styles";
+import { Button } from "~/components/ui/button";
 
 /**
  * Recovery inside the authenticated shell.
@@ -32,16 +32,12 @@ export default function AppSectionError({
           </p>
         ) : null}
         <div className="mt-6 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => retry()}
-            className={buttonPrimary}
-          >
+          <Button type="button" onClick={() => retry()}>
             Try again
-          </button>
-          <Link href="/dashboard" className={buttonQuiet}>
-            Back to dashboard
-          </Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/dashboard">Back to dashboard</Link>
+          </Button>
         </div>
       </div>
     </div>
