@@ -24,11 +24,13 @@ const PNG = Buffer.from(
 const DOCS_READING_ORDER = [
   { path: "/docs", title: "Seedyn" },
   { path: "/docs/uploads", title: "Browser uploads" },
+  { path: "/docs/cli", title: "Seedyn CLI" },
   { path: "/docs/http-api", title: "Upload API" },
   { path: "/docs/api-keys", title: "API keys" },
   { path: "/docs/serving", title: "Serving objects" },
   { path: "/docs/gif", title: "Copy as GIF" },
   { path: "/docs/sharex", title: "ShareX setup" },
+  { path: "/docs/s3-shottr", title: "Shottr and S3" },
   { path: "/docs/legacy-api", title: "Compatibility endpoints" },
   { path: "/docs/security", title: "Security model" },
   { path: "/docs/operations", title: "Operations" },
@@ -695,7 +697,12 @@ test("signed-out documentation discloses neither prose nor the page tree", async
     for (const title of protectedTitles) expect(body).not.toContain(title);
   }
 
-  for (const path of ["/docs.md", "/llms.txt", "/llms-full.txt"]) {
+  for (const path of [
+    "/docs.md",
+    "/llms.txt",
+    "/llms-full.txt",
+    "/llms.mdx/docs/http-api",
+  ]) {
     const response = await requestLocal(request, path, {
       method: "GET",
       maxRedirects: 0,
@@ -1109,12 +1116,19 @@ test("an API key is revealed once, exported to ShareX, and revoked", async ({
 
   try {
     await signIn(page);
-    await page.getByRole("link", { name: "API keys" }).click();
-    await page.getByLabel("Name").fill(keyName);
+    await page.goto("/api-keys");
+    await expect(
+      page.getByRole("heading", { name: "David MacBook" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "New key" }).click();
+    await page.getByRole("button", { name: "ShareX" }).click();
+    await page.getByRole("textbox", { name: "Name" }).fill(keyName);
     await page.getByRole("button", { name: "Create key" }).click();
 
-    const reveal = page.getByRole("region", { name: "Save this key now" });
-    const rawKey = (await reveal.locator("code").textContent())?.trim();
+    const reveal = page.getByRole("dialog").filter({
+      has: page.getByRole("heading", { name: `${keyName} is ready` }),
+    });
+    const rawKey = (await reveal.locator("code").first().textContent())?.trim();
     expect(rawKey).toMatch(/^sdn_live_[A-Za-z0-9_-]{8}_[A-Za-z0-9_-]{43}$/);
 
     const downloadPromise = page.waitForEvent("download");
@@ -1131,14 +1145,32 @@ test("an API key is revealed once, exported to ShareX, and revoked", async ({
     expect(config.Headers?.Authorization).toBe(`Bearer ${rawKey}`);
     expect(config.RequestURL).toBe(`${new URL(page.url()).origin}/api/upload`);
 
+    for (const [path, marker] of [
+      ["/llms.txt", "# Seedyn documentation"],
+      ["/llms-full.txt", "# Seedyn"],
+      ["/llms.mdx/docs/http-api", "# Upload API"],
+    ] as const) {
+      const machineDocs = await requestLocal(page.request, path, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${rawKey}` },
+      });
+      expect(machineDocs.status()).toBe(200);
+      expect(machineDocs.headers()["content-type"]).toContain("text/markdown");
+      await expect(machineDocs.text()).resolves.toContain(marker);
+    }
+
     await page.getByRole("button", { name: "I saved it" }).click();
     await expect(reveal).toHaveCount(0);
     await expect(page.locator("body")).not.toContainText(rawKey!);
-    await expect(page.getByText(`${keyName} is active`)).toBeVisible();
     const row = page.getByRole("listitem").filter({ hasText: keyName });
-    await expect(row).toContainText("Never expires");
-    await row.getByRole("button", { name: "Revoke" }).click();
-    await expect(row).toContainText("Inactive");
+    await expect(row.getByText("Active", { exact: true })).toBeVisible();
+    await expect(row).toContainText("No expiry");
+    await row.getByRole("button", { name: "Revoke key" }).click();
+    await page
+      .getByRole("alertdialog")
+      .getByRole("button", { name: "Revoke key" })
+      .click();
+    await expect(row).toContainText("Revoked");
     expect(errors).toEqual([]);
   } finally {
     await prisma.apiKey.deleteMany({ where: { name: keyName } });

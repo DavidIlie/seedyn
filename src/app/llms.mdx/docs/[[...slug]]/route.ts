@@ -7,15 +7,14 @@ import {
   pageMarkdown,
 } from "~/docs/markdown";
 import { getDocsPage, source } from "~/docs/source";
-import { auth } from "~/server/auth";
+import { canReadMachineDocs } from "~/server/http/docs-authorization";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ slug?: string[] }> },
 ): Promise<Response> {
   await connection();
-  const session = await auth();
-  if (!session?.user?.id) return docsUnauthorized();
+  if (!(await canReadMachineDocs(request))) return docsUnauthorized();
 
   const { slug } = await context.params;
   const page = getDocsPage(slug);

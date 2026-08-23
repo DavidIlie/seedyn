@@ -24,7 +24,7 @@ export function markdownResponse(
     "Content-Disposition": "inline",
     "Content-Language": "en",
     "Content-Type": "text/markdown; charset=utf-8",
-    Vary: "Accept, Cookie",
+    Vary: "Accept, Authorization, Cookie",
     "X-Content-Type-Options": "nosniff",
     "X-Robots-Tag": "noindex, nofollow",
   });
@@ -42,6 +42,12 @@ export function docsUnauthorized(): Response {
     {
       error: { code: "unauthenticated", message: "Sign in to read the docs." },
     },
-    { status: 401, headers: { "Cache-Control": "private, no-store" } },
+    {
+      status: 401,
+      headers: {
+        "Cache-Control": "private, no-store",
+        Vary: "Authorization, Cookie",
+      },
+    },
   );
 }

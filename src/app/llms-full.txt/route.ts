@@ -6,12 +6,11 @@ import {
   pageMarkdown,
 } from "~/docs/markdown";
 import { getOrderedDocsPages } from "~/docs/source";
-import { auth } from "~/server/auth";
+import { canReadMachineDocs } from "~/server/http/docs-authorization";
 
-export async function GET(): Promise<Response> {
+export async function GET(request: Request): Promise<Response> {
   await connection();
-  const session = await auth();
-  if (!session?.user?.id) return docsUnauthorized();
+  if (!(await canReadMachineDocs(request))) return docsUnauthorized();
 
   const pages = await Promise.all(getOrderedDocsPages().map(pageMarkdown));
   return markdownResponse(pages.join("\n\n---\n\n"));
