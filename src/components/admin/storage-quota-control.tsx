@@ -7,6 +7,14 @@ import {
   setUserStorageQuota,
   type StorageQuotaActionState,
 } from "~/app/(app)/admin/actions";
+import { Button } from "~/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
 import type { AdminUserRow } from "~/server/admin/insights";
 
 const QUOTA_OPTIONS = [
@@ -35,18 +43,21 @@ export function StorageQuotaControl({ user }: { user: AdminUserRow }) {
     <form action={action} className="min-w-0">
       <div className="flex items-center gap-1.5">
         <input type="hidden" name="userId" value={user.id} />
-        <select
-          name="limitGb"
-          defaultValue={selected}
-          aria-label={`Storage limit for ${user.email ?? user.name ?? "user"}`}
-          className="border-border bg-panel h-11 min-w-0 flex-1 rounded-lg border px-2 text-xs"
-        >
-          {QUOTA_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+        <Select name="limitGb" defaultValue={selected}>
+          <SelectTrigger
+            aria-label={`Storage limit for ${user.email ?? user.name ?? "user"}`}
+            className="min-w-0 flex-1 px-2 text-xs"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {QUOTA_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <QuotaSubmitButton />
       </div>
       <p
@@ -69,12 +80,13 @@ export function StorageQuotaControl({ user }: { user: AdminUserRow }) {
 function QuotaSubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <button
+    <Button
       type="submit"
+      variant="outline"
       disabled={pending}
-      className="border-border bg-panel hover:border-border-strong hover:bg-sunken h-11 rounded-lg border px-2.5 text-xs font-semibold transition-colors disabled:cursor-wait disabled:opacity-60"
+      className="px-2.5 text-xs font-semibold disabled:cursor-wait disabled:opacity-60"
     >
       {pending ? "Saving…" : "Set"}
-    </button>
+    </Button>
   );
 }

@@ -2,8 +2,10 @@
 
 import { useActionState } from "react";
 
+import { MediaDomainSelect } from "~/components/media/media-domain-select";
+import { Label } from "~/components/ui/label";
 import { HydratedSubmitButton } from "~/components/ui/hydrated-submit-button";
-import { buttonCompact, inputBase, labelBase } from "~/components/ui/styles";
+import { buttonCompact } from "~/components/ui/styles";
 import type { MediaDomainChoice } from "~/server/media/origin-preferences";
 
 import {
@@ -28,23 +30,14 @@ export function KeyMediaDomainForm({
   return (
     <form action={action} className="space-y-2">
       <input type="hidden" name="apiKeyId" value={apiKeyId} />
-      <label htmlFor={`key-domain-${apiKeyId}`} className={labelBase}>
-        Link domain
-      </label>
+      <Label htmlFor={`key-domain-${apiKeyId}`}>Link domain</Label>
       <div className="flex gap-2">
-        <select
+        <MediaDomainSelect
           id={`key-domain-${apiKeyId}`}
-          name="mediaDomain"
+          mediaDomains={mediaDomains}
           defaultValue={mediaDomain ?? ""}
-          className={inputBase}
-        >
-          <option value="">Account default</option>
-          {mediaDomains.map((domain) => (
-            <option key={domain.id} value={domain.id}>
-              {domain.host}
-            </option>
-          ))}
-        </select>
+          className="min-w-0 flex-1"
+        />
         <HydratedSubmitButton
           label="Save"
           pendingLabel="Saving…"

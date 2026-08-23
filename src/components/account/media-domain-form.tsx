@@ -6,8 +6,10 @@ import {
   updateAccountMediaDomainAction,
   type AccountDomainState,
 } from "~/app/(app)/account/actions";
+import { MediaDomainSelect } from "~/components/media/media-domain-select";
+import { Label } from "~/components/ui/label";
 import { HydratedSubmitButton } from "~/components/ui/hydrated-submit-button";
-import { buttonPrimary, inputBase, labelBase } from "~/components/ui/styles";
+import { buttonPrimary } from "~/components/ui/styles";
 import type { MediaDomainChoice } from "~/server/media/origin-preferences";
 
 export function AccountMediaDomainForm({
@@ -28,22 +30,20 @@ export function AccountMediaDomainForm({
       className="border-border bg-panel max-w-2xl space-y-4 rounded-xl border p-4 sm:p-5"
     >
       <div className="space-y-2">
-        <label htmlFor="account-media-domain" className={labelBase}>
-          Default media domain
-        </label>
-        <select
+        <Label htmlFor="account-media-domain">Default media domain</Label>
+        <MediaDomainSelect
           id="account-media-domain"
-          name="mediaDomain"
+          mediaDomains={mediaDomains}
           defaultValue={currentDomain}
-          className={`${inputBase} sm:max-w-sm`}
+          // This form *is* the account default, so it cannot also offer it.
+          allowAccountDefault={false}
+          aria-describedby="account-media-domain-hint"
+          className="sm:max-w-sm"
+        />
+        <p
+          id="account-media-domain-hint"
+          className="text-muted-foreground text-sm"
         >
-          {mediaDomains.map((domain) => (
-            <option key={domain.id} value={domain.id}>
-              {domain.host}
-            </option>
-          ))}
-        </select>
-        <p className="text-muted-foreground text-sm">
           Browser uploads and API keys set to Account default use this domain.
           Existing uploads keep the domain they were created with.
         </p>

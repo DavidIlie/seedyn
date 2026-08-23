@@ -1,8 +1,16 @@
 import Form from "next/form";
 
-import { buttonQuiet, inputBase } from "~/components/ui/styles";
+import { Button } from "~/components/ui/button";
+import { FormSelect } from "~/components/ui/form-select";
+import { Input, inputVariants } from "~/components/ui/input";
+import { buttonQuiet } from "~/components/ui/styles";
 
 export type LibraryPath = "/images" | "/files" | "/texts";
+
+const ORDER_OPTIONS = [
+  { value: "newest", label: "Newest first" },
+  { value: "oldest", label: "Oldest first" },
+] as const;
 
 /**
  * Search and ordering as URL state.
@@ -10,6 +18,10 @@ export type LibraryPath = "/images" | "/files" | "/texts";
  * `next/form` submits with a client navigation and still works as a plain GET
  * form before hydration, so the filter is a real, shareable, back-button-safe
  * URL rather than component state. No client store mirrors it.
+ *
+ * Only the order control needs JavaScript for its listbox; it posts the
+ * currently applied order through a hidden field that is present in the
+ * server-rendered HTML, so an unhydrated submission still carries it.
  */
 export function LibraryControls({
   action,
@@ -28,7 +40,7 @@ export function LibraryControls({
       <label htmlFor="library-query" className="sr-only">
         Search filenames
       </label>
-      <input
+      <Input
         // Keyed on the committed URL value so back navigation shows the filter
         // that is actually applied.
         key={query}
@@ -38,24 +50,20 @@ export function LibraryControls({
         inputMode="search"
         defaultValue={query}
         placeholder="Search filenames…"
-        className={`${inputBase} sm:max-w-xs`}
+        className="sm:max-w-xs"
       />
-      <label htmlFor="library-order" className="sr-only">
-        Order
-      </label>
-      <select
+      <FormSelect
         key={order}
         id="library-order"
         name="order"
+        label="Order"
+        options={ORDER_OPTIONS}
         defaultValue={order}
-        className={`${inputBase} !w-full sm:!w-auto`}
-      >
-        <option value="newest">Newest first</option>
-        <option value="oldest">Oldest first</option>
-      </select>
-      <button type="submit" className={`${buttonQuiet} w-full sm:w-auto`}>
+        className="w-full sm:w-44"
+      />
+      <Button type="submit" variant="outline" className="w-full sm:w-auto">
         Apply
-      </button>
+      </Button>
     </Form>
   );
 }
@@ -71,8 +79,8 @@ export function LibraryControlsSkeleton() {
       aria-hidden="true"
       className="grid grid-cols-1 gap-2 pb-4 sm:flex sm:items-center"
     >
-      <div className={`${inputBase} sm:max-w-xs`} />
-      <div className={`${inputBase} !w-full sm:!w-32`} />
+      <div className={`${inputVariants} sm:max-w-xs`} />
+      <div className={`${inputVariants} !w-full sm:!w-44`} />
       <div className={`${buttonQuiet} w-full sm:w-20`} />
     </div>
   );

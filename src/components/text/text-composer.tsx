@@ -6,6 +6,7 @@ import { Code2, Download, FileText, FileUp, Save } from "lucide-react";
 import {
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
   type ChangeEvent,
@@ -15,6 +16,14 @@ import {
   GuardedLink,
   useNavigationBlocker,
 } from "~/components/navigation/navigation-blocker";
+import { Label } from "~/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
 import {
   buttonPrimary,
   buttonQuiet,
@@ -84,6 +93,7 @@ function isMode(value: unknown): value is ComposerMode {
 export function TextComposer() {
   const router = useRouter();
   const { setBlocked } = useNavigationBlocker();
+  const languageFieldId = useId();
   const fileInput = useRef<HTMLInputElement>(null);
   const [mode, setMode] = useState<ComposerMode>("code");
   const [code, setCode] = useState<CodeDraft>(INITIAL_CODE);
@@ -372,26 +382,30 @@ export function TextComposer() {
           />
         </label>
         {mode === "code" ? (
-          <label className="md:w-44">
-            <span className={labelBase}>Language</span>
-            <select
+          <div className="md:w-44">
+            <Label htmlFor={languageFieldId}>Language</Label>
+            <Select
               value={code.language}
-              onChange={(event) => {
-                setCode((current) => ({
-                  ...current,
-                  language: event.target.value as TextLanguage,
-                }));
+              onValueChange={(next) => {
+                // `isTextLanguage` is the narrowing guard the union already
+                // ships, so the listbox value never needs to be asserted.
+                if (!isTextLanguage(next)) return;
+                setCode((current) => ({ ...current, language: next }));
                 edit();
               }}
-              className={`${inputBase} mt-1`}
             >
-              {TEXT_LANGUAGES.map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
+              <SelectTrigger id={languageFieldId} className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TEXT_LANGUAGES.map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         ) : null}
         <div className="flex flex-wrap gap-2">
           <input

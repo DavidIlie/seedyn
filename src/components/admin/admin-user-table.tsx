@@ -13,6 +13,10 @@ import {
 } from "lucide-react";
 
 import { formatBytes, formatTimestamp } from "~/components/lib/format";
+import { Button } from "~/components/ui/button";
+import { FormSelect } from "~/components/ui/form-select";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
 import type { AdminUserPage, AdminUserRow } from "~/server/admin/insights";
 import {
   buildAdminHref,
@@ -29,6 +33,21 @@ type UserTableProps = {
   users: AdminUserPage;
   rangeDays: AdminRangeDays;
 };
+
+/** Mirrors the sortable column headers, for the narrow layout that has none. */
+const USER_SORT_OPTIONS = [
+  { value: "joined", label: "Joined" },
+  { value: "last", label: "Last upload" },
+  { value: "account", label: "Account" },
+  { value: "uploads", label: "Uploads" },
+  { value: "stored", label: "Stored" },
+  { value: "keys", label: "Keys" },
+] as const satisfies readonly { value: AdminUserSort; label: string }[];
+
+const SORT_DIRECTION_OPTIONS = [
+  { value: "desc", label: "Descending" },
+  { value: "asc", label: "Ascending" },
+] as const satisfies readonly { value: AdminSortDirection; label: string }[];
 
 export function AdminUserTable({ users, rangeDays }: UserTableProps) {
   const { items, page, pageSize, totalCount, totalPages, view } = users;
@@ -78,27 +97,30 @@ export function AdminUserTable({ users, rangeDays }: UserTableProps) {
           <input type="hidden" name="range" value={rangeDays} />
           <input type="hidden" name="sort" value={view.sort} />
           <input type="hidden" name="direction" value={view.direction} />
-          <label className="relative min-w-0 flex-1 sm:max-w-sm">
-            <span className="sr-only">Search people</span>
+          <div className="relative min-w-0 flex-1 sm:max-w-sm">
+            <Label htmlFor="admin-people-query" className="sr-only">
+              Search people
+            </Label>
             <Search
               aria-hidden="true"
               className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
             />
-            <input
+            <Input
+              id="admin-people-query"
               name="q"
               type="search"
               defaultValue={view.query}
               placeholder="Search name or email"
               autoComplete="off"
-              className="border-border bg-panel placeholder:text-muted-foreground/80 hover:border-border-strong focus:border-accent h-11 w-full rounded-lg border pr-3 pl-9 text-sm transition-colors outline-none"
+              className="pr-3 pl-9"
             />
-          </label>
-          <button
+          </div>
+          <Button
             type="submit"
-            className="bg-brand text-brand-foreground hover:bg-accent inline-flex h-11 shrink-0 items-center rounded-lg px-3 text-sm font-semibold transition-colors"
+            className="border-brand bg-brand text-brand-foreground hover:bg-accent px-3 font-semibold"
           >
             Search
-          </button>
+          </Button>
           {view.query ? (
             <Link
               href={buildAdminHref(rangeDays, view, { query: "", page: 1 })}
@@ -118,40 +140,30 @@ export function AdminUserTable({ users, rangeDays }: UserTableProps) {
         >
           <input type="hidden" name="range" value={rangeDays} />
           <input type="hidden" name="q" value={view.query} />
-          <label className="sr-only" htmlFor="mobile-user-sort">
-            Sort people by
-          </label>
-          <select
+          <FormSelect
             id="mobile-user-sort"
             name="sort"
+            label="Sort people by"
+            options={USER_SORT_OPTIONS}
             defaultValue={view.sort}
-            className="border-border bg-panel h-11 min-w-0 flex-1 rounded-lg border px-2.5 text-sm"
-          >
-            <option value="joined">Joined</option>
-            <option value="last">Last upload</option>
-            <option value="account">Account</option>
-            <option value="uploads">Uploads</option>
-            <option value="stored">Stored</option>
-            <option value="keys">Keys</option>
-          </select>
-          <label className="sr-only" htmlFor="mobile-user-direction">
-            Sort direction
-          </label>
-          <select
+            className="min-w-0 flex-1"
+            triggerClassName="px-2.5"
+          />
+          <FormSelect
             id="mobile-user-direction"
             name="direction"
+            label="Sort direction"
+            options={SORT_DIRECTION_OPTIONS}
             defaultValue={view.direction}
-            className="border-border bg-panel h-11 rounded-lg border px-2.5 text-sm"
-          >
-            <option value="desc">Descending</option>
-            <option value="asc">Ascending</option>
-          </select>
-          <button
+            triggerClassName="px-2.5"
+          />
+          <Button
             type="submit"
-            className="border-border bg-panel hover:border-border-strong hover:bg-sunken h-11 rounded-lg border px-3 text-sm font-semibold transition-colors"
+            variant="outline"
+            className="px-3 font-semibold"
           >
             Sort
-          </button>
+          </Button>
         </Form>
       </div>
 

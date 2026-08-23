@@ -1,8 +1,10 @@
 "use client";
 
 import { Check, LoaderCircle, X } from "lucide-react";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
 import {
   CUSTOM_PUBLIC_SLUG_MAX_LENGTH,
   customPublicSlugError,
@@ -39,6 +41,15 @@ export function SlugAvailabilityField({
       : "Leave blank for a random permanent URL.",
   });
 
+  // The reporting callback is invoked from inside the debounced effect below.
+  // Holding it in a ref keeps it out of that effect's dependencies, so a caller
+  // passing an inline arrow gets one debounced check per keystroke instead of
+  // an unbounded render loop that refetches on every pass.
+  const report = useRef(onAvailabilityChange);
+  useEffect(() => {
+    report.current = onAvailabilityChange;
+  }, [onAvailabilityChange]);
+
   useEffect(() => {
     const normalized = normalizeCustomPublicSlug(value);
     if (!normalized) {
@@ -48,13 +59,13 @@ export function SlugAvailabilityField({
           ? "Use lowercase letters, numbers, and hyphens."
           : "Leave blank for a random permanent URL.",
       });
-      onAvailabilityChange?.(required ? false : null);
+      report.current?.(required ? false : null);
       return undefined;
     }
     const validationError = customPublicSlugError(normalized);
     if (validationError) {
       setAvailability({ status: "invalid", message: validationError });
-      onAvailabilityChange?.(false);
+      report.current?.(false);
       return undefined;
     }
 
@@ -82,7 +93,7 @@ export function SlugAvailabilityField({
             status: result.available ? "available" : "unavailable",
             message: result.message,
           });
-          onAvailabilityChange?.(result.available);
+          report.current?.(result.available);
           return undefined;
         })
         .catch((error: unknown) => {
@@ -93,7 +104,7 @@ export function SlugAvailabilityField({
             status: "error",
             message: "Availability could not be checked.",
           });
-          onAvailabilityChange?.(false);
+          report.current?.(false);
           return undefined;
         });
     }, 300);
@@ -102,7 +113,7 @@ export function SlugAvailabilityField({
       window.clearTimeout(timeout);
       abort.abort();
     };
-  }, [excludeUploadId, onAvailabilityChange, required, value]);
+  }, [excludeUploadId, required, value]);
 
   const Icon =
     availability.status === "checking"
@@ -123,13 +134,13 @@ export function SlugAvailabilityField({
 
   return (
     <div className="space-y-1.5">
-      <label htmlFor={inputId} className="text-sm font-medium">
+      <Label htmlFor={inputId}>
         Custom URL slug{" "}
         {!required ? (
           <span className="text-muted-foreground font-normal">(optional)</span>
         ) : null}
-      </label>
-      <input
+      </Label>
+      <Input
         id={inputId}
         name="slug"
         value={value}
@@ -153,7 +164,7 @@ export function SlugAvailabilityField({
           const normalized = normalizeCustomPublicSlug(value);
           if (normalized !== value) onChange(normalized);
         }}
-        className="border-border bg-panel placeholder:text-muted-foreground/75 hover:border-border-strong focus:border-accent h-11 w-full rounded-lg border px-3 font-mono text-sm transition-colors outline-none placeholder:font-sans disabled:opacity-60"
+        className="placeholder:text-muted-foreground/75 font-mono placeholder:font-sans"
       />
       <p
         id={statusId}

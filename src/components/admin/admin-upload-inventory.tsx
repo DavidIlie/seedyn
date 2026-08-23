@@ -18,8 +18,17 @@ import {
   uploadKindLabel,
 } from "~/components/lib/format";
 import { PreviewThumb } from "~/components/library/preview-thumb";
+import { Button } from "~/components/ui/button";
 import { CopyButton } from "~/components/ui/copy-button";
-import { buttonQuiet } from "~/components/ui/styles";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
 import { UploadOriginBadge } from "~/components/upload/origin-badge";
 import type {
   AdminUploadFilters,
@@ -34,6 +43,41 @@ const DEFAULT_FILTERS: AdminUploadFilters = {
   kind: "all",
   origin: "all",
 };
+
+type KindFilter = AdminUploadFilters["kind"];
+type OriginFilter = AdminUploadFilters["origin"];
+
+const KIND_OPTIONS = [
+  { value: "all", label: "All types" },
+  { value: "IMAGE", label: "Images" },
+  { value: "VIDEO", label: "Videos" },
+  { value: "FILE", label: "Files" },
+  { value: "TEXT", label: "Text" },
+] as const satisfies readonly { value: KindFilter; label: string }[];
+
+const ORIGIN_OPTIONS = [
+  { value: "all", label: "All sources" },
+  { value: "BROWSER", label: "Browser" },
+  { value: "HTTP", label: "HTTP API" },
+  { value: "SHAREX", label: "ShareX" },
+  { value: "S3", label: "S3" },
+  { value: "LEGACY_UNKNOWN", label: "Legacy" },
+] as const satisfies readonly { value: OriginFilter; label: string }[];
+
+/**
+ * The listbox hands back a bare string, so the union is re-established by
+ * checking the option table rather than asserting the type away. An unknown
+ * value falls back to the unfiltered view instead of reaching the query.
+ */
+function narrowKind(value: string): KindFilter {
+  return KIND_OPTIONS.find((option) => option.value === value)?.value ?? "all";
+}
+
+function narrowOrigin(value: string): OriginFilter {
+  return (
+    ORIGIN_OPTIONS.find((option) => option.value === value)?.value ?? "all"
+  );
+}
 
 const TABLE_FEATURES = tableFeatures({
   ...coreFeatures,
@@ -194,71 +238,71 @@ export function AdminUploadInventory({
           onSubmit={applyFilters}
           className="border-border bg-sunken/45 grid gap-2 border-b p-3 sm:grid-cols-[minmax(12rem,1fr)_auto_auto_auto] sm:px-4"
         >
-          <label className="relative min-w-0">
-            <span className="sr-only">Search uploaded content</span>
+          <div className="relative min-w-0">
+            <Label htmlFor="admin-content-query" className="sr-only">
+              Search uploaded content
+            </Label>
             <Search
               aria-hidden="true"
               className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
             />
-            <input
+            <Input
+              id="admin-content-query"
               type="search"
               value={draftQuery}
               onChange={(event) => setDraftQuery(event.target.value)}
               placeholder="Name, slug, or owner"
-              className="border-border bg-panel placeholder:text-muted-foreground/80 focus:border-accent h-11 w-full rounded-lg border pr-3 pl-9 text-sm outline-none"
+              className="pr-3 pl-9"
             />
-          </label>
-          <label>
-            <span className="sr-only">Media type</span>
-            <select
-              value={draftKind}
-              onChange={(event) =>
-                setDraftKind(event.target.value as AdminUploadFilters["kind"])
-              }
-              className="border-border bg-panel h-11 w-full rounded-lg border px-3 text-sm"
-            >
-              <option value="all">All types</option>
-              <option value="IMAGE">Images</option>
-              <option value="VIDEO">Videos</option>
-              <option value="FILE">Files</option>
-              <option value="TEXT">Text</option>
-            </select>
-          </label>
-          <label>
-            <span className="sr-only">Upload source</span>
-            <select
-              value={draftOrigin}
-              onChange={(event) =>
-                setDraftOrigin(
-                  event.target.value as AdminUploadFilters["origin"],
-                )
-              }
-              className="border-border bg-panel h-11 w-full rounded-lg border px-3 text-sm"
-            >
-              <option value="all">All sources</option>
-              <option value="BROWSER">Browser</option>
-              <option value="HTTP">HTTP API</option>
-              <option value="SHAREX">ShareX</option>
-              <option value="S3">S3</option>
-              <option value="LEGACY_UNKNOWN">Legacy</option>
-            </select>
-          </label>
+          </div>
+          <Select
+            value={draftKind}
+            onValueChange={(next) => setDraftKind(narrowKind(next))}
+          >
+            <SelectTrigger aria-label="Media type" className="text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {KIND_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={draftOrigin}
+            onValueChange={(next) => setDraftOrigin(narrowOrigin(next))}
+          >
+            <SelectTrigger aria-label="Upload source" className="text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ORIGIN_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <div className="flex gap-2">
-            <button
+            <Button
               type="submit"
-              className="bg-brand text-brand-foreground hover:bg-accent h-11 flex-1 rounded-lg px-3 text-sm font-semibold transition-colors"
+              className="border-brand bg-brand text-brand-foreground hover:bg-accent flex-1 px-3 font-semibold"
             >
               Filter
-            </button>
+            </Button>
             {!defaultView ? (
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="icon"
                 onClick={clearFilters}
                 aria-label="Clear content filters"
-                className="border-border bg-panel text-muted-foreground hover:text-foreground grid size-11 place-items-center rounded-lg border"
+                className="text-muted-foreground hover:text-foreground"
               >
                 <X aria-hidden="true" className="size-4" />
-              </button>
+              </Button>
             ) : null}
           </div>
         </form>
@@ -271,13 +315,14 @@ export function AdminUploadInventory({
           <div className="grid h-48 place-items-center px-6 text-center">
             <div>
               <p className="font-semibold">Content could not be loaded</p>
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={() => void result.refetch()}
-                className={`${buttonQuiet} mt-3`}
+                className="mt-3"
               >
                 Try again
-              </button>
+              </Button>
             </div>
           </div>
         ) : items.length === 0 ? (
@@ -340,14 +385,14 @@ export function AdminUploadInventory({
         <div className="border-border flex flex-col items-center gap-2 border-t px-4 py-4">
           <div ref={sentinel} aria-hidden="true" className="h-px w-full" />
           {result.hasNextPage ? (
-            <button
+            <Button
               type="button"
-              className={buttonQuiet}
+              variant="outline"
               disabled={result.isFetchingNextPage}
               onClick={() => void result.fetchNextPage()}
             >
               {result.isFetchingNextPage ? "Loading…" : "Load more"}
-            </button>
+            </Button>
           ) : items.length > 0 ? (
             <p className="text-muted-foreground text-xs">End of content</p>
           ) : null}

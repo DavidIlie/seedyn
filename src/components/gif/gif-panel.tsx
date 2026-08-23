@@ -5,6 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { formatBytes } from "~/components/lib/format";
 import { CopyButton } from "~/components/ui/copy-button";
+import { Progress } from "~/components/ui/progress";
+import { ProgressAnnouncement } from "~/components/ui/progress-announcement";
 import { buttonPrimary, buttonQuiet } from "~/components/ui/styles";
 import { browserGifEndpoint } from "~/components/upload/endpoints";
 import { postMultipart, TransportError } from "~/components/upload/transport";
@@ -387,59 +389,53 @@ export function GifPanel({
 }
 
 function GifProgress({ stage }: { stage: Stage }) {
-  const { caption, ratio } = describe(stage);
+  const { label, caption, ratio } = describe(stage);
   const value = ratio === null ? null : Math.round(ratio * 100);
 
   return (
     <div>
-      <div
-        role="progressbar"
-        aria-label={caption}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        {...(value === null ? {} : { "aria-valuenow": value })}
-        className="border-border bg-background h-2 w-full overflow-hidden rounded-full border"
-      >
-        {value === null ? null : (
-          <div
-            className="bg-accent h-full transition-[width] duration-[120ms]"
-            style={{ width: `${value}%` }}
-          />
-        )}
-      </div>
-      <p
-        role="status"
-        aria-live="polite"
-        className="text-muted-foreground mt-2 text-sm"
-      >
+      <Progress value={value} aria-label={label} />
+      {/* The caption repaints on every progress event, so it is deliberately
+          not the live region — milestones are announced separately below. */}
+      <p aria-hidden="true" className="text-muted-foreground mt-2 text-sm">
         {caption}
         {value === null ? "" : ` — ${value}%`}
       </p>
+      <ProgressAnnouncement label={label} percent={value} />
     </div>
   );
 }
 
-function describe(stage: Stage): { caption: string; ratio: number | null } {
+/**
+ * `label` is the stable phrase for assistive technology; `caption` is the
+ * visible string and may carry a byte count that changes constantly.
+ */
+function describe(stage: Stage): {
+  label: string;
+  caption: string;
+  ratio: number | null;
+} {
   switch (stage.name) {
     case "fetching":
       return {
+        label: "Reading the original",
         caption: `Reading the original — ${formatBytes(stage.loaded)}`,
         ratio: stage.total ? stage.loaded / stage.total : null,
       };
-    case "loading-engine":
+    case "loading-engine": {
       // The library reports no download progress, so none is drawn.
-      return {
-        caption: `Loading the ${FFMPEG_APPROXIMATE_MB} MB converter`,
-        ratio: null,
-      };
+      const caption = `Loading the ${FFMPEG_APPROXIMATE_MB} MB converter`;
+      return { label: caption, caption, ratio: null };
+    }
     case "converting":
-      return { caption: stage.detail, ratio: stage.ratio };
+      return { label: stage.detail, caption: stage.detail, ratio: stage.ratio };
     case "uploading":
       return {
+        label: "Storing the GIF",
         caption: `Storing the GIF — ${formatBytes(stage.loaded)}`,
         ratio: stage.total ? stage.loaded / stage.total : null,
       };
     default:
-      return { caption: "", ratio: null };
+      return { label: "", caption: "", ratio: null };
   }
 }
