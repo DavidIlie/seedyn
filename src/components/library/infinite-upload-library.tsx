@@ -3,7 +3,7 @@
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { buttonQuiet } from "~/components/ui/styles";
+import { Button } from "~/components/ui/button";
 
 import {
   LibraryPresentation,
@@ -78,12 +78,24 @@ export function InfiniteUploadLibrary({
   // A server refresh after an upload or deletion sends a new authoritative
   // first page. Replace accumulated client pages so stale cursors cannot keep
   // a deleted row around or duplicate a newly inserted row.
+  //
+  // The trigger is the page's *content*, not the prop's identity. Every server
+  // render hands down a freshly constructed object, so depending on the object
+  // itself discarded the reader's accumulated pages — and their scroll
+  // position — on any unrelated `router.refresh()`. A signature collapses a
+  // re-render that changed nothing into no work at all.
+  const initialSignature = useMemo(
+    () => JSON.stringify(initialPage),
+    [initialPage],
+  );
+  const authoritative = useRef(initialPage);
+  authoritative.current = initialPage;
   useEffect(() => {
     queryClient.setQueryData(queryKey, {
-      pages: [initialPage],
+      pages: [authoritative.current],
       pageParams: [initialCursor],
     });
-  }, [initialCursor, initialPage, queryClient, queryKey]);
+  }, [initialCursor, initialSignature, queryClient, queryKey]);
 
   useEffect(() => {
     const node = sentinel.current;
@@ -108,14 +120,14 @@ export function InfiniteUploadLibrary({
       {!hydrated && (fallbackNextHref || backToNewestHref) ? (
         <nav aria-label="Pagination" className="flex gap-2 pt-4">
           {backToNewestHref ? (
-            <a href={backToNewestHref} className={buttonQuiet}>
-              Back to newest
-            </a>
+            <Button variant="outline" asChild>
+              <a href={backToNewestHref}>Back to newest</a>
+            </Button>
           ) : null}
           {fallbackNextHref ? (
-            <a href={fallbackNextHref} className={buttonQuiet}>
-              Next page
-            </a>
+            <Button variant="outline" asChild>
+              <a href={fallbackNextHref}>Next page</a>
+            </Button>
           ) : null}
         </nav>
       ) : null}
@@ -123,9 +135,9 @@ export function InfiniteUploadLibrary({
         <div className="flex flex-col items-center gap-2 pt-4">
           <div ref={sentinel} aria-hidden="true" className="h-px w-full" />
           {result.hasNextPage ? (
-            <button
+            <Button
               type="button"
-              className={buttonQuiet}
+              variant="outline"
               disabled={result.isFetchingNextPage}
               onClick={() => void result.fetchNextPage()}
             >
@@ -134,14 +146,14 @@ export function InfiniteUploadLibrary({
                 : result.isFetchNextPageError
                   ? "Try again"
                   : "Load more"}
-            </button>
+            </Button>
           ) : (
             <p className="text-muted-foreground text-xs">End of results</p>
           )}
           {backToNewestHref ? (
-            <a href={backToNewestHref} className={buttonQuiet}>
-              Back to newest
-            </a>
+            <Button variant="outline" asChild>
+              <a href={backToNewestHref}>Back to newest</a>
+            </Button>
           ) : null}
           {result.isFetchNextPageError ? (
             <p role="alert" className="text-danger text-sm">
