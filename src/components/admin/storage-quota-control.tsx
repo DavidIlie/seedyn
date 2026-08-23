@@ -8,13 +8,7 @@ import {
   type StorageQuotaActionState,
 } from "~/app/(app)/admin/actions";
 import { Button } from "~/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "~/components/ui/select";
+import { FormSelect } from "~/components/ui/form-select";
 import type { AdminUserRow } from "~/server/admin/insights";
 
 const QUOTA_OPTIONS = [
@@ -43,21 +37,16 @@ export function StorageQuotaControl({ user }: { user: AdminUserRow }) {
     <form action={action} className="min-w-0">
       <div className="flex items-center gap-1.5">
         <input type="hidden" name="userId" value={user.id} />
-        <Select name="limitGb" defaultValue={selected}>
-          <SelectTrigger
-            aria-label={`Storage limit for ${user.email ?? user.name ?? "user"}`}
-            className="min-w-0 flex-1 px-2 text-xs"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {QUOTA_OPTIONS.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* The submit button here is not hydration-gated, so the value has to
+            travel in a field the server-rendered HTML already contains. */}
+        <FormSelect
+          name="limitGb"
+          label={`Storage limit for ${user.email ?? user.name ?? "user"}`}
+          options={QUOTA_OPTIONS}
+          defaultValue={selected}
+          className="min-w-0 flex-1"
+          triggerClassName="w-full min-w-0 px-2 text-xs"
+        />
         <QuotaSubmitButton />
       </div>
       <p
