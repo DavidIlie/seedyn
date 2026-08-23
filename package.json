@@ -32,7 +32,7 @@
     "test:e2e:ui": "playwright test --ui",
     "test:integration": "NODE_ENV=development NODE_OPTIONS=--conditions=react-server tsx scripts/run-with-next-env.ts scripts/integration-smoke.ts",
     "test:direct-upload": "NODE_ENV=development NODE_OPTIONS=--conditions=react-server tsx scripts/run-with-next-env.ts scripts/direct-upload-smoke.ts",
-    "test:unit": "NODE_OPTIONS=--conditions=react-server tsx --test src/server/uploads/direct/plan.test.ts src/server/uploads/identifiers.test.ts",
+    "test:unit": "NODE_OPTIONS=--conditions=react-server tsx --test src/server/uploads/classification.test.ts src/server/uploads/direct/plan.test.ts src/server/uploads/identifiers.test.ts",
     "typecheck": "node scripts/clean-dev-types.mjs && next typegen && tsc --noEmit"
   },
   "dependencies": {
