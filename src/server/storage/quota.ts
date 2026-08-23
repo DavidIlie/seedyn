@@ -7,7 +7,7 @@ import { DomainError } from "~/server/uploads/errors";
 
 export const DEFAULT_MEMBER_STORAGE_LIMIT_BYTES = BigInt(5_000_000_000);
 export const MAX_STORAGE_LIMIT_BYTES = BigInt(100_000_000_000_000);
-const RESERVATION_LIFETIME_MS = 15 * 60 * 1000;
+export const RESERVATION_LIFETIME_MS = 15 * 60 * 1000;
 
 type LockedUser = {
   id: string;
@@ -76,35 +76,60 @@ export async function reserveStorage(input: {
   storageKey: string;
   byteSize: number;
   kind: StorageReservationKind;
+  expiresAt?: Date;
 }): Promise<void> {
-  const byteSize = BigInt(input.byteSize);
   await quotaTransaction(async (transaction) => {
-    const user = await lockUser(transaction, input.userId);
-    const limit =
-      user.appRole === "ADMIN"
-        ? null
-        : (user.storageLimitBytes ?? DEFAULT_MEMBER_STORAGE_LIMIT_BYTES);
-    if (
-      limit !== null &&
-      user.storageUsedBytes + user.storageReservedBytes + byteSize > limit
-    ) {
-      throw new DomainError("storage_quota_exceeded");
-    }
+    await reserveStorageInTransaction(transaction, input);
+  });
+}
 
-    await transaction.storageReservation.create({
-      data: {
-        id: input.id,
-        userId: input.userId,
-        storageKey: input.storageKey,
-        byteSize,
-        kind: input.kind,
-        expiresAt: new Date(Date.now() + RESERVATION_LIFETIME_MS),
-      },
-    });
-    await transaction.user.update({
-      where: { id: input.userId },
-      data: { storageReservedBytes: { increment: byteSize } },
-    });
+export async function reserveStorageInTransaction(
+  transaction: Prisma.TransactionClient,
+  input: {
+    id: string;
+    userId: string;
+    storageKey: string;
+    byteSize: number;
+    kind: StorageReservationKind;
+    expiresAt?: Date;
+  },
+): Promise<void> {
+  const byteSize = BigInt(input.byteSize);
+  const expiresAt =
+    input.expiresAt ?? new Date(Date.now() + RESERVATION_LIFETIME_MS);
+  if (
+    !Number.isSafeInteger(input.byteSize) ||
+    input.byteSize < 0 ||
+    !Number.isFinite(expiresAt.getTime()) ||
+    expiresAt.getTime() <= Date.now()
+  ) {
+    throw new TypeError("Storage reservation input is invalid");
+  }
+  const user = await lockUser(transaction, input.userId);
+  const limit =
+    user.appRole === "ADMIN"
+      ? null
+      : (user.storageLimitBytes ?? DEFAULT_MEMBER_STORAGE_LIMIT_BYTES);
+  if (
+    limit !== null &&
+    user.storageUsedBytes + user.storageReservedBytes + byteSize > limit
+  ) {
+    throw new DomainError("storage_quota_exceeded");
+  }
+
+  await transaction.storageReservation.create({
+    data: {
+      id: input.id,
+      userId: input.userId,
+      storageKey: input.storageKey,
+      byteSize,
+      kind: input.kind,
+      expiresAt,
+    },
+  });
+  await transaction.user.update({
+    where: { id: input.userId },
+    data: { storageReservedBytes: { increment: byteSize } },
   });
 }
 
@@ -113,18 +138,25 @@ export async function releaseStorageReservation(input: {
   userId: string;
 }): Promise<void> {
   await quotaTransaction(async (transaction) => {
-    await lockUser(transaction, input.userId);
-    const reservation = await transaction.storageReservation.findFirst({
-      where: { id: input.id, userId: input.userId },
-      select: { byteSize: true },
-    });
-    if (!reservation) return;
-    await transaction.user.update({
-      where: { id: input.userId },
-      data: { storageReservedBytes: { decrement: reservation.byteSize } },
-    });
-    await transaction.storageReservation.delete({ where: { id: input.id } });
+    await releaseStorageReservationInTransaction(transaction, input);
   });
+}
+
+export async function releaseStorageReservationInTransaction(
+  transaction: Prisma.TransactionClient,
+  input: { id: string; userId: string },
+): Promise<void> {
+  await lockUser(transaction, input.userId);
+  const reservation = await transaction.storageReservation.findFirst({
+    where: { id: input.id, userId: input.userId },
+    select: { byteSize: true },
+  });
+  if (!reservation) return;
+  await transaction.user.update({
+    where: { id: input.userId },
+    data: { storageReservedBytes: { decrement: reservation.byteSize } },
+  });
+  await transaction.storageReservation.delete({ where: { id: input.id } });
 }
 
 export async function finalizeStorageReservation(

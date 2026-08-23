@@ -7,8 +7,9 @@ export function createRecordId(): string {
 }
 
 export function createPublicSlug(): string {
-  // 192 random bits. The slug contains no user, filename, time, or checksum data.
-  return randomBytes(24).toString("base64url");
+  // Fixed alphanumeric guards keep all 192 random bits while satisfying the
+  // public route's stricter first/last-character contract.
+  return `s${randomBytes(24).toString("base64url")}s`;
 }
 
 export function isPublicSlug(value: string): boolean {

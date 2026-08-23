@@ -99,6 +99,10 @@ browser suite and a clean container build.
 - `POST /api/upload` — canonical client upload (`file`, Bearer API key).
 - `POST /api/images`, `/api/files`, `/api/texts` — legacy-compatible aliases.
 - `POST /api/uploads` — cookie-authenticated browser upload with progress.
+- `POST /api/uploads/direct` — start a cookie-authenticated multipart session.
+- `GET|DELETE /api/uploads/direct/:id` — resume status or abort a session.
+- `POST /api/uploads/direct/:id/parts` — obtain bounded part-ingest URLs.
+- `POST /api/uploads/direct/:id/complete` — verify and atomically publish.
 - `POST /api/uploads/:id/gif` — finalize a browser-generated GIF variant.
 - `GET|HEAD|OPTIONS https://i.dave.tips/:slug.:ext` — public media with
   conditional requests and single-range support.
@@ -116,14 +120,21 @@ analytics API, so granted users appear after their first Seedyn sign-in.
 
 ## Storage and operations
 
-Uploads stream through bounded mode-0600 files in `/tmp/seedyn-uploads`, then to
-the private MinIO bucket. Database rows publish application-generated slugs only
-after storage succeeds; failed database writes compensate the object. Run the
-read-only consistency report with:
+Uploads through 64 MiB stream through bounded mode-0600 files in
+`/tmp/seedyn-uploads`, then to the private MinIO bucket. Larger browser files
+use 16 MiB S3 multipart parts and avoid temporary disk. Database rows publish
+application-generated slugs only after storage and full server-side integrity
+verification succeed; failed database writes compensate the object. Run the
+read-only consistency report and expired-session sweeper with:
 
 ```bash
 pnpm storage:check
+pnpm uploads:sweep
 ```
+
+Production storage must independently abort incomplete multipart uploads after
+seven days. See the authenticated operations guide for proxy versus presigned
+transport and CORS requirements.
 
 The Docker image runs as a non-root user, exposes port 3000, includes Prisma
 migrations for an init-container command, and supports a read-only root when

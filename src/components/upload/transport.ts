@@ -11,11 +11,13 @@ import { UPLOAD_FILE_FIELD } from "./endpoints";
 
 export class TransportError extends Error {
   readonly code: string;
+  readonly status: number | undefined;
 
-  constructor(code: string, message: string) {
+  constructor(code: string, message: string, status?: number) {
     super(message);
     this.name = "TransportError";
     this.code = code;
+    this.status = status;
   }
 }
 
@@ -40,6 +42,7 @@ function readEnvelope(status: number, body: string): TransportError {
       return new TransportError(
         typeof code === "string" ? code : `http_${status}`,
         message,
+        status,
       );
     }
   } catch {
@@ -49,14 +52,20 @@ function readEnvelope(status: number, body: string): TransportError {
     return new TransportError(
       "unauthenticated",
       "Your session expired. Sign in again and retry.",
+      status,
     );
   }
   if (status === 413) {
-    return new TransportError("payload_too_large", "That file is too large.");
+    return new TransportError(
+      "payload_too_large",
+      "That file is too large.",
+      status,
+    );
   }
   return new TransportError(
     `http_${status}`,
     `The server rejected the upload (HTTP ${status}).`,
+    status,
   );
 }
 
