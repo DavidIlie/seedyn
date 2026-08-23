@@ -99,26 +99,35 @@ export function UploadProvider({
   // A file dropped or pasted onto the application at large is an unambiguous
   // instruction, so it uploads on arrival and the dialog opens on the step that
   // reports the result.
+  //
+  // The listeners stay installed while the dialog is open too, for a reason
+  // that has nothing to do with uploading: a file dropped anywhere the browser
+  // does not handle navigates the tab to that file, which would abandon a
+  // transfer in flight. Cancelling the default is the whole job there.
   useEffect(() => {
-    if (open) return undefined;
-
     const onDragOver = (event: DragEvent) => {
       if (isEditableTarget(event.target)) return;
       if (!event.dataTransfer?.types.includes("Files")) return;
       event.preventDefault();
     };
     const onDrop = (event: DragEvent) => {
-      if (isEditableTarget(event.target) || isTransferring()) return;
+      if (isEditableTarget(event.target)) return;
       const file = event.dataTransfer?.files.item(0);
       if (!file) return;
       event.preventDefault();
-      reset();
-      setAccept(undefined);
-      setOpen(true);
+      if (isTransferring()) return;
+      // Inside the dialog only the first step accepts a drop; the result step
+      // has work of its own on screen that a stray drop should not replace.
+      if (open && transfer.phase.name !== "idle") return;
+      if (!open) {
+        reset();
+        setAccept(undefined);
+        setOpen(true);
+      }
       void start(file, file.name || "Dropped file");
     };
     const onPaste = (event: ClipboardEvent) => {
-      if (isEditableTarget(event.target) || isTransferring()) return;
+      if (open || isEditableTarget(event.target) || isTransferring()) return;
       const file = event.clipboardData?.files.item(0);
       if (!file) return;
       event.preventDefault();
@@ -136,7 +145,7 @@ export function UploadProvider({
       document.removeEventListener("drop", onDrop);
       document.removeEventListener("paste", onPaste);
     };
-  }, [isTransferring, open, reset, start]);
+  }, [isTransferring, open, reset, start, transfer.phase.name]);
 
   // Paste inside the open dialog is the same instruction, so it behaves the
   // same way. The file input remains the path that always works.
