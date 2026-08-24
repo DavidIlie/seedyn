@@ -121,7 +121,7 @@ export function LibraryPresentation({ items }: { items: PresentedUpload[] }) {
           ) : (
             <Eye aria-hidden="true" className="size-3.5" />
           )}
-          Privacy {privacy ? "on" : "off"}
+          {privacy ? "Privacy on" : "Privacy Mode"}
         </Toggle>
       </div>
 
