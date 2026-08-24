@@ -1,6 +1,6 @@
 {
   "name": "seedyn",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Upload any file to Seedyn and receive its durable URL.",
   "type": "module",
   "license": "MIT",
