@@ -3,6 +3,10 @@ import {
   listUploadsByKind,
   publicUrl,
 } from "~/components/data/uploads";
+import {
+  parseUploadFilters,
+  readerFromUrlSearchParams,
+} from "~/lib/upload-filters";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { authorizeBrowserMutation } from "~/server/http/browser-mutation";
@@ -57,7 +61,6 @@ export async function GET(request: Request): Promise<Response> {
       { status: 400, headers: { "Cache-Control": "private, no-store" } },
     );
   }
-  const order = params.get("order") === "oldest" ? "oldest" : "newest";
   const limitValue = Number(params.get("limit") ?? "12");
   const limit = Number.isSafeInteger(limitValue)
     ? Math.min(50, Math.max(1, limitValue))
@@ -65,8 +68,7 @@ export async function GET(request: Request): Promise<Response> {
   const page = await listUploadsByKind({
     userId: session.user.id,
     kind,
-    query: params.get("q") ?? undefined,
-    order,
+    filters: parseUploadFilters(readerFromUrlSearchParams(params)),
     cursor: decodeCursor(params.get("cursor") ?? undefined),
     limit,
   });

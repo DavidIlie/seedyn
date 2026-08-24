@@ -1,9 +1,18 @@
 "use client";
 
-import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "~/components/ui/button";
+import {
+  uploadFilterKey,
+  uploadFilterParams,
+  type UploadFilters,
+} from "~/lib/upload-filters";
 
 import {
   LibraryPresentation,
@@ -17,13 +26,12 @@ type UploadPage = {
 
 async function fetchPage(input: {
   kind: "images" | "files" | "texts";
-  query: string;
-  order: "newest" | "oldest";
+  filters: UploadFilters;
   cursor: string | null;
   signal: AbortSignal;
 }): Promise<UploadPage> {
-  const params = new URLSearchParams({ kind: input.kind, order: input.order });
-  if (input.query) params.set("q", input.query);
+  const params = uploadFilterParams(input.filters);
+  params.set("kind", input.kind);
   if (input.cursor) params.set("cursor", input.cursor);
   const response = await fetch(`/api/uploads?${params}`, {
     headers: { Accept: "application/json" },
@@ -36,16 +44,14 @@ async function fetchPage(input: {
 
 export function InfiniteUploadLibrary({
   kind,
-  query,
-  order,
+  filters,
   initialCursor,
   initialPage,
   fallbackNextHref,
   backToNewestHref,
 }: {
   kind: "images" | "files" | "texts";
-  query: string;
-  order: "newest" | "oldest";
+  filters: UploadFilters;
   initialCursor: string | null;
   initialPage: UploadPage;
   fallbackNextHref: string | null;
@@ -54,16 +60,24 @@ export function InfiniteUploadLibrary({
   const [hydrated, setHydrated] = useState(false);
   const sentinel = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
+  // The whole filter set is the cache key, collapsed to its canonical query
+  // string so two equivalent filter objects hit the same cache entry. Narrowing
+  // a filter and undoing it therefore reads from cache instead of the network.
+  const filterKey = uploadFilterKey(filters);
   const queryKey = useMemo(
-    () => ["uploads", kind, query, order, initialCursor] as const,
-    [initialCursor, kind, order, query],
+    () => ["uploads", kind, filterKey, initialCursor] as const,
+    [filterKey, initialCursor, kind],
   );
   const result = useInfiniteQuery({
     queryKey,
     queryFn: ({ pageParam, signal }) =>
-      fetchPage({ kind, query, order, cursor: pageParam, signal }),
+      fetchPage({ kind, filters, cursor: pageParam, signal }),
     initialPageParam: initialCursor,
     initialData: { pages: [initialPage], pageParams: [initialCursor] },
+    // Keep the outgoing rows on screen while the next filter resolves. The
+    // alternative is a full-height skeleton on every keystroke-committed
+    // filter change, which reads as the library emptying itself.
+    placeholderData: keepPreviousData,
     getNextPageParam: (page) => page.nextCursor ?? undefined,
   });
   const {
