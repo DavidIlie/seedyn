@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { requireSessionUser } from "~/components/data/session";
 import {
   decodeCursor,
+  listCredentialChoices,
   listUploadsByKind,
   PAGE_SIZE,
   publicUrl,
@@ -10,7 +11,12 @@ import {
   type LibraryKind,
 } from "~/components/data/uploads";
 import { PageHeader } from "~/components/ui/page-header";
-import { normalizeUploadSearchQuery } from "~/lib/upload-search";
+import {
+  hasActiveUploadFilters,
+  parseUploadFilters,
+  readerFromSearchParams,
+  uploadFilterParams,
+} from "~/lib/upload-filters";
 import { readStorageQuota } from "~/server/storage/quota";
 
 import { InfiniteUploadLibrary } from "./infinite-upload-library";
@@ -39,16 +45,6 @@ import { LibraryTrendChart } from "./library-trend-chart";
 export type SearchParams = Promise<
   Record<string, string | string[] | undefined>
 >;
-
-function first(value: string | string[] | undefined): string {
-  if (typeof value === "string") return value;
-  if (Array.isArray(value)) return value[0] ?? "";
-  return "";
-}
-
-function readOrder(value: string | string[] | undefined): "newest" | "oldest" {
-  return first(value) === "oldest" ? "oldest" : "newest";
-}
 
 export function LibraryScreen({
   kind,
@@ -121,12 +117,16 @@ async function Controls({
   path: LibraryPath;
   searchParams: SearchParams;
 }) {
-  const params = await searchParams;
+  const [params, user] = await Promise.all([
+    searchParams,
+    requireSessionUser(),
+  ]);
+  const credentials = await listCredentialChoices(user.id);
   return (
     <LibraryControls
       action={path}
-      query={first(params.q)}
-      order={readOrder(params.order)}
+      filters={parseUploadFilters(readerFromSearchParams(params))}
+      credentials={credentials}
     />
   );
 }
@@ -147,30 +147,27 @@ async function Rows({
   const params = await searchParams;
   const user = await requireSessionUser();
 
-  const query = normalizeUploadSearchQuery(first(params.q));
-  const order = readOrder(params.order);
-  const rawCursor = first(params.cursor);
+  const filters = parseUploadFilters(readerFromSearchParams(params));
+  const rawCursor = typeof params.cursor === "string" ? params.cursor : "";
   const cursor = decodeCursor(rawCursor || undefined);
+  const narrowed = hasActiveUploadFilters(filters);
 
   const page = await listUploadsByKind({
     userId: user.id,
     kind,
-    query,
-    order,
+    filters,
     cursor,
   });
 
-  const carried = new URLSearchParams();
-  if (query) carried.set("q", query);
-  if (order === "oldest") carried.set("order", order);
+  const carried = uploadFilterParams(filters);
 
   if (page.items.length === 0) {
     return (
       <>
         <LibraryEmpty
-          searching={query.length > 0}
+          searching={narrowed}
           noun={noun}
-          action={query.length > 0 ? undefined : action}
+          action={narrowed ? undefined : action}
         />
         <LibraryPagination
           basePath={path}
@@ -185,8 +182,7 @@ async function Rows({
   return (
     <InfiniteUploadLibrary
       kind={kind}
-      query={query}
-      order={order}
+      filters={filters}
       initialCursor={rawCursor || null}
       initialPage={{
         ...page,

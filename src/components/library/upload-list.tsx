@@ -87,8 +87,8 @@ export function LibraryEmpty({
 }) {
   return searching ? (
     <EmptyState
-      title={`No ${noun} match that search`}
-      body="Filenames are matched, not URLs or contents. Clear the search to see everything."
+      title={`No ${noun} match those filters`}
+      body="Filenames are matched, not URLs or contents. Widen a filter — or clear them all — to see everything."
       action={action}
     />
   ) : (

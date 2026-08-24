@@ -1,6 +1,11 @@
 import "server-only";
 
 import {
+  EMPTY_UPLOAD_FILTERS,
+  NO_CREDENTIAL,
+  type UploadFilters,
+} from "~/lib/upload-filters";
+import {
   escapePostgresLikePattern,
   normalizeUploadSearchQuery,
 } from "~/lib/upload-search";
@@ -125,29 +130,72 @@ export type UploadPage = {
   nextCursor: string | null;
 };
 
+/**
+ * Translates the URL's filter set into a Prisma `where`.
+ *
+ * Every predicate is either an equality on a column the ordering index already
+ * leads with (`userId`, `kind`, `apiKeyIdSnapshot`) or a range on `createdAt`,
+ * which those same indexes carry as their sort column — so a filtered page is
+ * still one ordered index scan, not a sort of the whole library. Size and
+ * origin are residual filters on rows the scan already visited.
+ */
+function uploadFilterWhere(filters: UploadFilters) {
+  const searchPattern = escapePostgresLikePattern(
+    normalizeUploadSearchQuery(filters.query),
+  );
+  const createdAt: { gte?: Date; lt?: Date } = {};
+  if (filters.from) createdAt.gte = new Date(`${filters.from}T00:00:00.000Z`);
+  // Exclusive upper bound on the next day: `to` is an inclusive calendar day,
+  // and comparing against its midnight would drop everything uploaded during it.
+  if (filters.to) {
+    const next = new Date(`${filters.to}T00:00:00.000Z`);
+    next.setUTCDate(next.getUTCDate() + 1);
+    createdAt.lt = next;
+  }
+  const byteSize: { gte?: bigint; lte?: bigint } = {};
+  if (filters.minSize !== null) byteSize.gte = BigInt(filters.minSize);
+  if (filters.maxSize !== null) byteSize.lte = BigInt(filters.maxSize);
+
+  return {
+    ...(searchPattern
+      ? {
+          originalName: {
+            contains: searchPattern,
+            mode: "insensitive" as const,
+          },
+        }
+      : {}),
+    ...(filters.credential
+      ? {
+          apiKeyIdSnapshot:
+            filters.credential === NO_CREDENTIAL ? null : filters.credential,
+        }
+      : {}),
+    ...(filters.origin ? { origin: filters.origin } : {}),
+    ...(createdAt.gte || createdAt.lt ? { createdAt } : {}),
+    ...(byteSize.gte !== undefined || byteSize.lte !== undefined
+      ? { byteSize }
+      : {}),
+  };
+}
+
 export async function listUploadsByKind(input: {
   userId: string;
   kind: LibraryKind;
-  query?: string;
+  filters?: UploadFilters;
   cursor?: ListCursor;
-  order?: "newest" | "oldest";
   limit?: number;
 }): Promise<UploadPage> {
   const limit = Math.min(100, Math.max(1, input.limit ?? PAGE_SIZE));
-  const query = normalizeUploadSearchQuery(input.query);
-  const searchPattern = escapePostgresLikePattern(query);
-  const descending = input.order !== "oldest";
+  const filters = input.filters ?? EMPTY_UPLOAD_FILTERS;
+  const descending = filters.order !== "oldest";
   const direction = descending ? "desc" : "asc";
 
   const rows = await db.upload.findMany({
     where: {
       userId: input.userId,
       kind: { in: KIND_FILTER[input.kind] },
-      ...(searchPattern
-        ? {
-            originalName: { contains: searchPattern, mode: "insensitive" },
-          }
-        : {}),
+      ...uploadFilterWhere(filters),
       ...(input.cursor
         ? descending
           ? {
@@ -187,6 +235,54 @@ export async function listUploadsByKind(input: {
         ? encodeCursor(last.createdAt.toISOString(), last.id)
         : null,
   };
+}
+
+export type CredentialChoice = {
+  id: string;
+  name: string;
+  revoked: boolean;
+};
+
+/**
+ * The API keys worth offering as a filter: the account's own keys, plus any key
+ * an upload still names that has since been deleted. A snapshot outliving its
+ * key is the normal case for an old upload, and dropping it from the list would
+ * make those rows unreachable by this filter.
+ */
+export async function listCredentialChoices(
+  userId: string,
+): Promise<CredentialChoice[]> {
+  const [keys, used] = await Promise.all([
+    db.apiKey.findMany({
+      where: { userId },
+      select: { id: true, name: true, revokedAt: true },
+      orderBy: [{ revokedAt: "asc" }, { createdAt: "desc" }],
+    }),
+    db.upload.findMany({
+      where: { userId, apiKeyIdSnapshot: { not: null } },
+      distinct: ["apiKeyIdSnapshot"],
+      select: { apiKeyIdSnapshot: true, apiKeyNameSnapshot: true },
+    }),
+  ]);
+
+  const choices = new Map<string, CredentialChoice>();
+  for (const key of keys) {
+    choices.set(key.id, {
+      id: key.id,
+      name: key.name,
+      revoked: key.revokedAt !== null,
+    });
+  }
+  for (const row of used) {
+    const id = row.apiKeyIdSnapshot;
+    if (!id || choices.has(id)) continue;
+    choices.set(id, {
+      id,
+      name: row.apiKeyNameSnapshot ?? "Deleted key",
+      revoked: true,
+    });
+  }
+  return [...choices.values()];
 }
 
 export async function readLibraryTrend(input: {
