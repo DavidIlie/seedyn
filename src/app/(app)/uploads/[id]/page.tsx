@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
+import { RefreshButton } from "~/components/data/refresh";
 import { requireSessionUser } from "~/components/data/session";
 import {
   publicUrl,
@@ -47,13 +48,14 @@ export default function UploadDetailPage({
 }) {
   return (
     <>
-      <div className="pt-8 pb-4">
+      <div className="flex items-center justify-between gap-4 pt-8 pb-4">
         <Link
           href="/dashboard"
           className="text-muted-foreground hover:text-foreground text-sm"
         >
           ← Library
         </Link>
+        <RefreshButton />
       </div>
 
       <Suspense fallback={<DetailSkeleton />}>

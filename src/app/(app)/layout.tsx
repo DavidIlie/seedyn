@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 
 import { QueryProvider } from "~/components/data/query-provider";
+import { RefreshOnFocus } from "~/components/data/refresh";
 import { NavigationBlockerProvider } from "~/components/navigation/navigation-blocker";
 import { AppHeader } from "~/components/shell/app-header";
 import { RouteLayoutMarker } from "~/components/shell/route-layout-marker";
@@ -35,6 +36,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </a>
 
             <AppHeader />
+            <RefreshOnFocus />
 
             <Suspense fallback={null}>
               <SessionGate />
