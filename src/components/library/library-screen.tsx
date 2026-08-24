@@ -9,6 +9,7 @@ import {
   publicUrl,
   readLibraryTrend,
   type LibraryKind,
+  type LibraryScope,
 } from "~/components/data/uploads";
 import { PageHeader } from "~/components/ui/page-header";
 import {
@@ -76,11 +77,11 @@ export function LibraryScreen({
       </Suspense>
 
       <Suspense fallback={<LibraryControlsSkeleton />}>
-        <Controls path={path} searchParams={searchParams} />
+        <LibraryFilterControls path={path} searchParams={searchParams} />
       </Suspense>
 
       <Suspense fallback={<UploadListSkeleton rows={PAGE_SIZE} />}>
-        <Rows
+        <LibraryRows
           kind={kind}
           path={path}
           noun={noun}
@@ -110,7 +111,14 @@ function LibraryTrendSkeleton() {
   );
 }
 
-async function Controls({
+/**
+ * The filter form, resolved against the URL.
+ *
+ * Exported because the dashboard asks the same question of the whole library
+ * that `/images`, `/files`, and `/texts` ask of one kind, and a second copy of
+ * this form would be a second filter vocabulary.
+ */
+export async function LibraryFilterControls({
   path,
   searchParams,
 }: {
@@ -131,14 +139,14 @@ async function Controls({
   );
 }
 
-async function Rows({
+export async function LibraryRows({
   kind,
   path,
   noun,
   searchParams,
   action,
 }: {
-  kind: LibraryKind;
+  kind: LibraryScope;
   path: LibraryPath;
   noun: string;
   searchParams: SearchParams;

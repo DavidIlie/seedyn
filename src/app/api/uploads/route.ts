@@ -50,7 +50,12 @@ export async function GET(request: Request): Promise<Response> {
   }
   const params = new URL(request.url).searchParams;
   const kind = params.get("kind");
-  if (kind !== "images" && kind !== "files" && kind !== "texts") {
+  if (
+    kind !== "images" &&
+    kind !== "files" &&
+    kind !== "texts" &&
+    kind !== "all"
+  ) {
     return Response.json(
       {
         error: {

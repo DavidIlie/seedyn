@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import type { LibraryScope } from "~/components/data/uploads";
 import { Button } from "~/components/ui/button";
 import {
   uploadFilterKey,
@@ -25,7 +26,7 @@ type UploadPage = {
 };
 
 async function fetchPage(input: {
-  kind: "images" | "files" | "texts";
+  kind: LibraryScope;
   filters: UploadFilters;
   cursor: string | null;
   signal: AbortSignal;
@@ -50,7 +51,7 @@ export function InfiniteUploadLibrary({
   fallbackNextHref,
   backToNewestHref,
 }: {
-  kind: "images" | "files" | "texts";
+  kind: LibraryScope;
   filters: UploadFilters;
   initialCursor: string | null;
   initialPage: UploadPage;

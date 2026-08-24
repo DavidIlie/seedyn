@@ -3,6 +3,10 @@
 import { useState } from "react";
 
 import {
+  Combobox,
+  SEARCHABLE_OPTION_THRESHOLD,
+} from "~/components/ui/combobox";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -44,6 +48,10 @@ const toWire = (item: string) =>
  *
  * `allowAccountDefault` is false on the account form itself, where the account
  * default is the thing being chosen and so cannot also be an option.
+ *
+ * The domain list is configured per deployment and grows, so past
+ * `SEARCHABLE_OPTION_THRESHOLD` entries the listbox becomes a filter box. Both
+ * wear the same trigger, so nothing moves at the threshold.
  */
 export function MediaDomainSelect({
   id,
@@ -96,6 +104,39 @@ export function MediaDomainSelect({
           </option>
         ))}
       </select>
+    );
+  }
+
+  const options = [
+    ...(allowAccountDefault
+      ? [{ value: ACCOUNT_DEFAULT_ITEM, label: "Account default" }]
+      : []),
+    ...mediaDomains.map((domain) => ({ value: domain.id, label: domain.host })),
+  ];
+
+  if (options.length > SEARCHABLE_OPTION_THRESHOLD) {
+    return (
+      <>
+        <Combobox
+          id={id}
+          label="Link domain"
+          options={options}
+          value={toItem(selected)}
+          onValueChange={(item) => {
+            const wire = toWire(item);
+            if (value === undefined) setUncontrolled(wire);
+            onValueChange?.(wire);
+          }}
+          disabled={disabled}
+          className={className}
+          placeholder="Account default"
+          searchPlaceholder="Search domains…"
+          emptyLabel="No domain by that name."
+        />
+        {name ? (
+          <input type="hidden" name={name} value={selected} readOnly />
+        ) : null}
+      </>
     );
   }
 

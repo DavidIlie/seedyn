@@ -1,22 +1,12 @@
 import Link from "next/link";
 
-import { uploadUrl, type UploadPage } from "~/components/data/uploads";
+import type { UploadPage } from "~/components/data/uploads";
 import { Button } from "~/components/ui/button";
 import { cardSurface } from "~/components/ui/card";
 import { EmptyState } from "~/components/ui/empty-state";
-import type { SerializedUpload } from "~/server/uploads/serialization";
 
 import type { LibraryPath } from "./library-controls";
-import { LibraryPresentation } from "./library-presentation";
 import { UploadRowSkeleton } from "./upload-row";
-
-export function UploadList({ items }: { items: SerializedUpload[] }) {
-  return (
-    <LibraryPresentation
-      items={items.map((upload) => ({ ...upload, url: uploadUrl(upload) }))}
-    />
-  );
-}
 
 /**
  * The list frame at its resolved geometry, minus the content. Because the row

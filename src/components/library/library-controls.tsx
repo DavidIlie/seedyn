@@ -18,7 +18,7 @@ import { cn } from "~/lib/utils";
 
 import { LibraryFilterPanel } from "./library-filter-panel";
 
-export type LibraryPath = "/images" | "/files" | "/texts";
+export type LibraryPath = "/dashboard" | "/images" | "/files" | "/texts";
 
 const ORDER_OPTIONS = [
   { value: "newest", label: "Newest first" },
@@ -123,6 +123,11 @@ export function LibraryControls({
               label="Uploaded with"
               options={credentialOptions(credentials)}
               defaultValue={filters.credential}
+              // Unbounded: one entry per API key the account has ever used,
+              // including keys since deleted.
+              searchable
+              searchPlaceholder="Search keys…"
+              emptyLabel="No key by that name."
             />
           </div>
 

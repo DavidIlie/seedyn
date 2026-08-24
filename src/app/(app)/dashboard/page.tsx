@@ -2,32 +2,40 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import { requireSessionUser } from "~/components/data/session";
+import { PAGE_SIZE, readUploadTotals } from "~/components/data/uploads";
+import { LibraryControlsSkeleton } from "~/components/library/library-controls";
 import {
-  DASHBOARD_RECENT_COUNT,
-  listRecentUploads,
-  readUploadTotals,
-} from "~/components/data/uploads";
-import {
-  UploadList,
-  UploadListSkeleton,
-} from "~/components/library/upload-list";
+  LibraryFilterControls,
+  LibraryRows,
+  type SearchParams,
+} from "~/components/library/library-screen";
+import { UploadListSkeleton } from "~/components/library/upload-list";
 import { formatBytes } from "~/components/lib/format";
-import { EmptyState } from "~/components/ui/empty-state";
 import { PageHeader } from "~/components/ui/page-header";
 import { UploadAction } from "~/components/upload/upload-button";
 
 export const metadata: Metadata = { title: "Library" };
 
 /**
- * Heading, one muted total, ten real rows.
+ * Heading, one muted total, and the whole library.
  *
  * There are no stat tiles. A four-card grid of counts is four queries whose
  * only job is to look like a dashboard; the same information fits in one line
  * of subtitle, and the rows below it are the thing anyone actually came for.
+ *
+ * This is the only view that crosses kinds, which makes it the one place a
+ * filter is worth the most: "the 4 GB video I pushed from ShareX last March"
+ * is not a question you can ask on a page that only holds images. It runs the
+ * same controls as the per-kind libraries against a scope of `all`, so there is
+ * one filter vocabulary in the product rather than two.
  */
 export const instant = true;
 
-export default function DashboardPage() {
+export default function DashboardPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
   return (
     <>
       <PageHeader
@@ -37,16 +45,25 @@ export default function DashboardPage() {
             <Totals />
           </Suspense>
         }
+        action={<UploadAction />}
       />
+
+      <Suspense fallback={<LibraryControlsSkeleton />}>
+        <LibraryFilterControls path="/dashboard" searchParams={searchParams} />
+      </Suspense>
 
       <section aria-labelledby="latest-heading">
         <h2 id="latest-heading" className="pb-3 text-sm font-medium">
-          Latest uploads
+          Uploads
         </h2>
-        <Suspense
-          fallback={<UploadListSkeleton rows={DASHBOARD_RECENT_COUNT} />}
-        >
-          <LatestUploads />
+        <Suspense fallback={<UploadListSkeleton rows={PAGE_SIZE} />}>
+          <LibraryRows
+            kind="all"
+            path="/dashboard"
+            noun="uploads"
+            searchParams={searchParams}
+            action={<UploadAction label="Choose a file" variant="outline" />}
+          />
         </Suspense>
       </section>
     </>
@@ -72,21 +89,4 @@ async function Totals() {
       {formatBytes(totals.byteSize)} stored
     </>
   );
-}
-
-async function LatestUploads() {
-  const user = await requireSessionUser();
-  const uploads = await listRecentUploads(user.id, DASHBOARD_RECENT_COUNT);
-
-  if (uploads.length === 0) {
-    return (
-      <EmptyState
-        title="Nothing uploaded yet"
-        body="Upload a local file, paste one, or fetch an eligible HTTPS URL. Every completed object gets a permanent link."
-        action={<UploadAction label="Choose a file" variant="outline" />}
-      />
-    );
-  }
-
-  return <UploadList items={uploads} />;
 }
