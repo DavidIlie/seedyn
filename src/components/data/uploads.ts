@@ -33,8 +33,15 @@ import {
 
 export type LibraryKind = "images" | "files" | "texts";
 
+/**
+ * `all` is the dashboard, which is the only view that crosses kinds. It is a
+ * scope rather than a fourth kind because nothing else — trends, empty-state
+ * wording, the upload action — treats it as one.
+ */
+export type LibraryScope = LibraryKind | "all";
+
 const KIND_FILTER: Record<
-  LibraryKind,
+  LibraryScope,
   ("IMAGE" | "VIDEO" | "TEXT" | "FILE")[]
 > = {
   // Video lives with files: it is not an image, and a dedicated Video page is
@@ -42,6 +49,7 @@ const KIND_FILTER: Record<
   images: ["IMAGE"],
   files: ["FILE", "VIDEO"],
   texts: ["TEXT"],
+  all: ["IMAGE", "VIDEO", "TEXT", "FILE"],
 };
 
 export const LIBRARY_TREND_DAYS = 14;
@@ -67,7 +75,6 @@ export type LibraryTrend = {
  * exactly the space its fallback did.
  */
 export const PAGE_SIZE = 12;
-export const DASHBOARD_RECENT_COUNT = 10;
 
 export function publicUrl(
   publicSlug: string,
@@ -181,7 +188,7 @@ function uploadFilterWhere(filters: UploadFilters) {
 
 export async function listUploadsByKind(input: {
   userId: string;
-  kind: LibraryKind;
+  kind: LibraryScope;
   filters?: UploadFilters;
   cursor?: ListCursor;
   limit?: number;
@@ -348,21 +355,6 @@ export async function readLibraryTrend(input: {
     busiestUploads: busiest?.uploads ?? 0,
     points: series,
   };
-}
-
-export async function listRecentUploads(
-  userId: string,
-  limit = DASHBOARD_RECENT_COUNT,
-): Promise<SerializedUpload[]> {
-  const rows = await db.upload.findMany({
-    where: { userId },
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    take: limit,
-    include: {
-      variants: { where: { state: "READY" }, orderBy: { createdAt: "asc" } },
-    },
-  });
-  return rows.map(serializeUpload);
 }
 
 export type UploadTotals = { count: number; byteSize: string };

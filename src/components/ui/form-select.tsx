@@ -3,6 +3,10 @@
 import { useState } from "react";
 
 import {
+  Combobox,
+  SEARCHABLE_OPTION_THRESHOLD,
+} from "~/components/ui/combobox";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -31,6 +35,10 @@ export type FormSelectOption = { value: string; label: string };
  * Both renderings share `selectTriggerVariants`, so the swap does not move
  * anything.
  *
+ * A long or unbounded list gets a filter box instead of a listbox — see
+ * `Combobox`. That upgrade is hydrated-only by nature, so the unhydrated
+ * rendering is the same native `<select>` either way.
+ *
  * Key the element on the committed value so a back navigation shows the filter
  * that is actually applied.
  */
@@ -42,6 +50,10 @@ export function FormSelect({
   defaultValue,
   className,
   triggerClassName,
+  searchable,
+  placeholder,
+  searchPlaceholder,
+  emptyLabel,
 }: {
   id?: string;
   name: string;
@@ -51,9 +63,18 @@ export function FormSelect({
   defaultValue: string;
   className?: string;
   triggerClassName?: string;
+  /**
+   * Force the filter box on (an unbounded list) or off. Defaults to whether the
+   * list is longer than `SEARCHABLE_OPTION_THRESHOLD`.
+   */
+  searchable?: boolean;
+  placeholder?: string;
+  searchPlaceholder?: string;
+  emptyLabel?: string;
 }) {
   const hydrated = useHydrated();
   const [value, setValue] = useState(defaultValue);
+  const searches = searchable ?? options.length > SEARCHABLE_OPTION_THRESHOLD;
 
   if (!hydrated) {
     return (
@@ -72,6 +93,25 @@ export function FormSelect({
             </option>
           ))}
         </select>
+      </div>
+    );
+  }
+
+  if (searches) {
+    return (
+      <div className={className}>
+        <Combobox
+          id={id}
+          label={label}
+          options={options}
+          value={value}
+          onValueChange={setValue}
+          className={triggerClassName}
+          placeholder={placeholder}
+          searchPlaceholder={searchPlaceholder}
+          emptyLabel={emptyLabel}
+        />
+        <input type="hidden" name={name} value={value} readOnly />
       </div>
     );
   }

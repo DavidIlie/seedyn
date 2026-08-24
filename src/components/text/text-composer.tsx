@@ -29,13 +29,7 @@ import {
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "~/components/ui/select";
+import { Combobox } from "~/components/ui/combobox";
 import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group";
 
 import {
@@ -96,6 +90,11 @@ function bytes(value: string): number {
 function isMode(value: unknown): value is ComposerMode {
   return value === "code" || value === "document";
 }
+
+const LANGUAGE_OPTIONS = TEXT_LANGUAGES.map(([value, label]) => ({
+  value,
+  label,
+}));
 
 export function TextComposer() {
   const router = useRouter();
@@ -405,7 +404,11 @@ export function TextComposer() {
         {mode === "code" ? (
           <div className="md:w-44">
             <Label htmlFor={languageFieldId}>Language</Label>
-            <Select
+            <Combobox
+              id={languageFieldId}
+              label="Language"
+              className="mt-1"
+              options={LANGUAGE_OPTIONS}
               value={code.language}
               onValueChange={(next) => {
                 // `isTextLanguage` is the narrowing guard the union already
@@ -414,18 +417,9 @@ export function TextComposer() {
                 setCode((current) => ({ ...current, language: next }));
                 edit();
               }}
-            >
-              <SelectTrigger id={languageFieldId} className="mt-1">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {TEXT_LANGUAGES.map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              searchPlaceholder="Search languages…"
+              emptyLabel="No language by that name."
+            />
           </div>
         ) : null}
         <div className="flex flex-wrap gap-2">
