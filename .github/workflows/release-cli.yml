@@ -1,0 +1,72 @@
+name: Release CLI
+
+# Publishes packages/cli to npm as `seedyn`.
+#
+# There is no NPM_TOKEN. The job authenticates with npm through GitHub's OIDC
+# identity ("trusted publishing"), which npm exchanges for a short-lived,
+# workflow-scoped credential. That is strictly better than a stored token: there
+# is no long-lived secret to leak or rotate, it cannot be used from anywhere
+# else, and npm attaches a provenance attestation linking the tarball to this
+# exact commit and run — something a local `npm publish` cannot produce.
+#
+# One-time setup on npmjs.com, under the package's Settings → Trusted Publisher:
+#   Organization or user: DavidIlie · Repository: seedyn
+#   Workflow filename: release-cli.yml · Environment: (leave blank)
+#
+# To cut a release: bump packages/cli/package.json, commit, then push a matching
+# tag — `git tag cli-v0.2.0 && git push origin cli-v0.2.0`. The tag and the
+# manifest must agree; the job fails loudly rather than publishing a version
+# nobody asked for.
+
+on:
+  push:
+    tags: ["cli-v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: seedyn-release-cli-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    # GitHub-hosted on purpose: this job needs nothing from the private runner
+    # and should stay runnable when that pool is unavailable.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Ensure an npm that can use trusted publishing
+        # OIDC exchange landed in npm 11.5.1; the runner image is not pinned to
+        # a version, so this makes the requirement explicit rather than lucky.
+        run: npm install --global npm@^11.6.2
+
+      - name: Check the tag against the manifest
+        if: github.event_name == 'push'
+        working-directory: packages/cli
+        run: |
+          manifest=$(node -p "require('./package.json').version")
+          tag=${GITHUB_REF_NAME#cli-v}
+          if [ "$manifest" != "$tag" ]; then
+            echo "::error::tag cli-v$tag does not match packages/cli version $manifest"
+            exit 1
+          fi
+          echo "publishing seedyn@$manifest"
+
+      - name: Smoke-test the binary the tarball ships
+        run: node packages/cli/bin/seedyn.mjs --help
+
+      - name: Publish to npm
+        working-directory: packages/cli
+        run: npm publish
