@@ -50,7 +50,7 @@
     "@ffmpeg/core": "0.12.10",
     "@ffmpeg/ffmpeg": "0.12.15",
     "@ffmpeg/util": "0.12.2",
-    "@next/env": "16.3.1-canary.24",
+    "@next/env": "16.3.3",
     "@node-rs/argon2": "2.0.2",
     "@prisma/client": "6.19.3",
     "@sindresorhus/slugify": "3.0.0",
@@ -84,7 +84,7 @@
     "ioredis": "6.0.0",
     "lucide-react": "0.545.0",
     "minio": "8.0.7",
-    "next": "16.3.1-canary.24",
+    "next": "16.3.3",
     "next-auth": "5.0.0-beta.32",
     "prisma": "6.19.3",
     "radix-ui": "1.6.7",
@@ -99,7 +99,7 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "@next/playwright": "16.3.1-canary.24",
+    "@next/playwright": "16.3.3",
     "@playwright/test": "1.62.1",
     "@tailwindcss/postcss": "4.1.14",
     "@types/busboy": "1.5.4",
