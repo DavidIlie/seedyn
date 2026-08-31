@@ -47,6 +47,11 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 9.15.0
+
       - name: Ensure an npm that can use trusted publishing
         # OIDC exchange landed in npm 11.5.1; the runner image is not pinned to
         # a version, so this makes the requirement explicit rather than lucky.
@@ -64,8 +69,10 @@ jobs:
           fi
           echo "publishing seedyn@$manifest"
 
-      - name: Smoke-test the binary the tarball ships
-        run: node packages/cli/bin/seedyn.mjs --help
+      - name: Smoke-test the packed CLI through pnpm
+        run: |
+          tarball=$(cd packages/cli && npm pack --silent)
+          pnpm dlx "$GITHUB_WORKSPACE/packages/cli/$tarball" auth login --help
 
       - name: Publish to npm
         working-directory: packages/cli

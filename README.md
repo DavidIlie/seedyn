@@ -17,6 +17,17 @@ npx seedyn auth login
 npx seedyn ./page.html --render-html
 ```
 
+Self-hosted installations can persist their own application origin before
+logging in:
+
+```sh
+npx seedyn config set api-url https://seedyn.example.com
+npx seedyn auth login
+```
+
+Use `npx seedyn config get api-url` to inspect it. `--api-url` overrides it for
+one command, and `SEEDYN_API_URL` overrides it for the current environment.
+
 Or install the command globally:
 
 ```bash

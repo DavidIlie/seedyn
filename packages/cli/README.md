@@ -33,6 +33,19 @@ owner-only config file. API URL precedence is `--api-url`, then
 Passing a secret on the command line can expose it to shell history and process
 inspection; prefer the environment or `seedyn auth set`.
 
+## Self-hosted Seedyn
+
+Save the application origin once, then use the normal login flow:
+
+```sh
+npx seedyn config set api-url https://seedyn.example.com
+npx seedyn config get api-url
+npx seedyn auth login
+```
+
+The origin must use HTTPS. HTTP is accepted for `localhost` during development.
+For a one-off command, pass `--api-url`. In CI, set `SEEDYN_API_URL`.
+
 ## Upload
 
 The shortest form treats the first argument as a file:

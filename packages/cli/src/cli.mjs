@@ -7,6 +7,7 @@ import {
   readConfig,
   removeAuthentication,
   resolveAuthentication,
+  saveApiUrl,
   saveAuthentication,
   validateApiKey,
   validateApiUrl,
@@ -30,6 +31,10 @@ export async function run(arguments_) {
   }
   if (first === "auth") {
     await authCommand(args.slice(1));
+    return;
+  }
+  if (first === "config") {
+    await configCommand(args.slice(1));
     return;
   }
   await uploadCommand(first === "upload" ? args.slice(1) : args);
@@ -133,6 +138,35 @@ async function authCommand(args) {
   }
 
   throw new CliError(`Unknown auth command: ${action}`);
+}
+
+async function configCommand(args) {
+  const action = args[0] || "help";
+  if (action === "help" || action === "--help" || action === "-h") {
+    console.log(CONFIG_HELP);
+    return;
+  }
+
+  if (action === "set" && args[1] === "api-url") {
+    if (args.length !== 3) {
+      throw new CliError("Usage: seedyn config set api-url <origin>");
+    }
+    const result = await saveApiUrl(args[2]);
+    console.log(`API URL saved to ${result.file}`);
+    console.log(`API URL: ${result.value.apiUrl}`);
+    return;
+  }
+
+  if (action === "get" && args[1] === "api-url") {
+    if (args.length !== 2) {
+      throw new CliError("Usage: seedyn config get api-url");
+    }
+    const config = await readConfig();
+    console.log(config.apiUrl || "https://seedyn.dave.tips");
+    return;
+  }
+
+  throw new CliError(`Unknown config command: ${args.join(" ")}`);
 }
 
 async function uploadCommand(args) {
@@ -287,6 +321,7 @@ Usage:
   seedyn <file> [options]
   seedyn upload <file> [options]
   seedyn auth <login|set|status|remove>
+  seedyn config <set|get> api-url
 
 Examples:
   seedyn ./image.png --copy
@@ -322,6 +357,12 @@ Commands:
   remove                     Remove the stored API key
 
 Run "seedyn auth login" for the guided browser flow.`;
+
+const CONFIG_HELP = `Usage: seedyn config <command>
+
+Commands:
+  set api-url <origin>       Save a self-hosted Seedyn application origin
+  get api-url                Print the configured application origin`;
 
 const AUTH_LOGIN_HELP = `Usage: seedyn auth login [options]
 

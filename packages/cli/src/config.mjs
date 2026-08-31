@@ -133,6 +133,17 @@ export async function saveAuthentication(
   return { file: configPath(environment), value: next };
 }
 
+export async function saveApiUrl(apiUrl, environment = process.env) {
+  const existing = await readConfig(environment);
+  const next = {
+    ...existing,
+    apiUrl: validateApiUrl(apiUrl),
+    updatedAt: new Date().toISOString(),
+  };
+  await writeConfig(next, environment);
+  return { file: configPath(environment), value: next };
+}
+
 export async function removeAuthentication(environment = process.env) {
   const existing = await readConfig(environment);
   const { apiKey: _removed, ...next } = existing;
