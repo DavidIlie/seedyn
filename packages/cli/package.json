@@ -4,6 +4,11 @@
   "description": "Upload any file to Seedyn and receive its durable URL.",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DavidIlie/seedyn.git",
+    "directory": "packages/cli"
+  },
   "files": [
     "bin/",
     "src/",
@@ -12,7 +17,7 @@
     "THIRD_PARTY_NOTICES.md"
   ],
   "bin": {
-    "seedyn": "./bin/seedyn.mjs"
+    "seedyn": "bin/seedyn.mjs"
   },
   "engines": {
     "node": ">=22.12.0"
