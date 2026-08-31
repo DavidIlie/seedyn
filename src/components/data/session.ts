@@ -12,13 +12,18 @@ import { getOptionalUser } from "~/server/auth";
  * shell that renders before this resolves cannot show another user's data. See
  * `plans/spec/05-AUTH-AND-SECURITY.md`.
  */
-export async function requireSessionUser() {
+export async function requireSessionUser(redirectTo = "/dashboard") {
   // Auth.js may generate request-scoped random values before its cookie read.
   // Tell Cache Components that the entire authentication check belongs to the
   // request so those values are never inspected during prerendering.
   await connection();
 
   const user = await getOptionalUser();
-  if (!user) redirect("/sign-in");
+  if (!user) {
+    const target = /^\/cli-auth\/[0-9a-f-]{36}$/u.test(redirectTo)
+      ? `?redirectTo=${encodeURIComponent(redirectTo)}`
+      : "";
+    redirect(`/sign-in${target}`);
+  }
   return user;
 }

@@ -112,7 +112,7 @@ export async function resolveAuthentication(
     options.apiKey || environment.SEEDYN_API_KEY || config.apiKey;
   if (!candidate) {
     throw new CliError(
-      "Missing Seedyn API key. Run `seedyn auth set` or set SEEDYN_API_KEY.",
+      "Missing Seedyn API key. Run `seedyn auth login`, `seedyn auth set`, or set SEEDYN_API_KEY.",
     );
   }
   return { apiKey: validateApiKey(candidate), apiUrl };

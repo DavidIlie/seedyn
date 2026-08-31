@@ -13,7 +13,7 @@ The dependency-free CLI lives in `packages/cli` and is published on npm as
 [`seedyn`](https://www.npmjs.com/package/seedyn). Run it without installing:
 
 ```bash
-npx seedyn auth set
+npx seedyn auth login
 npx seedyn ./page.html --render-html
 ```
 

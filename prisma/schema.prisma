@@ -112,6 +112,7 @@ model User {
   accounts             Account[]
   sessions             Session[]
   apiKeys              ApiKey[]
+  cliAuthRequests      CliAuthRequest[]
   uploads              Upload[]
   directUploadSessions DirectUploadSession[]
   storageReservations  StorageReservation[]
@@ -160,9 +161,28 @@ model ApiKey {
   expiresAt         DateTime?
   revokedAt         DateTime?
   user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cliAuthRequests   CliAuthRequest[]
 
   @@unique([userId, slug])
   @@index([userId, revokedAt, createdAt(sort: Desc)])
+}
+
+model CliAuthRequest {
+  id              String   @id
+  pollSecretHash  Bytes    @unique
+  publicKey       String
+  encryptedApiKey Bytes?
+  userId          String?
+  apiKeyId        String?
+  createdAt       DateTime @default(now())
+  expiresAt       DateTime
+  approvedAt      DateTime?
+  claimedAt       DateTime?
+  user            User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiKey           ApiKey?  @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@index([userId, createdAt(sort: Desc)])
 }
 
 model Upload {

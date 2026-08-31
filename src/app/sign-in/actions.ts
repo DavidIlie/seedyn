@@ -15,7 +15,15 @@ import { authorizePublicServerActionMutation } from "~/server/http/browser-mutat
  * into a bounded code in the URL — never a message, a token, or a callback
  * parameter, all of which cross logging and history boundaries.
  */
-export async function startSignIn(): Promise<void> {
+export async function startSignIn(formData: FormData): Promise<void> {
+  const candidate = formData.get("redirectTo");
+  const redirectTo =
+    typeof candidate === "string" &&
+    /^\/cli-auth\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(
+      candidate,
+    )
+      ? candidate
+      : "/dashboard";
   const authorization = await authorizePublicServerActionMutation();
   if (authorization instanceof Response) {
     redirect(
@@ -26,7 +34,7 @@ export async function startSignIn(): Promise<void> {
   }
 
   try {
-    await signIn(activeProviderId, { redirectTo: "/dashboard" });
+    await signIn(activeProviderId, { redirectTo });
   } catch (error) {
     if (error instanceof AuthError) {
       const code = /^[A-Za-z]{1,40}$/.test(error.type) ? error.type : "Unknown";

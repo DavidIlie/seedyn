@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Route } from "next";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
@@ -112,9 +112,17 @@ async function SignInPanel({
 }) {
   await connection();
 
-  if (await getOptionalUser()) redirect("/dashboard");
-
   const params = await searchParams;
+  const redirectCandidate = params.redirectTo;
+  const redirectTo =
+    typeof redirectCandidate === "string" &&
+    /^\/cli-auth\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(
+      redirectCandidate,
+    )
+      ? redirectCandidate
+      : "/dashboard";
+  if (await getOptionalUser()) redirect(redirectTo as Route);
+
   const raw = params.error;
   const code =
     typeof raw === "string" ? raw : Array.isArray(raw) ? raw[0] : undefined;
@@ -124,6 +132,7 @@ async function SignInPanel({
       {code ? <SignInError code={code} /> : null}
 
       <form action={startSignIn}>
+        <input type="hidden" name="redirectTo" value={redirectTo} />
         <Button type="submit" className="w-full">
           {activeProviderLabel}
         </Button>

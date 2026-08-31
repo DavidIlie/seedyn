@@ -12,6 +12,7 @@ import {
   validateApiUrl,
 } from "./config.mjs";
 import { CliError } from "./errors.mjs";
+import { browserLogin } from "./browser-auth.mjs";
 import { copyUrl, openUrl, uploadFile } from "./upload.mjs";
 
 const { version: VERSION } = createRequire(import.meta.url)("../package.json");
@@ -70,6 +71,42 @@ async function authCommand(args) {
     console.log(
       `API URL: ${result.value.apiUrl || "https://seedyn.dave.tips"}`,
     );
+    return;
+  }
+
+  if (action === "login") {
+    const { values, positionals } = parseArgs({
+      args: args.slice(1),
+      allowPositionals: true,
+      strict: true,
+      options: {
+        "api-url": { type: "string" },
+        "no-open": { type: "boolean" },
+        help: { type: "boolean", short: "h" },
+      },
+    });
+    if (values.help) {
+      console.log(AUTH_LOGIN_HELP);
+      return;
+    }
+    if (positionals.length > 0) {
+      throw new CliError("auth login takes no arguments.");
+    }
+    const apiUrl = validateApiUrl(
+      values["api-url"] ||
+        process.env.SEEDYN_API_URL ||
+        "https://seedyn.dave.tips",
+    );
+    const key = validateApiKey(
+      await browserLogin({
+        apiUrl,
+        version: VERSION,
+        openBrowser: values["no-open"] ? () => false : openUrl,
+      }),
+    );
+    const result = await saveAuthentication({ apiKey: key, apiUrl });
+    console.log(`Seedyn credentials saved to ${result.file}`);
+    console.log(`API key: ${displayApiKey(key)}`);
     return;
   }
 
@@ -249,7 +286,7 @@ Upload any file and receive its durable URL.
 Usage:
   seedyn <file> [options]
   seedyn upload <file> [options]
-  seedyn auth <set|status|remove>
+  seedyn auth <login|set|status|remove>
 
 Examples:
   seedyn ./image.png --copy
@@ -279,11 +316,19 @@ Options:
 const AUTH_HELP = `Usage: seedyn auth <command>
 
 Commands:
+  login                      Create a key through the Seedyn website
   set [api-key]              Store a key with owner-only permissions
   status                     Show config and redacted credential status
   remove                     Remove the stored API key
 
-Prefer bare "seedyn auth set" for a hidden prompt.`;
+Run "seedyn auth login" for the guided browser flow.`;
+
+const AUTH_LOGIN_HELP = `Usage: seedyn auth login [options]
+
+Options:
+  --api-url <origin>         Use and save a custom Seedyn application origin
+  --no-open                  Print the approval URL without opening a browser
+  -h, --help                 Show this help`;
 
 const AUTH_SET_HELP = `Usage: seedyn auth set [api-key] [options]
 

@@ -5,12 +5,16 @@ no runtime dependencies and requires Node.js 22.12 or newer.
 
 ## Setup
 
-Create an API key in Seedyn with the scopes needed for the files you plan to
-upload, then save it using a hidden terminal prompt:
+Open Seedyn in your browser, approve the requested upload scopes, and let the
+CLI save the new key:
 
 ```sh
-npx seedyn auth set
+npx seedyn auth login
 ```
+
+The browser encrypts the new credential to the waiting CLI process. The server
+cannot recover it from the login request. To store an existing key instead, run
+`npx seedyn auth set` and paste it into the hidden prompt.
 
 Credentials are written to `$XDG_CONFIG_HOME/seedyn/config.json`, or
 `~/.config/seedyn/config.json` when `XDG_CONFIG_HOME` is unset. The directory is
