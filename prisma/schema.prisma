@@ -116,9 +116,36 @@ model User {
   uploads              Upload[]
   directUploadSessions DirectUploadSession[]
   storageReservations  StorageReservation[]
+  auditEvents          AuditEvent[]
 
   @@unique([identityIssuer, identitySubject])
   @@index([createdAt, id])
+}
+
+model AuditEvent {
+  id          String   @id @default(uuid())
+  occurredAt  DateTime @default(now())
+  category    String
+  action      String
+  outcome     String
+  actorType   String
+  userId      String?
+  actorLabel  String?
+  apiKeyId    String?
+  requestId   String?
+  method      String?
+  route       String?
+  statusCode  Int?
+  targetType  String?
+  targetId    String?
+  metadata    Json?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([occurredAt(sort: Desc), id(sort: Desc)])
+  @@index([userId, occurredAt(sort: Desc)])
+  @@index([category, occurredAt(sort: Desc)])
+  @@index([action, occurredAt(sort: Desc)])
+  @@index([outcome, occurredAt(sort: Desc)])
 }
 
 model StorageReservation {

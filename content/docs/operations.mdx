@@ -18,6 +18,10 @@ Object writes use predetermined managed keys. If the database insert fails,
 Seedyn compensates by deleting the object. `pnpm storage:check` compares
 managed MinIO markers to PostgreSQL after a safety age and defaults to dry-run.
 
+The admin audit log retains 400 days of events. Run `pnpm audit:prune` from a
+daily scheduled job; it removes expired rows in bounded batches and is safe to
+run repeatedly.
+
 ## Direct multipart uploads
 
 Browser files above 64 MiB use S3 multipart upload with 16 MiB parts and three

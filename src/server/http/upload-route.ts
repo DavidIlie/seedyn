@@ -1,5 +1,6 @@
 import "server-only";
 
+import { recordAuditEvent } from "~/server/audit/service";
 import { parseApiKeyAuthorization } from "~/server/api-keys/authorization";
 import type { ApiKeyScope } from "~/server/api-keys/constants";
 import { resolveApiKeyIdentity } from "~/server/api-keys/service";
@@ -60,6 +61,48 @@ function maximumBytes(route: MachineUploadRoute): number {
 }
 
 export async function handleMachineUpload(
+  request: Request,
+  route: MachineUploadRoute,
+): Promise<Response> {
+  const startedAt = Date.now();
+  let response: Response;
+  try {
+    response = await handleMachineUploadRequest(request, route);
+  } catch (error) {
+    await recordAuditEvent({
+      category: "API",
+      action: "api_upload",
+      outcome: "FAILURE",
+      actorType: "ANONYMOUS",
+      method: request.method,
+      route: new URL(request.url).pathname,
+      statusCode: 500,
+      metadata: { origin: route.origin, durationMs: Date.now() - startedAt },
+    });
+    throw error;
+  }
+  await recordAuditEvent({
+    category: "API",
+    action: "api_upload",
+    outcome: response.ok
+      ? "SUCCESS"
+      : response.status === 401 || response.status === 403
+        ? "DENIED"
+        : "FAILURE",
+    actorType: parseApiKeyAuthorization(request.headers.get("authorization"), {
+      allowLegacyRaw: route.origin === "SHAREX",
+    })
+      ? "API_KEY"
+      : "ANONYMOUS",
+    method: request.method,
+    route: new URL(request.url).pathname,
+    statusCode: response.status,
+    metadata: { origin: route.origin, durationMs: Date.now() - startedAt },
+  });
+  return response;
+}
+
+async function handleMachineUploadRequest(
   request: Request,
   route: MachineUploadRoute,
 ): Promise<Response> {

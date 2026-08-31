@@ -2,6 +2,7 @@ import "server-only";
 
 import { Prisma } from "@prisma/client";
 
+import { recordAuditEvent } from "~/server/audit/service";
 import { db } from "~/server/db";
 import {
   escapePostgresLikePattern,
@@ -600,7 +601,7 @@ export async function createUpload(
       });
       return created;
     });
-    return {
+    const result = {
       upload: serializeUpload(upload),
       url: publicMediaUrl({
         publicSlug,
@@ -608,6 +609,28 @@ export async function createUpload(
         mediaOrigin: input.mediaOrigin,
       }),
     };
+    if (!injected) {
+      const credential =
+        input.provenance.origin === "BROWSER"
+          ? null
+          : input.provenance.credential;
+      await recordAuditEvent({
+        category: "CONTENT",
+        action: "upload_created",
+        actorType: credential ? "API_KEY" : "USER",
+        userId: input.userId,
+        actorLabel: credential?.name,
+        apiKeyId: credential?.id,
+        targetType: "upload",
+        targetId: uploadId,
+        metadata: {
+          kind: classification.kind,
+          origin: input.provenance.origin,
+          byteSize: input.file.byteSize,
+        },
+      });
+    }
+    return result;
   } catch (error) {
     await compensateObject({
       store,

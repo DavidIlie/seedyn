@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { requireAdmin } from "~/server/admin/authorization";
 import { db } from "~/server/db";
+import { recordAuditEvent } from "~/server/audit/service";
 
 const LIMITS_GB = new Set(["default", "10", "25", "50", "100", "250"]);
 
@@ -16,7 +17,7 @@ export async function setUserStorageQuota(
   _previousState: StorageQuotaActionState,
   formData: FormData,
 ): Promise<StorageQuotaActionState> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const userId = formData.get("userId");
   const limitGb = formData.get("limitGb");
   if (
@@ -39,6 +40,16 @@ export async function setUserStorageQuota(
   if (result.count !== 1) {
     return { status: "error", message: "Only member quotas can be changed." };
   }
+
+  await recordAuditEvent({
+    category: "ADMIN",
+    action: "storage_quota_updated",
+    actorType: "USER",
+    userId: admin.id,
+    targetType: "user",
+    targetId: userId,
+    metadata: { limitGb },
+  });
 
   revalidatePath("/admin");
   revalidatePath("/images");

@@ -9,6 +9,7 @@ import {
 } from "~/server/media/passwords";
 import { DomainError } from "~/server/uploads/errors";
 import { updateOwnedUploadPassword } from "~/server/uploads/service";
+import { recordAuditEvent } from "~/server/audit/service";
 
 export type PasswordProtectionState = {
   error: string | null;
@@ -76,6 +77,16 @@ export async function updatePasswordProtectionAction(
       success: null,
     };
   }
+
+  await recordAuditEvent({
+    category: "CONTENT",
+    action:
+      mode === "remove" ? "upload_password_removed" : "upload_password_set",
+    actorType: "USER",
+    userId: authorization.userId,
+    targetType: "upload",
+    targetId: uploadId,
+  });
 
   for (const path of [
     `/uploads/${uploadId}`,

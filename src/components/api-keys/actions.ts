@@ -19,6 +19,7 @@ import {
   S3CredentialInputError,
 } from "~/server/api-keys/s3-credentials";
 import { authorizeServerActionMutation } from "~/server/http/browser-mutation";
+import { recordAuditEvent } from "~/server/audit/service";
 
 import {
   isClientPresetId,
@@ -141,6 +142,16 @@ export async function createApiKeyAction(
       }
     }
 
+    await recordAuditEvent({
+      category: "CREDENTIAL",
+      action: "api_key_created",
+      actorType: "USER",
+      userId: authorization.userId,
+      targetType: "api_key",
+      targetId: created.id,
+      metadata: { preset: presetValue, scopeCount: created.scopes.length },
+    });
+
     return {
       status: "created",
       id: created.id,
@@ -215,6 +226,14 @@ export async function rotateS3CredentialAction(
       apiKeyId,
       userId: authorization.userId,
     });
+    await recordAuditEvent({
+      category: "CREDENTIAL",
+      action: "s3_credential_rotated",
+      actorType: "USER",
+      userId: authorization.userId,
+      targetType: "api_key",
+      targetId: apiKeyId,
+    });
     const display = describeS3Credential(
       credential.publicNamespace,
       credential.mediaDomain,
@@ -273,6 +292,14 @@ export async function updateApiKeyNameAction(
     if (!updated) {
       return { status: "error", message: "The API key was not found." };
     }
+    await recordAuditEvent({
+      category: "CREDENTIAL",
+      action: "api_key_renamed",
+      actorType: "USER",
+      userId: authorization.userId,
+      targetType: "api_key",
+      targetId: apiKeyId,
+    });
     refresh();
     return {
       status: "saved",
@@ -324,6 +351,15 @@ export async function updateApiKeyMediaDomainAction(
     if (!updated) {
       return { status: "error", message: "The API key was not found." };
     }
+    await recordAuditEvent({
+      category: "CREDENTIAL",
+      action: "api_key_media_domain_updated",
+      actorType: "USER",
+      userId: authorization.userId,
+      targetType: "api_key",
+      targetId: apiKeyId,
+      metadata: { mediaDomain },
+    });
     refresh();
     return {
       status: "saved",
@@ -350,5 +386,13 @@ export async function revokeApiKeyAction(formData: FormData): Promise<void> {
 
   // Scoped by user id: revoking someone else's key id simply matches nothing.
   await revokeApiKey(authorization.userId, apiKeyId);
+  await recordAuditEvent({
+    category: "CREDENTIAL",
+    action: "api_key_revoked",
+    actorType: "USER",
+    userId: authorization.userId,
+    targetType: "api_key",
+    targetId: apiKeyId,
+  });
   refresh();
 }

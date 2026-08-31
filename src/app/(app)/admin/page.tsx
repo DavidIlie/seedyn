@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import { cache, Suspense } from "react";
 
 import { AdminFleet, AdminOperations } from "~/components/admin/admin-ledger";
+import { AdminAuditLog } from "~/components/admin/admin-audit-log";
 import { AdminUploadInventory } from "~/components/admin/admin-upload-inventory";
 import { AdminUserTable } from "~/components/admin/admin-user-table";
 import { PageHeader } from "~/components/ui/page-header";
 import { loadAdminOverview, loadAdminUserPage } from "~/server/admin/insights";
 import { loadAdminUploadPage } from "~/server/admin/uploads";
+import { loadAdminAuditPage } from "~/server/admin/audit";
 import {
   parseAdminRange,
   parseAdminUserView,
@@ -35,14 +37,39 @@ export default function AdminPage(props: PageProps<"/admin">) {
         <Suspense fallback={<PeopleSkeleton />}>
           <PeopleContent searchParams={props.searchParams} />
         </Suspense>
+        <Suspense fallback={<OperationsSkeleton />}>
+          <OperationsContent searchParams={props.searchParams} />
+        </Suspense>
         <Suspense fallback={<ContentSkeleton />}>
           <ContentContent />
         </Suspense>
         <Suspense fallback={<OperationsSkeleton />}>
-          <OperationsContent searchParams={props.searchParams} />
+          <AuditContent searchParams={props.searchParams} />
         </Suspense>
       </div>
     </>
+  );
+}
+
+async function AuditContent({
+  searchParams,
+}: Pick<PageProps<"/admin">, "searchParams">) {
+  const query = await searchParams;
+  const candidate = Array.isArray(query.auditCursor)
+    ? query.auditCursor[0]
+    : query.auditCursor;
+  const cursor =
+    typeof candidate === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(
+      candidate,
+    )
+      ? candidate
+      : undefined;
+  return (
+    <AdminAuditLog
+      page={await loadAdminAuditPage(cursor)}
+      paged={Boolean(cursor)}
+    />
   );
 }
 

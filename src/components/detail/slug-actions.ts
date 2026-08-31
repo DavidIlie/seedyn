@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireSessionUser } from "~/components/data/session";
 import { DomainError } from "~/server/uploads/errors";
 import { changeOwnedUploadPublicSlug } from "~/server/uploads/service";
+import { recordAuditEvent } from "~/server/audit/service";
 
 export type ChangeSlugState =
   | { status: "idle" }
@@ -32,6 +33,14 @@ export async function changePublicSlugAction(
       userId: user.id,
       uploadId,
       slug,
+    });
+    await recordAuditEvent({
+      category: "CONTENT",
+      action: "upload_public_slug_changed",
+      actorType: "USER",
+      userId: user.id,
+      targetType: "upload",
+      targetId: uploadId,
     });
     revalidatePath(`/uploads/${uploadId}`);
     revalidatePath("/dashboard");

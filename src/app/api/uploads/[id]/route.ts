@@ -2,6 +2,7 @@ import { authorizeBrowserMutation } from "~/server/http/browser-mutation";
 import { domainErrorResponse } from "~/server/http/errors";
 import { safeJsonError } from "~/server/http/request";
 import { deleteOwnedUpload } from "~/server/uploads/service";
+import { recordAuditEvent } from "~/server/audit/service";
 
 type Context = { params: Promise<{ id: string }> };
 const UUID =
@@ -25,6 +26,15 @@ export async function DELETE(
 
   try {
     await deleteOwnedUpload({ userId: authorization.userId, uploadId: id });
+    await recordAuditEvent({
+      category: "CONTENT",
+      action: "upload_deleted",
+      actorType: "USER",
+      userId: authorization.userId,
+      requestId: authorization.requestId,
+      targetType: "upload",
+      targetId: id,
+    });
     return new Response(null, {
       status: 204,
       headers: {

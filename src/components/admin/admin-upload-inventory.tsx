@@ -7,10 +7,10 @@ import {
   useTable,
   type ColumnDef,
 } from "@tanstack/react-table";
-import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Images, Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   formatBytes,
@@ -127,46 +127,22 @@ export function AdminUploadInventory({
   const [draftOrigin, setDraftOrigin] =
     useState<AdminUploadFilters["origin"]>("all");
   const [selected, setSelected] = useState<AdminUploadRow | null>(null);
-  const sentinel = useRef<HTMLDivElement>(null);
+  const [cursorHistory, setCursorHistory] = useState<(string | null)[]>([null]);
+  const cursor = cursorHistory.at(-1) ?? null;
   const defaultView =
     filters.query === "" && filters.kind === "all" && filters.origin === "all";
   const queryKey = useMemo(
-    () => ["admin", "uploads", filters] as const,
-    [filters],
+    () => ["admin", "uploads", filters, cursor] as const,
+    [cursor, filters],
   );
-  const result = useInfiniteQuery({
+  const result = useQuery({
     queryKey,
-    queryFn: ({ pageParam, signal }) =>
-      fetchAdminUploads({ filters, cursor: pageParam, signal }),
-    initialPageParam: null as string | null,
-    initialData: defaultView
-      ? { pages: [initialPage], pageParams: [null] }
-      : undefined,
-    getNextPageParam: (page) => page.nextCursor ?? undefined,
+    queryFn: ({ signal }) => fetchAdminUploads({ filters, cursor, signal }),
+    initialData: defaultView && cursor === null ? initialPage : undefined,
   });
-  const items = result.data?.pages.flatMap((page) => page.items) ?? [];
+  const items = result.data?.items ?? [];
   const columns = useMemo(() => TABLE_COLUMNS, []);
   const table = useTable({ features: TABLE_FEATURES, columns, data: items });
-
-  useEffect(() => {
-    const node = sentinel.current;
-    if (
-      !node ||
-      !result.hasNextPage ||
-      result.isFetchingNextPage ||
-      result.isFetchNextPageError
-    ) {
-      return undefined;
-    }
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) void result.fetchNextPage();
-      },
-      { rootMargin: "360px 0px" },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [result]);
 
   useEffect(() => {
     const refreshContent = () => {
@@ -187,6 +163,7 @@ export function AdminUploadInventory({
       kind: draftKind,
       origin: draftOrigin,
     });
+    setCursorHistory([null]);
   }
 
   function clearFilters() {
@@ -194,6 +171,7 @@ export function AdminUploadInventory({
     setDraftKind("all");
     setDraftOrigin("all");
     setFilters(DEFAULT_FILTERS);
+    setCursorHistory([null]);
   }
 
   function uploadDeleted() {
@@ -230,7 +208,8 @@ export function AdminUploadInventory({
             className="text-muted-foreground text-sm tabular-nums"
             aria-live="polite"
           >
-            {items.length.toLocaleString("en-US")} loaded
+            Page {cursorHistory.length} · {items.length.toLocaleString("en-US")}{" "}
+            rows
           </p>
         </div>
 
@@ -341,7 +320,7 @@ export function AdminUploadInventory({
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[68rem] text-left text-sm">
                 <caption className="sr-only">
-                  Uploaded content loaded incrementally, newest first.
+                  Uploaded content, newest first.
                 </caption>
                 <thead className="bg-sunken/55 text-muted-foreground text-xs">
                   <tr className="border-border border-b">
@@ -382,25 +361,35 @@ export function AdminUploadInventory({
           </>
         )}
 
-        <div className="border-border flex flex-col items-center gap-2 border-t px-4 py-4">
-          <div ref={sentinel} aria-hidden="true" className="h-px w-full" />
-          {result.hasNextPage ? (
+        <div className="border-border flex items-center justify-between gap-3 border-t px-4 py-4">
+          <p className="text-muted-foreground text-xs tabular-nums">
+            Page {cursorHistory.length}
+          </p>
+          <div className="flex gap-2">
             <Button
               type="button"
               variant="outline"
-              disabled={result.isFetchingNextPage}
-              onClick={() => void result.fetchNextPage()}
+              disabled={cursorHistory.length === 1 || result.isFetching}
+              onClick={() =>
+                setCursorHistory((history) => history.slice(0, -1))
+              }
             >
-              {result.isFetchingNextPage ? "Loading…" : "Load more"}
+              Previous
             </Button>
-          ) : items.length > 0 ? (
-            <p className="text-muted-foreground text-xs">End of content</p>
-          ) : null}
-          {result.isFetchNextPageError ? (
-            <p role="alert" className="text-danger text-sm">
-              More content could not be loaded. Select Load more to retry.
-            </p>
-          ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!result.data?.nextCursor || result.isFetching}
+              onClick={() => {
+                const nextCursor = result.data?.nextCursor;
+                if (nextCursor) {
+                  setCursorHistory((history) => [...history, nextCursor]);
+                }
+              }}
+            >
+              Next
+            </Button>
+          </div>
         </div>
       </section>
       {selected ? (

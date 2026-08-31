@@ -4,6 +4,7 @@ import { domainErrorResponse } from "~/server/http/errors";
 import { safeJsonError } from "~/server/http/request";
 import { DomainError } from "~/server/uploads/errors";
 import { deleteOwnedUpload } from "~/server/uploads/service";
+import { recordAuditEvent } from "~/server/audit/service";
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -37,6 +38,16 @@ export async function DELETE(
 
   try {
     await deleteOwnedUpload({ userId: upload.userId, uploadId: upload.id });
+    await recordAuditEvent({
+      category: "ADMIN",
+      action: "admin_upload_deleted",
+      actorType: "USER",
+      userId: authorization.userId,
+      requestId: authorization.requestId,
+      targetType: "upload",
+      targetId: upload.id,
+      metadata: { ownerId: upload.userId },
+    });
   } catch (error) {
     if (error instanceof DomainError && error.code === "not_found") {
       return adminNotFound(authorization.requestId);

@@ -6,6 +6,7 @@ import { db } from "~/server/db";
 import { safeJsonError } from "~/server/http/request";
 import { DomainError } from "~/server/uploads/errors";
 import { deleteOwnedUpload } from "~/server/uploads/service";
+import { recordAuditEvent } from "~/server/audit/service";
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -250,6 +251,22 @@ export async function DELETE(
 
   const last = rows.at(-1);
   const done = rows.length < CLEAR_BATCH_SIZE;
+  await recordAuditEvent({
+    category: "ADMIN",
+    action: "admin_user_uploads_cleared",
+    outcome: failures.length > 0 ? "FAILURE" : "SUCCESS",
+    actorType: "USER",
+    userId: authorization.userId,
+    requestId: authorization.requestId,
+    targetType: "user",
+    targetId: target.id,
+    metadata: {
+      processedCount: rows.length,
+      deletedCount,
+      failureCount: failures.length,
+      done,
+    },
+  });
   return Response.json(
     {
       cutoff: cutoff.toISOString(),

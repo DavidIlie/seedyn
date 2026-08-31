@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireSessionUser } from "~/components/data/session";
 import { approveCliAuthRequest } from "~/server/cli-auth/service";
 import { authorizeServerActionMutation } from "~/server/http/browser-mutation";
+import { recordAuditEvent } from "~/server/audit/service";
 
 export async function approveCliLogin(formData: FormData): Promise<void> {
   const requestId = formData.get("requestId");
@@ -25,6 +26,16 @@ export async function approveCliLogin(formData: FormData): Promise<void> {
   const result = await approveCliAuthRequest({
     id: requestId,
     userId: user.id,
+  });
+  await recordAuditEvent({
+    category: "AUTH",
+    action: "cli_login_approved",
+    outcome: result === "approved" ? "SUCCESS" : "FAILURE",
+    actorType: "USER",
+    userId: user.id,
+    targetType: "cli_auth_request",
+    targetId: requestId,
+    metadata: { result },
   });
   redirect(`/cli-auth/${requestId}?result=${result}`);
 }

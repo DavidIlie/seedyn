@@ -3,6 +3,7 @@ import "server-only";
 import { headers } from "next/headers";
 
 import { env } from "~/env";
+import { recordAuditEvent } from "~/server/audit/service";
 import { getUserResult } from "~/server/auth";
 import {
   checkBrowserMutationPreAuthRateLimit,
@@ -93,6 +94,21 @@ export async function authorizeBrowserMutation(
         });
   if (!rateLimit.allowed) {
     return rateLimitFailureResponse(rateLimit, requestId);
+  }
+  const pathname = new URL(request.url).pathname;
+  if (pathname.startsWith("/api/")) {
+    await recordAuditEvent({
+      category: "API",
+      action: "browser_api_request",
+      actorType: "USER",
+      userId: userResult.user.id,
+      requestId,
+      method: request.method,
+      route: pathname.replace(
+        /\/[0-9a-f]{8}-[0-9a-f-]{27,35}(?=\/|$)/giu,
+        "/:id",
+      ),
+    });
   }
   return {
     requestId,

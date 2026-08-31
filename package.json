@@ -27,12 +27,13 @@
     "storage:check": "NODE_ENV=${NODE_ENV:-development} NODE_OPTIONS=--conditions=react-server tsx scripts/run-with-next-env.ts scripts/reconcile-storage.ts",
     "storage:setup": "NODE_ENV=development NODE_OPTIONS=--conditions=react-server tsx scripts/run-with-next-env.ts scripts/ensure-dev-storage.ts",
     "uploads:sweep": "NODE_ENV=${NODE_ENV:-production} NODE_OPTIONS=--conditions=react-server tsx scripts/run-with-next-env.ts scripts/sweep-direct-uploads.ts",
+    "audit:prune": "NODE_ENV=${NODE_ENV:-production} NODE_OPTIONS=--conditions=react-server tsx scripts/run-with-next-env.ts scripts/prune-audit-events.ts",
     "test:e2e": "playwright test",
     "test:e2e:production": "E2E_PRODUCTION=true SEEDYN_BUILD_INSTANT_TESTING=true PORT=3101 APP_URL=http://seedyn.localhost:3101 CDN_URL=http://i.localhost:3101 APP_HOSTS=seedyn.localhost,localhost MEDIA_HOSTS=i.localhost AUTH_SECRET=seedyn-e2e-production-auth-secret AUTH_DAVIDAPPS_ID=seedyn-e2e-client AUTH_DAVIDAPPS_SECRET=seedyn-e2e-client-secret SEEDYN_DEV_AUTH=false TRUSTED_PROXY_HOPS=1 playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:integration": "NODE_ENV=development NODE_OPTIONS=--conditions=react-server tsx scripts/run-with-next-env.ts scripts/integration-smoke.ts",
     "test:direct-upload": "NODE_ENV=development NODE_OPTIONS=--conditions=react-server tsx scripts/run-with-next-env.ts scripts/direct-upload-smoke.ts",
-    "test:unit": "NODE_OPTIONS=--conditions=react-server tsx --test src/server/s3/gateway.test.ts src/server/uploads/classification.test.ts src/server/uploads/direct/plan.test.ts src/server/uploads/identifiers.test.ts src/lib/upload-filters.test.ts",
+    "test:unit": "NODE_OPTIONS=--conditions=react-server tsx --test src/server/audit/sanitize.test.ts src/server/s3/gateway.test.ts src/server/uploads/classification.test.ts src/server/uploads/direct/plan.test.ts src/server/uploads/identifiers.test.ts src/lib/upload-filters.test.ts",
     "typecheck": "node scripts/clean-dev-types.mjs && next typegen && tsc --noEmit"
   },
   "dependencies": {

@@ -337,6 +337,41 @@ async function executeOperation(input: {
 export async function handleS3GatewayRequest(
   input: S3GatewayRequest,
 ): Promise<Response> {
+  const startedAt = Date.now();
+  const response = await handleS3GatewayRequestInternal(input);
+  if (
+    process.env.CDN_URL &&
+    process.env.APP_HOSTS &&
+    process.env.REDIS_URL &&
+    process.env.MINIO_BUCKET
+  ) {
+    const { recordAuditEvent } = await import("~/server/audit/service");
+    await recordAuditEvent({
+      category: "API",
+      action: "s3_request",
+      outcome: response.ok
+        ? "SUCCESS"
+        : response.status === 401 || response.status === 403
+          ? "DENIED"
+          : "FAILURE",
+      actorType: input.request.headers.has("authorization")
+        ? "API_KEY"
+        : "ANONYMOUS",
+      method: input.method,
+      route: input.keyParts ? "/seedyn/:key" : "/seedyn",
+      statusCode: response.status,
+      metadata: {
+        operation: input.operation,
+        durationMs: Date.now() - startedAt,
+      },
+    });
+  }
+  return response;
+}
+
+async function handleS3GatewayRequestInternal(
+  input: S3GatewayRequest,
+): Promise<Response> {
   const requestId = createS3RequestId();
   const resource = requestResource(input.request);
   try {

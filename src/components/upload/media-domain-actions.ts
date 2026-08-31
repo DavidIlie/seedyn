@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireSessionUser } from "~/components/data/session";
 import { DomainError } from "~/server/uploads/errors";
 import { changeOwnedUploadMediaOrigin } from "~/server/uploads/service";
+import { recordAuditEvent } from "~/server/audit/service";
 
 export type ChangeMediaDomainState =
   | { status: "idle" }
@@ -37,6 +38,15 @@ export async function changeUploadMediaDomainAction(input: {
       userId: user.id,
       uploadId: input.uploadId,
       mediaDomainId: input.mediaDomainId || null,
+    });
+    await recordAuditEvent({
+      category: "CONTENT",
+      action: "upload_media_domain_changed",
+      actorType: "USER",
+      userId: user.id,
+      targetType: "upload",
+      targetId: input.uploadId,
+      metadata: { mediaDomain: input.mediaDomainId || "default" },
     });
     revalidatePath(`/uploads/${input.uploadId}`);
     revalidatePath("/dashboard");
