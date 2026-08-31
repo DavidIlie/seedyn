@@ -58,20 +58,33 @@ function contentLength(request: Request): number {
   return length;
 }
 
-function assertBodylessRequest(request: Request): void {
+export async function assertBodylessRequest(request: Request): Promise<void> {
   const value = request.headers.get("content-length");
-  // Next exposes a non-null, already-empty stream for some DELETE requests
-  // that explicitly declare Content-Length: 0. The HTTP parser enforces that
-  // framing, so accept it; without an explicit zero length, require no body
-  // stream at all.
-  if (
-    (value !== null && value !== "0") ||
-    (value === null && request.body !== null)
-  ) {
+  if (value !== null && value !== "0") {
     throw new S3ProtocolError(
       "InvalidRequest",
       "This operation does not accept a request body.",
     );
+  }
+  if (value === "0" || request.body === null) return;
+
+  // CFNetwork gives Next an already-empty stream for Shottr's DELETE even
+  // though the request has no Content-Length header. Inspect that stream
+  // instead of treating its mere presence as a body.
+  const reader = request.body.getReader();
+  try {
+    for (;;) {
+      const { done, value: chunk } = await reader.read();
+      if (done) return;
+      if (chunk.byteLength > 0) {
+        throw new S3ProtocolError(
+          "InvalidRequest",
+          "This operation does not accept a request body.",
+        );
+      }
+    }
+  } finally {
+    reader.releaseLock();
   }
 }
 
@@ -190,7 +203,7 @@ async function executeOperation(input: {
   region: string;
 }): Promise<Response> {
   if (input.requestContext.operation === "HeadBucket") {
-    assertBodylessRequest(input.request);
+    await assertBodylessRequest(input.request);
     await authorize(input.adapter, {
       bucket: S3_FIXED_BUCKET,
       contentLength: null,
@@ -274,7 +287,7 @@ async function executeOperation(input: {
     }
   }
 
-  assertBodylessRequest(input.request);
+  await assertBodylessRequest(input.request);
   await authorize(input.adapter, {
     bucket: S3_FIXED_BUCKET,
     contentLength: null,
