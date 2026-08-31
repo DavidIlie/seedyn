@@ -4,7 +4,7 @@ CREATE TABLE "CliAuthRequest" (
     "publicKey" TEXT NOT NULL,
     "encryptedApiKey" BYTEA,
     "userId" TEXT,
-    "apiKeyId" UUID,
+    "apiKeyId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "expiresAt" TIMESTAMP(3) NOT NULL,
     "approvedAt" TIMESTAMP(3),
