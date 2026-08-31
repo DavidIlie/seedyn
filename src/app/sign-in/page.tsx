@@ -1,4 +1,4 @@
-import type { Metadata, Route } from "next";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
@@ -121,7 +121,10 @@ async function SignInPanel({
     )
       ? redirectCandidate
       : "/dashboard";
-  if (await getOptionalUser()) redirect(redirectTo as Route);
+  if (await getOptionalUser()) {
+    if (redirectTo === "/dashboard") redirect("/dashboard");
+    redirect(`/cli-auth/${redirectTo.slice("/cli-auth/".length)}`);
+  }
 
   const raw = params.error;
   const code =
