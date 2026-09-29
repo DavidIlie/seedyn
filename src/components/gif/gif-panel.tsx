@@ -14,11 +14,13 @@ import { postMultipart, TransportError } from "~/components/upload/transport";
 import { planGifConversion } from "./eligibility";
 import {
   FFMPEG_APPROXIMATE_MB,
-  GIF_DEFAULT_CLIP_SECONDS,
+  GIF_DEFAULT_SETTINGS,
   GIF_MAX_OUTPUT_BYTES,
+  type VideoGifSettings,
 } from "./options";
 import { encodeStillGif } from "./still-gif-client";
 import { encodeVideoGif } from "./video-gif-client";
+import { VideoGifEditor } from "./video-gif-editor";
 
 /**
  * The GIF panel. It is always rendered, and it always says what state this
@@ -48,6 +50,8 @@ export function GifPanel({
   storedGifUrl,
   storedGifBytes,
   passwordProtected,
+  sourceFile,
+  onBusyChange,
 }: {
   uploadId: string;
   uploadKind: string;
@@ -57,6 +61,9 @@ export function GifPanel({
   storedGifUrl: string | null;
   storedGifBytes: string | null;
   passwordProtected?: boolean;
+  /** The bytes already in this browser, e.g. the file just uploaded. */
+  sourceFile?: Blob;
+  onBusyChange?: (busy: boolean) => void;
 }) {
   const plan = planGifConversion({
     uploadKind,
@@ -66,6 +73,13 @@ export function GifPanel({
 
   const router = useRouter();
   const [stage, setStage] = useState<Stage>({ name: "idle" });
+  // `end: 0` until the editor has read the video's duration.
+  const [settings, setSettings] = useState<VideoGifSettings>({
+    ...GIF_DEFAULT_SETTINGS,
+    start: 0,
+    end: 0,
+  });
+  const [fileUrl, setFileUrl] = useState<string | null>(null);
   const controller = useRef<AbortController | null>(null);
   const previewUrl = useRef<string | null>(null);
 
@@ -87,6 +101,24 @@ export function GifPanel({
     };
   }, [releasePreview]);
 
+  const busy =
+    stage.name === "fetching" ||
+    stage.name === "loading-engine" ||
+    stage.name === "converting" ||
+    stage.name === "uploading";
+  useEffect(() => {
+    onBusyChange?.(busy);
+  }, [busy, onBusyChange]);
+  useEffect(() => () => onBusyChange?.(false), [onBusyChange]);
+
+  // The just-uploaded bytes preview locally; nothing is fetched to show them.
+  useEffect(() => {
+    if (!sourceFile) return undefined;
+    const url = URL.createObjectURL(sourceFile);
+    setFileUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [sourceFile]);
+
   function cancel() {
     const active = controller.current;
     controller.current = null;
@@ -104,6 +136,7 @@ export function GifPanel({
   }
 
   async function fetchSource(abort: AbortController): Promise<ArrayBuffer> {
+    if (sourceFile) return sourceFile.arrayBuffer();
     const { signal } = abort;
     setOwnedStage(abort, { name: "fetching", loaded: 0, total: null });
     const response = await fetch(sourceUrl, {
@@ -164,6 +197,7 @@ export function GifPanel({
         blob = await encodeVideoGif({
           bytes,
           extension,
+          settings,
           signal: abort.signal,
           onPhase: (phase) => {
             if (phase.phase === "loading") {
@@ -314,17 +348,32 @@ export function GifPanel({
           <p className="text-muted-foreground text-sm">{plan.reason}</p>
         ) : (
           <>
+            {plan.engine === "ffmpeg" ? (
+              // Stays mounted through every stage so the video keeps its place;
+              // it only unlocks when there is nothing in flight to invalidate.
+              <VideoGifEditor
+                previewSrc={fileUrl ?? sourceUrl}
+                settings={settings}
+                onChange={setSettings}
+                disabled={stage.name !== "idle" && stage.name !== "failed"}
+              />
+            ) : null}
+
             {stage.name === "idle" || stage.name === "failed" ? (
               <>
                 <p className="text-muted-foreground text-sm">
                   {plan.engine === "still"
                     ? "No stored GIF yet. Your browser keeps the original dimensions up to 1920×1080 and encodes one frame. Images with 256 colours or fewer remain exact; larger palettes use GIF’s highest-fidelity 256-colour approximation."
-                    : `No stored GIF yet. Converting video needs a ${FFMPEG_APPROXIMATE_MB} MB converter, downloaded only when you ask for it. The first ${GIF_DEFAULT_CLIP_SECONDS} seconds are converted.`}
+                    : `Converting runs in this browser with a ${FFMPEG_APPROXIMATE_MB} MB converter, downloaded the first time you convert. You can preview the GIF before it is stored.`}
                 </p>
-                <Button type="button" onClick={() => void convert()}>
-                  {plan.engine === "still"
-                    ? "Convert to GIF"
-                    : `Load converter and convert`}
+                <Button
+                  type="button"
+                  disabled={
+                    plan.engine === "ffmpeg" && settings.end <= settings.start
+                  }
+                  onClick={() => void convert()}
+                >
+                  Convert to GIF
                 </Button>
               </>
             ) : null}
@@ -357,7 +406,7 @@ export function GifPanel({
                     Store this GIF
                   </Button>
                   <Button type="button" variant="outline" onClick={cancel}>
-                    Discard
+                    {plan.engine === "ffmpeg" ? "Discard and edit" : "Discard"}
                   </Button>
                 </div>
               </div>

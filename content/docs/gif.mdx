@@ -6,11 +6,21 @@ description: Convert an uploaded image or short video in your own browser.
 Seedyn preserves the original and stores one reusable GIF derivative. Still
 images use a small `gifenc` worker. Supported animation and short video use a
 lazy, single-thread `ffmpeg.wasm` worker, so its larger engine is downloaded
-only after you choose **Create GIF**.
+only after you choose **Convert to GIF**.
 
-Video conversion uses the first 10 seconds at 15 fps with a 640-pixel maximum
-edge. V1 has no trimming UI. The source follows the 64 MiB generic upload cap,
-and the generated GIF must remain at or below 25 MiB.
+Videos open in a GIF editor, both in the upload dialog right after the upload
+finishes and on the upload's page. Drag the two handles under the preview, type
+start and end times, or use **Start here** and **End here** to take the
+playhead position. The preview loops the selected range at the chosen speed.
+You can also pick the frame rate (5–25 fps), the longest edge (240–800 pixels,
+never upscaled), the speed (0.5×–3×), and whether the GIF loops forever.
+
+The editor keeps every clip within the server's limit of 120 frames and 60
+seconds of playback. When a range reaches that limit, lower the frame rate or
+raise the speed to fit more of the video. The converted GIF is previewed before
+anything is stored, and **Discard and edit** returns to the editor. The source
+follows the 64 MiB generic upload cap, and the generated GIF must remain at or
+below 25 MiB.
 
 Still conversion keeps the source dimensions up to 1920 × 1080. PNGs and other
 stills that fit in GIF's 256-colour palette are encoded exactly after GIF's

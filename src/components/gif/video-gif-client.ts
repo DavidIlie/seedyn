@@ -1,9 +1,9 @@
 import {
   FFMPEG_CORE_URL,
   FFMPEG_WASM_URL,
-  GIF_DEFAULT_CLIP_SECONDS,
-  GIF_FRAME_RATE,
-  GIF_MAX_EDGE,
+  FFMPEG_WORKER_URL,
+  GIF_MAX_FRAMES,
+  type VideoGifSettings,
 } from "./options";
 
 /**
@@ -28,7 +28,7 @@ export type VideoGifPhase =
 export async function encodeVideoGif(input: {
   bytes: ArrayBuffer;
   extension: string;
-  clipSeconds?: number;
+  settings: VideoGifSettings;
   signal: AbortSignal;
   onPhase: (phase: VideoGifPhase) => void;
 }): Promise<Blob> {
@@ -39,14 +39,23 @@ export async function encodeVideoGif(input: {
   input.signal.addEventListener("abort", onAbort, { once: true });
 
   const inputName = `source.${input.extension.replace(/[^a-z0-9]/gi, "") || "bin"}`;
-  const clip = Math.max(1, input.clipSeconds ?? GIF_DEFAULT_CLIP_SECONDS);
-  // `scale=w:-1` can produce an odd height; GIF tolerates it, and forcing the
-  // longest edge keeps portrait clips from being upscaled.
-  const filters = `fps=${GIF_FRAME_RATE},scale='min(${GIF_MAX_EDGE},iw)':'min(${GIF_MAX_EDGE},ih)':force_original_aspect_ratio=decrease:flags=lanczos`;
+  const { settings } = input;
+  const start = Math.max(0, settings.start);
+  const duration = Math.max(0.1, settings.end - start);
+  // Input seeking (`-ss`/`-t` before `-i`) trims before decoding, so a late
+  // start does not pay for every frame before it. `setpts` applies speed
+  // before `fps` resamples, so the frame budget holds at any speed.
+  const trim = ["-ss", start.toFixed(3), "-t", duration.toFixed(3)];
+  const edge = settings.maxEdge;
+  const filters = `setpts=PTS/${settings.speed},fps=${settings.fps},scale='min(${edge},iw)':'min(${edge},ih)':force_original_aspect_ratio=decrease:flags=lanczos`;
 
   try {
     input.onPhase({ phase: "loading" });
-    await ffmpeg.load({ coreURL: FFMPEG_CORE_URL, wasmURL: FFMPEG_WASM_URL });
+    await ffmpeg.load({
+      classWorkerURL: new URL(FFMPEG_WORKER_URL, location.origin).href,
+      coreURL: new URL(FFMPEG_CORE_URL, location.origin).href,
+      wasmURL: new URL(FFMPEG_WASM_URL, location.origin).href,
+    });
     if (input.signal.aborted) throw new Error("Conversion cancelled.");
 
     let step: "palette" | "encode" = "palette";
@@ -64,8 +73,7 @@ export async function encodeVideoGif(input: {
     // web palette and bands badly on real video.
     input.onPhase({ phase: "converting", step: "palette", ratio: null });
     await ffmpeg.exec([
-      "-t",
-      String(clip),
+      ...trim,
       "-i",
       inputName,
       "-vf",
@@ -77,16 +85,19 @@ export async function encodeVideoGif(input: {
     step = "encode";
     input.onPhase({ phase: "converting", step: "encode", ratio: null });
     await ffmpeg.exec([
-      "-t",
-      String(clip),
+      ...trim,
       "-i",
       inputName,
       "-i",
       "palette.png",
       "-lavfi",
       `${filters}[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=3`,
+      // The server refuses more; rounding at the clip edge must not tip over.
+      "-frames:v",
+      String(GIF_MAX_FRAMES),
+      // 0 loops forever; -1 writes no loop extension, so it plays once.
       "-loop",
-      "0",
+      settings.loop ? "0" : "-1",
       "output.gif",
     ]);
     if (input.signal.aborted) throw new Error("Conversion cancelled.");

@@ -175,11 +175,12 @@ Rules:
 Implemented V1 output policy:
 
 - video uploads use the generic 64 MiB source cap;
-- video conversion uses the first 10 seconds (V1 has no trimming UI);
-- video output keeps a 640-pixel maximum edge;
+- video conversion uses a start/end range chosen in the GIF editor, clamped
+  to the 120-frame and 60-second server limits;
+- video output keeps a user-chosen 240–800 pixel maximum edge (default 480);
 - still output preserves its source size up to 1920 × 1080, never upscaling;
-- default frame rate: 15 fps;
-- infinite loop;
+- frame rate 5–25 fps (default 12) and speed 0.5×–3× (default 1×);
+- infinite loop by default, or play once;
 - palette generation/use for video quality;
 - 25 MiB maximum encoded output;
 - preserve transparency for still sources with the GIF one-bit alpha caveat;

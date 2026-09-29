@@ -5,6 +5,7 @@ import { FileCheck2 } from "lucide-react";
 import { useState } from "react";
 
 import { planGifConversion } from "~/components/gif/eligibility";
+import { GifPanel } from "~/components/gif/gif-panel";
 import { Button } from "~/components/ui/button";
 import { CopyButton } from "~/components/ui/copy-button";
 import type { MediaDomainChoice } from "~/server/media/origin-preferences";
@@ -17,8 +18,8 @@ import type { UploadedRecord } from "../transport";
  * Step three: the link, and only what this particular file can do.
  *
  * The type is not guessed in the browser — the server reports what it decided,
- * so a GIF affordance appears for an image, a sandbox note appears for a page,
- * and a PDF is offered nothing it cannot support.
+ * so a GIF affordance appears for an image or video, a sandbox note appears for
+ * a page, and a PDF is offered nothing it cannot support.
  */
 export function ResultStep({
   record,
@@ -97,9 +98,17 @@ export function ResultStep({
       ) : null}
 
       {gifPlan.engine === "ffmpeg" && record.id ? (
-        <p className="text-muted-foreground text-sm">
-          This video can be converted to a GIF from its upload page.
-        </p>
+        <GifPanel
+          uploadId={record.id}
+          uploadKind={record.kind}
+          contentType={record.contentType || file.type}
+          extension={record.extension}
+          sourceUrl={url}
+          storedGifUrl={null}
+          storedGifBytes={null}
+          sourceFile={file}
+          onBusyChange={onBusyChange}
+        />
       ) : null}
 
       {record.id ? (
