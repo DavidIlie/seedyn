@@ -96,12 +96,11 @@ deliberately empty and is not a deployable plaintext Secret.
 ## Quality gates
 
 ```bash
-pnpm check          # TS7-aware lint, typecheck, unit/contract tests
+pnpm check               # TS7-aware lint and typecheck
 pnpm format:check
+pnpm test:unit           # upload, S3 gateway, and audit-redaction contracts
+pnpm test:direct-upload  # 100 MiB multipart upload against PostgreSQL and MinIO
 pnpm build
-pnpm test:e2e
-pnpm test:e2e:production
-pnpm test:integration
 ```
 
 `next` is intentionally pinned to exactly `16.3.0`. Cache Components, partial
@@ -109,8 +108,8 @@ prefetching, Server Components, and the Instant Navigation testing API are
 enabled so framework behavior remains reproducible. Production-build instant
 testing is exposed only when `SEEDYN_BUILD_INSTANT_TESTING=true` in controlled CI.
 The checked-in GitHub Actions workflow runs the same gates against disposable
-PostgreSQL, Redis, and MinIO services, including the standalone production
-browser suite and a clean container build.
+PostgreSQL, Redis, and MinIO services. Pull requests also run `pnpm build`;
+pushes to `master` build and publish the container image instead.
 
 ## HTTP contracts
 

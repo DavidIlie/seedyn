@@ -1,4 +1,7 @@
 import type { DefaultSession, NextAuthConfig, Profile } from "next-auth";
+// Importing the module keeps the JWT augmentation below resolvable under
+// TypeScript 7, which only applies it when the program imports next-auth/jwt.
+import type { JWT } from "next-auth/jwt";
 import Credentials from "next-auth/providers/credentials";
 import type { OIDCConfig } from "next-auth/providers";
 
@@ -210,7 +213,7 @@ export const authConfig = {
       }
       return true;
     },
-    jwt({ token, user }) {
+    jwt({ token, user }): JWT {
       if (user?.id) token.sub = user.id;
       if (user?.appRole) token.appRole = user.appRole;
       return token;

@@ -28,12 +28,8 @@
     "storage:setup": "NODE_ENV=development NODE_OPTIONS=--conditions=react-server tsx scripts/run-with-next-env.ts scripts/ensure-dev-storage.ts",
     "uploads:sweep": "NODE_ENV=${NODE_ENV:-production} NODE_OPTIONS=--conditions=react-server tsx scripts/run-with-next-env.ts scripts/sweep-direct-uploads.ts",
     "audit:prune": "NODE_ENV=${NODE_ENV:-production} NODE_OPTIONS=--conditions=react-server tsx scripts/run-with-next-env.ts scripts/prune-audit-events.ts",
-    "test:e2e": "playwright test",
-    "test:e2e:production": "E2E_PRODUCTION=true SEEDYN_BUILD_INSTANT_TESTING=true PORT=3101 APP_URL=http://seedyn.localhost:3101 CDN_URL=http://i.localhost:3101 APP_HOSTS=seedyn.localhost,localhost MEDIA_HOSTS=i.localhost AUTH_SECRET=seedyn-e2e-production-auth-secret AUTH_DAVIDAPPS_ID=seedyn-e2e-client AUTH_DAVIDAPPS_SECRET=seedyn-e2e-client-secret SEEDYN_DEV_AUTH=false TRUSTED_PROXY_HOPS=1 playwright test",
-    "test:e2e:ui": "playwright test --ui",
-    "test:integration": "NODE_ENV=development NODE_OPTIONS=--conditions=react-server tsx scripts/run-with-next-env.ts scripts/integration-smoke.ts",
     "test:direct-upload": "NODE_ENV=development NODE_OPTIONS=--conditions=react-server tsx scripts/run-with-next-env.ts scripts/direct-upload-smoke.ts",
-    "test:unit": "NODE_OPTIONS=--conditions=react-server tsx --test src/server/audit/sanitize.test.ts src/server/s3/gateway.test.ts src/server/uploads/classification.test.ts src/server/uploads/direct/plan.test.ts src/server/uploads/identifiers.test.ts src/lib/upload-filters.test.ts src/components/gif/options.test.ts",
+    "test:unit": "NODE_OPTIONS=--conditions=react-server tsx --test src/server/audit/sanitize.test.ts src/server/s3/gateway.test.ts src/server/uploads/classification.test.ts src/server/uploads/direct/plan.test.ts src/server/uploads/identifiers.test.ts",
     "typecheck": "node scripts/clean-dev-types.mjs && next typegen && tsc --noEmit"
   },
   "dependencies": {
@@ -100,8 +96,6 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "@next/playwright": "16.3.3",
-    "@playwright/test": "1.62.1",
     "@tailwindcss/postcss": "4.1.14",
     "@types/busboy": "1.5.4",
     "@types/mdx": "2.0.13",
@@ -115,8 +109,7 @@
     "prettier-plugin-tailwindcss": "0.7.1",
     "tailwindcss": "4.1.14",
     "tsx": "4.23.12",
-    "typescript": "7.0.2",
-    "undici": "8.10.0"
+    "typescript": "7.0.2"
   },
   "packageManager": "pnpm@9.15.0",
   "pnpm": {

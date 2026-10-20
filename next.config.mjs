@@ -17,6 +17,11 @@ const config = {
   productionBrowserSourceMaps: false,
   reactStrictMode: true,
   typedRoutes: true,
+  // CI typechecks before the image build, so the Dockerfile sets this to skip
+  // the second pass inside `next build`. Local builds still typecheck.
+  typescript: {
+    ignoreBuildErrors: process.env.NEXT_SKIP_TYPECHECK === "1",
+  },
   experimental: {
     exposeTestingApiInProductionBuild:
       process.env.NEXT_INSTANT_TESTING === "true",
