@@ -14,7 +14,7 @@ import type { ParsedUploadFile } from "./multipart";
  *
  * `"auto"` is what every browser upload sends, so the promise that a saved page
  * renders — and that nothing else is ever refused because of it — is the one
- * behaviour worth pinning down below the Playwright suite.
+ * behaviour worth pinning down.
  */
 
 const PNG = Buffer.from(

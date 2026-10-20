@@ -73,13 +73,15 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+      # MinIO no longer publishes images to Docker Hub or Quay. pgsty/minio is
+      # the community rebuild of the same server, CLI, and environment.
       - name: Start MinIO
         run: >-
           docker run --detach --rm --name seedyn-ci-minio
           --publish 9000:9000
           --env MINIO_ROOT_USER=seedyn-ci
           --env MINIO_ROOT_PASSWORD=seedyn-ci-password
-          minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+          pgsty/minio:RELEASE.2026-08-04T00-00-00Z@sha256:b6bfe7239bfc83fb90d31612d9704d86039dd714f7904b3f1ad68f211e602372
           server /data
       - name: Prepare services
         run: |
@@ -90,7 +92,6 @@ jobs:
           done
           pnpm storage:setup
           pnpm db:migrate
-          pnpm db:seed
 
       - run: pnpm format:check
       - run: pnpm check
@@ -98,9 +99,13 @@ jobs:
       - name: Test direct multipart uploads (100 MiB)
         run: pnpm test:direct-upload
 
-      - name: Validate container build
+      # One build per event: pull requests compile here, master builds the
+      # image below. `pnpm check` already typechecked.
+      - name: Build
         if: github.event_name == 'pull_request'
-        run: docker build --tag seedyn:ci .
+        run: pnpm build
+        env:
+          NEXT_SKIP_TYPECHECK: "1"
 
   image:
     needs: verify

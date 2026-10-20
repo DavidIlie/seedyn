@@ -19,6 +19,7 @@ RUN pnpm install --frozen-lockfile
 FROM base AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1 \
+  NEXT_SKIP_TYPECHECK=1 \
   APP_URL=https://seedyn.dave.tips \
   CDN_URL=https://i.dave.tips \
   APP_HOSTS=seedyn.dave.tips \
