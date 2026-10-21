@@ -47,7 +47,7 @@
     "@ffmpeg/core": "0.12.10",
     "@ffmpeg/ffmpeg": "0.12.15",
     "@ffmpeg/util": "0.12.2",
-    "@next/env": "16.3.3",
+    "@next/env": "16.4.2",
     "@node-rs/argon2": "2.0.2",
     "@prisma/client": "6.19.3",
     "@sindresorhus/slugify": "3.0.0",
@@ -81,7 +81,7 @@
     "ioredis": "6.0.0",
     "lucide-react": "0.545.0",
     "minio": "8.0.7",
-    "next": "16.3.3",
+    "next": "16.4.2",
     "next-auth": "5.0.0-beta.32",
     "prisma": "6.19.3",
     "radix-ui": "1.6.7",
@@ -117,6 +117,9 @@
       "deepmerge-ts": "8.0.0",
       "defu": "6.1.5",
       "lodash": "4.18.0"
+    },
+    "patchedDependencies": {
+      "@ffmpeg/ffmpeg@0.12.15": "patches/@ffmpeg__ffmpeg@0.12.15.patch"
     }
   }
 }

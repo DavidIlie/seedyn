@@ -14,6 +14,7 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 COPY prisma ./prisma
 COPY scripts/copy-ffmpeg-assets.mjs ./scripts/copy-ffmpeg-assets.mjs
+COPY patches ./patches
 RUN pnpm install --frozen-lockfile
 
 FROM base AS builder
