@@ -66,17 +66,3 @@ export function gifMaxSourceSeconds(
  * Output above this is reported and discarded, never uploaded.
  */
 export const GIF_MAX_OUTPUT_BYTES = 25 * 1024 * 1024;
-
-/** Self-hosted so CSP, version, and availability stay under Seedyn's control. */
-export const FFMPEG_CORE_URL = "/ffmpeg/ffmpeg-core.js";
-export const FFMPEG_WASM_URL = "/ffmpeg/ffmpeg-core.wasm";
-/** Unbundled, so its dynamic `import()` of the core reaches the browser intact. */
-export const FFMPEG_WORKER_URL = "/ffmpeg/worker.js";
-
-/**
- * The single-threaded core's on-disk size, stated so the UI can be honest about
- * the download before starting it. Measured from `public/ffmpeg/ffmpeg-core.wasm`
- * (32,232,419 bytes) plus the 112 KB loader; transfer size is lower when the
- * origin serves it compressed.
- */
-export const FFMPEG_APPROXIMATE_MB = 31;

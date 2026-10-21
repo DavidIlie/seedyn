@@ -49,16 +49,17 @@ These recommendations were accepted by the sustained build instruction and are
 now implemented. Production-only resource mutations remain subject to D-011,
 D-016, and the Phase 8 authority boundary.
 
-| ID    | Recommendation                                                                             | Why                                                                                      |
-| ----- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
-| R-003 | One production replica in V1.                                                              | Honest fit for home-cluster and avoids distributed Next cache coordination.              |
-| R-004 | PostgreSQL + Prisma, not SQLite.                                                           | Auth.js database sessions and a cluster-safe metadata store already fit the environment. |
-| R-005 | Remove tRPC and TanStack Query.                                                            | The app's reads and UI mutations fit direct RSC + Server Actions.                        |
-| R-006 | Private dedicated MinIO bucket/user.                                                       | Least privilege and clean lifecycle ownership.                                           |
-| R-007 | Stable high-entropy public slugs.                                                          | Public-by-link URLs must be unguessable and collision resistant.                         |
-| R-008 | Store original and GIF derivative.                                                         | “Copy as GIF” becomes repeatable without destroying source quality.                      |
-| R-009 | Preserve legacy upload aliases and generate `.sxcu`.                                       | Old concepts remain compatible while setup becomes one click.                            |
-| R-010 | Still image conversion via `gifenc`; video/animation via lazy single-thread `ffmpeg.wasm`. | Keeps the common path tiny and the expensive codec off the initial bundle.               |
+| ID    | Recommendation                                                                                      | Why                                                                                                                                                            |
+| ----- | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R-003 | One production replica in V1.                                                                       | Honest fit for home-cluster and avoids distributed Next cache coordination.                                                                                    |
+| R-004 | PostgreSQL + Prisma, not SQLite.                                                                    | Auth.js database sessions and a cluster-safe metadata store already fit the environment.                                                                       |
+| R-005 | Remove tRPC and TanStack Query.                                                                     | The app's reads and UI mutations fit direct RSC + Server Actions.                                                                                              |
+| R-006 | Private dedicated MinIO bucket/user.                                                                | Least privilege and clean lifecycle ownership.                                                                                                                 |
+| R-007 | Stable high-entropy public slugs.                                                                   | Public-by-link URLs must be unguessable and collision resistant.                                                                                               |
+| R-008 | Store original and GIF derivative.                                                                  | “Copy as GIF” becomes repeatable without destroying source quality.                                                                                            |
+| R-009 | Preserve legacy upload aliases and generate `.sxcu`.                                                | Old concepts remain compatible while setup becomes one click.                                                                                                  |
+| R-010 | Still image conversion via `gifenc`; video/animation via lazy single-thread `ffmpeg.wasm`.          | Keeps the common path tiny and the expensive codec off the initial bundle.                                                                                     |
+| R-011 | Video conversion via `mediabunny` (browser WebCodecs) + `gifenc`; supersedes R-010's `ffmpeg.wasm`. | Turbopack 16.4 cannot bundle ffmpeg.wasm's worker URL; the browser's decoder needs no 31 MB download. Undecodable codecs (ProRes) are reported, not converted. |
 
 ## Interview log
 

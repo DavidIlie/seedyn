@@ -4,9 +4,10 @@ description: Convert an uploaded image or short video in your own browser.
 ---
 
 Seedyn preserves the original and stores one reusable GIF derivative. Still
-images use a small `gifenc` worker. Supported animation and short video use a
-lazy, single-thread `ffmpeg.wasm` worker, so its larger engine is downloaded
-only after you choose **Convert to GIF**.
+images use a small `gifenc` worker. Short videos are decoded by your browser's
+own video decoder (WebCodecs, through `mediabunny`) in a worker that starts only
+after you choose **Convert to GIF**, and `gifenc` writes the GIF with a palette
+built from the whole clip.
 
 Videos open in a GIF editor, both in the upload dialog right after the upload
 finishes and on the upload's page. Drag the two handles under the preview, type
@@ -37,6 +38,8 @@ URL is ready as soon as the paste upload completes, and **Create GIF URL**
 encodes and stores the same one-frame variant directly. Both permanent copy
 controls remain visible in that dialog.
 
-The initial compatibility floor is PNG, JPEG, and WebP stills plus H.264 MP4
-where the bundled FFmpeg build supports it. The UI reports unsupported codecs
-instead of claiming desktop FFmpeg parity.
+The compatibility floor is PNG, JPEG, and WebP stills plus MP4, MOV, and WebM
+video in codecs the browser can decode: H.264, VP8, VP9, and AV1 in current
+Chrome, Edge, Firefox, and Safari, and HEVC where the browser or hardware
+supports it. When the browser cannot decode a video (ProRes, for example), the
+GIF panel says so and the original stays available.

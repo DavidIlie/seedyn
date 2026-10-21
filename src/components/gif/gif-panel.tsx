@@ -13,13 +13,12 @@ import { postMultipart, TransportError } from "~/components/upload/transport";
 
 import { planGifConversion } from "./eligibility";
 import {
-  FFMPEG_APPROXIMATE_MB,
   GIF_DEFAULT_SETTINGS,
   GIF_MAX_OUTPUT_BYTES,
   type VideoGifSettings,
 } from "./options";
 import { encodeStillGif } from "./still-gif-client";
-import { encodeVideoGif } from "./video-gif-client";
+import { encodeVideoGif, UnsupportedVideoError } from "./video-gif-client";
 import { VideoGifEditor } from "./video-gif-editor";
 
 /**
@@ -39,13 +38,14 @@ type Stage =
   | { name: "converted"; blob: Blob; previewUrl: string }
   | { name: "uploading"; loaded: number; total: number | null }
   | { name: "stored"; url: string }
-  | { name: "failed"; message: string };
+  | { name: "failed"; message: string }
+  /** The browser cannot decode this video; retrying would fail the same way. */
+  | { name: "unsupported"; reason: string };
 
 export function GifPanel({
   uploadId,
   uploadKind,
   contentType,
-  extension,
   sourceUrl,
   storedGifUrl,
   storedGifBytes,
@@ -56,7 +56,6 @@ export function GifPanel({
   uploadId: string;
   uploadKind: string;
   contentType: string;
-  extension: string;
   sourceUrl: string;
   storedGifUrl: string | null;
   storedGifBytes: string | null;
@@ -90,7 +89,7 @@ export function GifPanel({
     }
   }, []);
 
-  // Leaving the page mid-conversion must not leak the worker, the wasm heap, or
+  // Leaving the page mid-conversion must not leak the worker, its decoder, or
   // the object URL holding the candidate.
   useEffect(() => {
     return () => {
@@ -196,7 +195,6 @@ export function GifPanel({
       } else {
         blob = await encodeVideoGif({
           bytes,
-          extension,
           settings,
           signal: abort.signal,
           onPhase: (phase) => {
@@ -231,6 +229,10 @@ export function GifPanel({
       setOwnedStage(abort, { name: "converted", blob, previewUrl: url });
     } catch (error) {
       if (abort.signal.aborted || !ownsOperation(abort)) return;
+      if (error instanceof UnsupportedVideoError) {
+        setOwnedStage(abort, { name: "unsupported", reason: error.message });
+        return;
+      }
       setOwnedStage(abort, {
         name: "failed",
         message:
@@ -348,7 +350,7 @@ export function GifPanel({
           <p className="text-muted-foreground text-sm">{plan.reason}</p>
         ) : (
           <>
-            {plan.engine === "ffmpeg" ? (
+            {plan.engine === "video" && stage.name !== "unsupported" ? (
               // Stays mounted through every stage so the video keeps its place;
               // it only unlocks when there is nothing in flight to invalidate.
               <VideoGifEditor
@@ -364,12 +366,12 @@ export function GifPanel({
                 <p className="text-muted-foreground text-sm">
                   {plan.engine === "still"
                     ? "No stored GIF yet. Your browser keeps the original dimensions up to 1920×1080 and encodes one frame. Images with 256 colours or fewer remain exact; larger palettes use GIF’s highest-fidelity 256-colour approximation."
-                    : `Converting runs in this browser with a ${FFMPEG_APPROXIMATE_MB} MB converter, downloaded the first time you convert. You can preview the GIF before it is stored.`}
+                    : "Converting runs in this browser, which decodes the video itself. You can preview the GIF before it is stored."}
                 </p>
                 <Button
                   type="button"
                   disabled={
-                    plan.engine === "ffmpeg" && settings.end <= settings.start
+                    plan.engine === "video" && settings.end <= settings.start
                   }
                   onClick={() => void convert()}
                 >
@@ -406,10 +408,14 @@ export function GifPanel({
                     Store this GIF
                   </Button>
                   <Button type="button" variant="outline" onClick={cancel}>
-                    {plan.engine === "ffmpeg" ? "Discard and edit" : "Discard"}
+                    {plan.engine === "video" ? "Discard and edit" : "Discard"}
                   </Button>
                 </div>
               </div>
+            ) : null}
+
+            {stage.name === "unsupported" ? (
+              <p className="text-muted-foreground text-sm">{stage.reason}</p>
             ) : null}
 
             {stage.name === "failed" ? (
@@ -461,11 +467,13 @@ function describe(stage: Stage): {
         caption: `Reading the original — ${formatBytes(stage.loaded)}`,
         ratio: stage.total ? stage.loaded / stage.total : null,
       };
-    case "loading-engine": {
-      // The library reports no download progress, so none is drawn.
-      const caption = `Loading the ${FFMPEG_APPROXIMATE_MB} MB converter`;
-      return { label: caption, caption, ratio: null };
-    }
+    case "loading-engine":
+      // Opening the file reports no progress, so none is drawn.
+      return {
+        label: "Opening the video",
+        caption: "Opening the video",
+        ratio: null,
+      };
     case "converting":
       return { label: stage.detail, caption: stage.detail, ratio: stage.ratio };
     case "uploading":

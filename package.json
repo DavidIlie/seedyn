@@ -20,7 +20,7 @@
     "format:write": "prettier --write . --cache",
     "lint": "oxlint --type-aware --deny-warnings --report-unused-disable-directives .",
     "lint:fix": "oxlint --type-aware --fix .",
-    "postinstall": "prisma generate && node scripts/copy-ffmpeg-assets.mjs",
+    "postinstall": "prisma generate",
     "preview": "pnpm build && pnpm start",
     "start": "NODE_ENV=production node scripts/start-standalone.mjs",
     "start:standalone": "NODE_ENV=production node scripts/start-standalone.mjs",
@@ -44,9 +44,6 @@
     "@codemirror/lang-python": "^6.2.1",
     "@codemirror/lang-rust": "^6.0.2",
     "@codemirror/lang-sql": "^6.10.0",
-    "@ffmpeg/core": "0.12.10",
-    "@ffmpeg/ffmpeg": "0.12.15",
-    "@ffmpeg/util": "0.12.2",
     "@next/env": "16.4.2",
     "@node-rs/argon2": "2.0.2",
     "@prisma/client": "6.19.3",
@@ -80,6 +77,7 @@
     "hash-wasm": "4.12.0",
     "ioredis": "6.0.0",
     "lucide-react": "0.545.0",
+    "mediabunny": "1.61.6",
     "minio": "8.0.7",
     "next": "16.4.2",
     "next-auth": "5.0.0-beta.32",
@@ -117,9 +115,6 @@
       "deepmerge-ts": "8.0.0",
       "defu": "6.1.5",
       "lodash": "4.18.0"
-    },
-    "patchedDependencies": {
-      "@ffmpeg/ffmpeg@0.12.15": "patches/@ffmpeg__ffmpeg@0.12.15.patch"
     }
   }
 }
