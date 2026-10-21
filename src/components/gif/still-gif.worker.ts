@@ -7,8 +7,8 @@ import { GIF_STILL_MAX_HEIGHT, GIF_STILL_MAX_WIDTH } from "./options";
 /**
  * Single-frame GIF encoding for still images.
  *
- * This is the common path and it deliberately does not touch ffmpeg: a PNG
- * screenshot needs a quantizer, not a 31 MB codec bundle. It runs off the main
+ * This is the common path and it deliberately skips the video pipeline: a PNG
+ * screenshot needs a quantizer, not a demuxer and decoder. It runs off the main
  * thread because `quantize` over a few megapixels blocks long enough to drop
  * frames and freeze the copy button.
  */

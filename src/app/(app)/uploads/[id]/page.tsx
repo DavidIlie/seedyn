@@ -112,7 +112,6 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
             uploadId={upload.id}
             uploadKind={upload.kind}
             contentType={upload.contentType}
-            extension={upload.extension}
             sourceUrl={url}
             storedGifUrl={
               gif

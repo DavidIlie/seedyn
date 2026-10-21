@@ -13,8 +13,6 @@ FROM base AS dependencies
 WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 COPY prisma ./prisma
-COPY scripts/copy-ffmpeg-assets.mjs ./scripts/copy-ffmpeg-assets.mjs
-COPY patches ./patches
 RUN pnpm install --frozen-lockfile
 
 FROM base AS builder
@@ -40,7 +38,6 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
   TRUSTED_PROXY_HOPS=1
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
-COPY --from=dependencies /app/public/ffmpeg ./public/ffmpeg
 RUN pnpm build
 
 FROM dependencies AS production-dependencies

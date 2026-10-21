@@ -9,11 +9,6 @@ overrides:
   defu: 6.1.5
   lodash: 4.18.0
 
-patchedDependencies:
-  "@ffmpeg/ffmpeg@0.12.15":
-    hash: aflf4e5kdne54cpsjd4qukzkm4
-    path: patches/@ffmpeg__ffmpeg@0.12.15.patch
-
 importers:
   .:
     dependencies:
@@ -50,15 +45,6 @@ importers:
       "@codemirror/lang-sql":
         specifier: ^6.10.0
         version: 6.10.0
-      "@ffmpeg/core":
-        specifier: 0.12.10
-        version: 0.12.10
-      "@ffmpeg/ffmpeg":
-        specifier: 0.12.15
-        version: 0.12.15(patch_hash=aflf4e5kdne54cpsjd4qukzkm4)
-      "@ffmpeg/util":
-        specifier: 0.12.2
-        version: 0.12.2
       "@next/env":
         specifier: 16.4.2
         version: 16.4.2
@@ -158,6 +144,9 @@ importers:
       lucide-react:
         specifier: 0.545.0
         version: 0.545.0(react@19.2.8)
+      mediabunny:
+        specifier: 1.61.6
+        version: 1.61.6
       minio:
         specifier: 8.0.7
         version: 8.0.7
@@ -769,34 +758,6 @@ packages:
     engines: { node: ">=18" }
     cpu: [x64]
     os: [win32]
-
-  "@ffmpeg/core@0.12.10":
-    resolution:
-      {
-        integrity: sha512-dzNplnn2Nxle2c2i2rrDhqcB19q9cglCkWnoMTDN9Q9l3PvdjZWd1HfSPjCNWc/p8Q3CT+Es9fWOR0UhAeYQZA==,
-      }
-    engines: { node: ">=16.x" }
-
-  "@ffmpeg/ffmpeg@0.12.15":
-    resolution:
-      {
-        integrity: sha512-1C8Obr4GsN3xw+/1Ww6PFM84wSQAGsdoTuTWPOj2OizsRDLT4CXTaVjPhkw6ARyDus1B9X/L2LiXHqYYsGnRFw==,
-      }
-    engines: { node: ">=18.x" }
-
-  "@ffmpeg/types@0.12.4":
-    resolution:
-      {
-        integrity: sha512-k9vJQNBGTxE5AhYDtOYR5rO5fKsspbg51gbcwtbkw2lCdoIILzklulcjJfIDwrtn7XhDeF2M+THwJ2FGrLeV6A==,
-      }
-    engines: { node: ">=16.x" }
-
-  "@ffmpeg/util@0.12.2":
-    resolution:
-      {
-        integrity: sha512-ouyoW+4JB7WxjeZ2y6KpRvB+dLp7Cp4ro8z0HIVpZVCM7AwFlHa0c4R8Y/a4M3wMqATpYKhC7lSFHQ0T11MEDw==,
-      }
-    engines: { node: ">=18.x" }
 
   "@floating-ui/core@1.8.0":
     resolution:
@@ -3477,6 +3438,18 @@ packages:
         integrity: sha512-KSVgmQmzMwPlmtljOomayoR89W4FynCAi3E8PPs7vmDVPe84hT+vGPKkJfThkmXs0x0jAaa9U8uW8bbfyS2fWw==,
       }
 
+  "@types/dom-mediacapture-transform@0.1.12":
+    resolution:
+      {
+        integrity: sha512-d7/QsLRwF864A5mgIM/YrfiglHoYn7zgCcAoJgW404r+2DwnNr7EBbLnCWpmOMgH8y0te73L1AV6H1bmauaWFw==,
+      }
+
+  "@types/dom-webcodecs@0.1.13":
+    resolution:
+      {
+        integrity: sha512-O5hkiFIcjjszPIYyUSyvScyvrBoV3NOEEZx/pMlsu44TKzWNkLVBBxnxJz42in5n3QIolYOcBYFCPZZ0h8SkwQ==,
+      }
+
   "@types/estree-jsx@1.0.5":
     resolution:
       {
@@ -5191,6 +5164,12 @@ packages:
     resolution:
       {
         integrity: sha512-0H44vDimn51F0YwvxSJSm0eCDOJTRlmN0R1yBh4HLj9wiV1Dn0QoXGbvFAWj2hSItVTlCmBF1hqKlIyUBVFLPg==,
+      }
+
+  mediabunny@1.61.6:
+    resolution:
+      {
+        integrity: sha512-VHEZ53/7jGl4dQ+uOdndsZufFYwEUFWv9UXgvrGun3OapyzoqI9iaPOD7z3xxY/nAttLZBNwswgJzMtGJAquOQ==,
       }
 
   micromark-core-commonmark@2.0.3:
@@ -7087,16 +7066,6 @@ snapshots:
   "@esbuild/win32-x64@0.28.2":
     optional: true
 
-  "@ffmpeg/core@0.12.10": {}
-
-  "@ffmpeg/ffmpeg@0.12.15(patch_hash=aflf4e5kdne54cpsjd4qukzkm4)":
-    dependencies:
-      "@ffmpeg/types": 0.12.4
-
-  "@ffmpeg/types@0.12.4": {}
-
-  "@ffmpeg/util@0.12.2": {}
-
   "@floating-ui/core@1.8.0":
     dependencies:
       "@floating-ui/utils": 0.2.12
@@ -8827,6 +8796,12 @@ snapshots:
     dependencies:
       "@types/ms": 2.1.0
 
+  "@types/dom-mediacapture-transform@0.1.12":
+    dependencies:
+      "@types/dom-webcodecs": 0.1.13
+
+  "@types/dom-webcodecs@0.1.13": {}
+
   "@types/estree-jsx@1.0.5":
     dependencies:
       "@types/estree": 1.0.8
@@ -9896,6 +9871,11 @@ snapshots:
   mdast-util-to-string@4.0.0:
     dependencies:
       "@types/mdast": 4.0.4
+
+  mediabunny@1.61.6:
+    dependencies:
+      "@types/dom-mediacapture-transform": 0.1.12
+      "@types/dom-webcodecs": 0.1.13
 
   micromark-core-commonmark@2.0.3:
     dependencies:

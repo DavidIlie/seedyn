@@ -97,12 +97,11 @@ export function ResultStep({
         />
       ) : null}
 
-      {gifPlan.engine === "ffmpeg" && record.id ? (
+      {gifPlan.engine === "video" && record.id ? (
         <GifPanel
           uploadId={record.id}
           uploadKind={record.kind}
           contentType={record.contentType || file.type}
-          extension={record.extension}
           sourceUrl={url}
           storedGifUrl={null}
           storedGifBytes={null}

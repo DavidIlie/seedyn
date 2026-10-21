@@ -135,22 +135,23 @@ for V1.
 
 ## Browser conversion capability matrix
 
-| Source                                                    | Engine                                         | Output                         |
-| --------------------------------------------------------- | ---------------------------------------------- | ------------------------------ |
-| PNG/JPEG/WebP/AVIF still                                  | `createImageBitmap` + canvas + `gifenc` worker | one-frame GIF                  |
-| Existing GIF                                              | no conversion; optionally attach/copy as GIF   | original or stored association |
-| Animated GIF/APNG/WebP                                    | `ffmpeg.wasm` worker                           | normalized animated GIF        |
-| Short MP4/WebM/MOV-like video supported by bundled codecs | `ffmpeg.wasm` worker                           | animated GIF                   |
-| Arbitrary file/text/audio                                 | ineligible                                     | clear disabled reason          |
+| Source                                          | Engine                                         | Output                         |
+| ----------------------------------------------- | ---------------------------------------------- | ------------------------------ |
+| PNG/JPEG/WebP/AVIF still                        | `createImageBitmap` + canvas + `gifenc` worker | one-frame GIF                  |
+| Existing GIF                                    | no conversion; optionally attach/copy as GIF   | original or stored association |
+| Short MP4/WebM/MOV video the browser can decode | `mediabunny` (WebCodecs) + `gifenc` worker     | animated GIF                   |
+| Arbitrary file/text/audio                       | ineligible                                     | clear disabled reason          |
 
-Codec support must be verified against the exact `@ffmpeg/core` build. Do not
-promise every container/codec merely because desktop FFmpeg supports it.
+Codec support is the browser's WebCodecs support, checked per file with
+`canDecode()` before converting. A video the browser cannot decode (ProRes, or
+HEVC without platform support) is reported as not convertible in place; the
+original stays usable. Animated GIF/APNG/WebP sources are converted as stills.
 
 ## Worker architecture
 
 ```text
 Client conversion controller
-  -> chooses still or ffmpeg worker
+  -> chooses still or video worker
   -> sends source ArrayBuffer/transferable + bounded options
   -> receives progress / preview metadata / output ArrayBuffer
   -> terminates worker on cancel or completion
@@ -160,12 +161,13 @@ Client conversion controller
 Rules:
 
 - conversion modules are absent from the initial dashboard bundle;
-- load the FFmpeg core only after explicit user intent and show its roughly
-  31 MB engine download;
-- self-host JS/WASM/worker assets so CSP, version, and availability are under
-  Seedyn's control;
-- use single-thread core in V1 to avoid SharedArrayBuffer and cross-origin
-  isolation coupling;
+- start the video worker only after explicit user intent; it decodes with the
+  browser's own WebCodecs, so there is no codec bundle to download;
+- bundle worker code from Seedyn's origin so CSP, version, and availability are
+  under Seedyn's control (`worker-src 'self' blob:` covers mediabunny's helper
+  workers);
+- stay single-threaded to avoid SharedArrayBuffer and cross-origin isolation
+  coupling;
 - terminate and release object URLs/buffers after use;
 - never store working files in IndexedDB/localStorage by default;
 - progress is best-effort and must not fake precision.
@@ -191,11 +193,12 @@ size before uploading.
 
 ## Conversion command intent
 
-For video, the implementation should use the equivalent of a two-pass palette
-filter (`fps`, bounded Lanczos scale, `palettegen`, `paletteuse`) rather than a
-naive direct GIF encode. The exact FFmpeg filter string belongs in tested code,
-not the product contract, because bundled codec/filter availability must be
-verified.
+For video, the implementation uses the equivalent of a two-pass palette
+filter rather than a naive direct GIF encode: frames sampled at the chosen fps
+after speed, scaled to fit the max edge, one 256-colour palette built from the
+clip (weighted to changing pixels, like `palettegen=stats_mode=diff`), then
+applied with 8×8 Bayer dithering (like `paletteuse=dither=bayer:bayer_scale=3`).
+The clip is decoded twice instead of holding every frame between passes.
 
 ## Failure behavior
 

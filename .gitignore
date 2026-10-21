@@ -23,7 +23,6 @@ next-env.d.ts
 
 # production
 /build
-/public/ffmpeg/
 
 /uploads/
 

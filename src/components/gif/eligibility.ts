@@ -10,7 +10,7 @@ export type GifPlan =
   | { engine: "stored" }
   | { engine: "already-gif" }
   | { engine: "still" }
-  | { engine: "ffmpeg" }
+  | { engine: "video" }
   | { engine: "none"; reason: string };
 
 const STILL_TYPES = new Set([
@@ -37,7 +37,7 @@ export function planGifConversion(input: {
         };
   }
 
-  if (input.uploadKind === "VIDEO") return { engine: "ffmpeg" };
+  if (input.uploadKind === "VIDEO") return { engine: "video" };
 
   return {
     engine: "none",

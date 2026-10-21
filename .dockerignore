@@ -12,7 +12,6 @@ coverage
 node_modules
 plans
 playwright-report
-/public/ffmpeg
 test-results
 *.log
 *.pem
